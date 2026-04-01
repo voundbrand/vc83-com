@@ -8,6 +8,10 @@ import type { Id } from "../../../../convex/_generated/dataModel"
 import { BookingFormModal } from "./booking-form-modal"
 import { useNotification } from "@/hooks/use-notification"
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations"
+import {
+  InteriorTabButton,
+  InteriorTabRow,
+} from "@/components/window-content/shared/interior-primitives"
 
 // Workaround for Convex deep type instantiation issue
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -66,7 +70,7 @@ export function BookingsList({ selectedId, onSelect }: BookingsListProps) {
   const [activeTab, setActiveTab] = useState<StatusTab>("upcoming")
   const [subtypeFilter, setSubtypeFilter] = useState<BookingSubtype>("")
   const [showFilters, setShowFilters] = useState(false)
-  const [showAddModal, setShowAddModal] = useState(false)
+  const [showCreateView, setShowCreateView] = useState(false)
 
   // Query bookings
   const bookingsData = useQuery(
@@ -91,14 +95,29 @@ export function BookingsList({ selectedId, onSelect }: BookingsListProps) {
 
   if (!sessionId || !currentOrganizationId) {
     return (
-      <div className="p-4 text-center" style={{ color: 'var(--neutral-gray)' }}>
-        <p className="font-pixel text-sm">
+      <div className="p-4 text-center" style={{ color: "var(--desktop-menu-text-muted)" }}>
+        <p className="text-sm font-semibold" style={{ color: "var(--window-document-text)" }}>
           {tWithFallback("ui.app.booking.auth.login_required_title", "Please log in")}
         </p>
         <p className="text-xs mt-2">
           {tWithFallback("ui.app.booking.auth.login_required_bookings_hint", "Login required to view bookings")}
         </p>
       </div>
+    )
+  }
+
+  if (showCreateView) {
+    return (
+      <BookingFormModal
+        onClose={() => setShowCreateView(false)}
+        onSuccess={() => {
+          setShowCreateView(false)
+          notification.success(
+            tWithFallback("ui.app.booking.notifications.created_title", "Booking created"),
+            tWithFallback("ui.app.booking.notifications.created_body", "Your booking has been created successfully."),
+          )
+        }}
+      />
     )
   }
 
@@ -179,48 +198,41 @@ export function BookingsList({ selectedId, onSelect }: BookingsListProps) {
   return (
     <div className="flex flex-col h-full">
       {/* Status Tabs */}
-      <div
-        className="flex gap-1 px-3 pt-3 pb-1"
+      <InteriorTabRow
+        className="gap-1 px-3 pt-3 pb-1"
         role="tablist"
         aria-label={tWithFallback("ui.app.booking.list.tabs.aria_label", "Booking status filters")}
-        style={{ background: 'var(--shell-surface)' }}
       >
         {STATUS_TABS.map((tab) => (
-          <button
+          <InteriorTabButton
             key={tab.key}
-            type="button"
+            active={activeTab === tab.key}
             role="tab"
             aria-selected={activeTab === tab.key}
             onClick={() => setActiveTab(tab.key)}
-            className={`px-3 py-1.5 font-pixel text-xs border-b-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--focus-ring-offset)] ${
-              activeTab === tab.key ? "border-current" : "border-transparent"
-            }`}
-            style={{
-              color: activeTab === tab.key ? 'var(--shell-selection-bg)' : 'var(--neutral-gray)',
-              fontWeight: activeTab === tab.key ? 'bold' : 'normal',
-            }}
+            className="px-3 py-1.5 text-xs"
           >
             {tWithFallback(tab.labelKey, tab.fallback)}
-          </button>
+          </InteriorTabButton>
         ))}
-      </div>
+      </InteriorTabRow>
 
       {/* Header with search and filters */}
-      <div className="p-3 border-b-2 space-y-2" style={{ background: 'var(--shell-surface)', borderColor: 'var(--shell-border)' }}>
+      <div className="p-3 border-b space-y-2" style={{ background: "var(--desktop-shell-accent)", borderColor: "var(--window-document-border)" }}>
         {/* Search bar */}
         <div className="flex gap-2">
           <div className="flex-1 relative">
-            <Search size={14} className="absolute left-2 top-1/2 -translate-y-1/2" style={{ color: 'var(--neutral-gray)' }} />
+            <Search
+              size={14}
+              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2"
+              style={{ color: "var(--desktop-menu-text-muted)" }}
+            />
             <input
               type="text"
               placeholder={tWithFallback("ui.app.booking.list.search_placeholder", "Search bookings...")}
               aria-label={tWithFallback("ui.app.booking.list.search_aria_label", "Search bookings")}
-              className="w-full pl-8 pr-2 py-1.5 border-2 focus:outline-none text-sm"
-              style={{
-                borderColor: 'var(--shell-border)',
-                background: 'var(--shell-input-surface)',
-                color: 'var(--shell-input-text)'
-              }}
+              className="desktop-interior-input w-full h-8 pr-2 py-1.5 text-sm"
+              style={{ paddingLeft: "2.25rem" }}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
@@ -229,27 +241,19 @@ export function BookingsList({ selectedId, onSelect }: BookingsListProps) {
             type="button"
             onClick={() => setShowFilters(!showFilters)}
             className={`desktop-interior-button px-3 py-1.5 flex items-center gap-1 ${
-              showFilters ? "shadow-inner" : ""
+              showFilters ? "desktop-interior-button-primary" : "desktop-interior-button-subtle"
             }`}
             aria-pressed={showFilters}
             aria-label={tWithFallback("ui.app.booking.filters.toggle", "Toggle booking filters")}
             title={tWithFallback("ui.app.booking.filters.toggle", "Toggle booking filters")}
-            style={{
-              background: showFilters ? 'var(--shell-selection-bg)' : 'var(--shell-button-surface)',
-              color: showFilters ? 'var(--shell-selection-text)' : 'var(--shell-text)'
-            }}
           >
             <Filter size={14} />
           </button>
           <button
             type="button"
-            onClick={() => setShowAddModal(true)}
-            className="desktop-interior-button px-3 py-1.5 flex items-center gap-1"
+            onClick={() => setShowCreateView(true)}
+            className="desktop-interior-button desktop-interior-button-primary px-3 py-1.5 flex items-center gap-1"
             title={tWithFallback("ui.app.booking.actions.new_booking", "Create booking")}
-            style={{
-              background: 'var(--shell-button-surface)',
-              color: 'var(--shell-text)'
-            }}
           >
             <Plus size={14} />
             <span className="text-xs">{tWithFallback("ui.app.booking.actions.new", "New")}</span>
@@ -263,12 +267,7 @@ export function BookingsList({ selectedId, onSelect }: BookingsListProps) {
               value={subtypeFilter}
               onChange={(e) => setSubtypeFilter(e.target.value as BookingSubtype)}
               aria-label={tWithFallback("ui.app.booking.filters.subtype", "Filter by booking type")}
-              className="px-2 py-1 border-2 text-xs"
-              style={{
-                borderColor: 'var(--shell-border)',
-                background: 'var(--shell-input-surface)',
-                color: 'var(--shell-input-text)'
-              }}
+              className="desktop-interior-select h-8 w-auto px-2 py-1 text-xs"
             >
               <option value="">{tWithFallback("ui.app.booking.filters.all_types", "All Types")}</option>
               <option value="appointment">{tWithFallback("ui.app.booking.subtype.appointment", "Appointment")}</option>
@@ -278,10 +277,12 @@ export function BookingsList({ selectedId, onSelect }: BookingsListProps) {
             </select>
           </div>
         )}
-        <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+        <p className="text-xs" style={{ color: "var(--desktop-menu-text-muted)" }}>
           {tWithFallback(
             "ui.app.booking.list.result_count",
-            "{count} bookings",
+            filteredBookings.length === 1
+              ? "1 booking"
+              : `${filteredBookings.length} bookings`,
             { count: filteredBookings.length },
           )}
         </p>
@@ -290,11 +291,11 @@ export function BookingsList({ selectedId, onSelect }: BookingsListProps) {
       {/* Bookings list */}
       <div className="flex-1 overflow-y-auto">
         {!bookingsData ? (
-          <div className="p-4 text-center" style={{ color: 'var(--neutral-gray)' }}>
+          <div className="p-4 text-center" style={{ color: "var(--desktop-menu-text-muted)" }}>
             <p className="text-sm">{tWithFallback("ui.app.booking.list.loading", "Loading bookings...")}</p>
           </div>
         ) : filteredBookings.length === 0 ? (
-          <div className="p-4 text-center" style={{ color: 'var(--neutral-gray)' }}>
+          <div className="p-4 text-center" style={{ color: "var(--desktop-menu-text-muted)" }}>
             <Calendar size={32} className="mx-auto mb-2 opacity-30" />
             <p className="text-sm">{getEmptyMessage(activeTab)}</p>
             <p className="text-xs mt-1">
@@ -304,13 +305,13 @@ export function BookingsList({ selectedId, onSelect }: BookingsListProps) {
             </p>
           </div>
         ) : (
-          <div className="divide-y" style={{ borderColor: 'var(--shell-border)' }}>
+          <div className="divide-y" style={{ borderColor: "var(--window-document-border)" }}>
             {filteredBookings.map((booking) => (
               <button
                 key={booking._id}
                 type="button"
                 onClick={() => onSelect(booking._id)}
-                className="w-full p-3 text-left hover:opacity-80 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] focus-visible:ring-inset"
+                className="w-full p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] focus-visible:ring-inset hover:bg-[var(--desktop-menu-hover)]"
                 aria-pressed={selectedId === booking._id}
                 aria-label={tWithFallback(
                   "ui.app.booking.list.row_aria_label",
@@ -321,16 +322,16 @@ export function BookingsList({ selectedId, onSelect }: BookingsListProps) {
                   },
                 )}
                 style={{
-                  background: selectedId === booking._id ? 'var(--shell-selection-bg)' : 'transparent',
-                  color: selectedId === booking._id ? 'var(--shell-selection-text)' : 'var(--shell-text)'
+                  background: selectedId === booking._id ? "var(--desktop-menu-hover)" : "transparent",
+                  color: "var(--window-document-text)",
                 }}
               >
                 <div className="flex items-start gap-3">
                   <div
                     className="p-2 rounded"
                     style={{
-                      background: selectedId === booking._id ? 'var(--shell-selection-text)' : 'var(--shell-selection-bg)',
-                      color: selectedId === booking._id ? 'var(--shell-selection-bg)' : 'var(--shell-selection-text)'
+                      background: selectedId === booking._id ? "var(--window-document-border)" : "var(--desktop-menu-hover)",
+                      color: "var(--window-document-text)",
                     }}
                   >
                     <Calendar size={14} />
@@ -347,8 +348,8 @@ export function BookingsList({ selectedId, onSelect }: BookingsListProps) {
                       <span
                         className="px-1.5 py-0.5 text-xs rounded"
                         style={{
-                          background: 'var(--shell-surface-elevated)',
-                          color: 'var(--shell-text)'
+                          background: "var(--desktop-menu-hover)",
+                          color: "var(--window-document-text)",
                         }}
                       >
                         {getSubtypeLabel(booking.subtype)}
@@ -370,19 +371,6 @@ export function BookingsList({ selectedId, onSelect }: BookingsListProps) {
         )}
       </div>
 
-      {/* Add Modal */}
-      {showAddModal && (
-        <BookingFormModal
-          onClose={() => setShowAddModal(false)}
-          onSuccess={() => {
-            setShowAddModal(false)
-            notification.success(
-              tWithFallback("ui.app.booking.notifications.created_title", "Booking created"),
-              tWithFallback("ui.app.booking.notifications.created_body", "Your booking has been created successfully."),
-            )
-          }}
-        />
-      )}
     </div>
   )
 }

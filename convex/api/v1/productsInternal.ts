@@ -93,7 +93,7 @@ export const createProductInternal = internalMutation({
       // Standard product types
       "ticket", "physical", "digital",
       // Bookable resource types
-      "room", "staff", "equipment", "space",
+      "room", "staff", "equipment", "space", "vehicle", "accommodation",
       // Bookable service types
       "appointment", "class", "treatment",
     ];
@@ -214,9 +214,26 @@ export const updateProductInternal = internalMutation({
     // 4. Validate subtype if provided
     if (args.updates.subtype !== undefined) {
       const validSubtypes = ["ticket", "physical", "digital"];
-      if (!validSubtypes.includes(args.updates.subtype)) {
+      const validBookableSubtypes = [
+        "room",
+        "staff",
+        "equipment",
+        "space",
+        "vehicle",
+        "accommodation",
+        "appointment",
+        "class",
+        "treatment",
+      ];
+      if (
+        !validSubtypes.includes(args.updates.subtype)
+        && !validBookableSubtypes.includes(args.updates.subtype)
+      ) {
         throw new Error(
-          `Invalid product subtype. Must be one of: ${validSubtypes.join(", ")}`
+          `Invalid product subtype. Must be one of: ${[
+            ...validSubtypes,
+            ...validBookableSubtypes,
+          ].join(", ")}`
         );
       }
     }

@@ -29,7 +29,7 @@ export function LocationsList({ selectedId, onSelect }: LocationsListProps) {
   const [statusFilter, setStatusFilter] = useState<LocationStatus>("")
   const [subtypeFilter, setSubtypeFilter] = useState<LocationSubtype>("")
   const [showFilters, setShowFilters] = useState(false)
-  const [showAddModal, setShowAddModal] = useState(false)
+  const [showCreateView, setShowCreateView] = useState(false)
 
   // Query locations
   const locations = useQuery(
@@ -46,14 +46,29 @@ export function LocationsList({ selectedId, onSelect }: LocationsListProps) {
 
   if (!sessionId || !currentOrganizationId) {
     return (
-      <div className="p-4 text-center" style={{ color: 'var(--neutral-gray)' }}>
-        <p className="font-pixel text-sm">
+      <div className="p-4 text-center" style={{ color: "var(--desktop-menu-text-muted)" }}>
+        <p className="text-sm font-semibold" style={{ color: "var(--window-document-text)" }}>
           {tWithFallback("ui.app.booking.auth.login_required_title", "Please log in")}
         </p>
         <p className="text-xs mt-2">
           {tWithFallback("ui.app.booking.auth.login_required_locations_hint", "Login required to view locations")}
         </p>
       </div>
+    )
+  }
+
+  if (showCreateView) {
+    return (
+      <LocationFormModal
+        onClose={() => setShowCreateView(false)}
+        onSuccess={() => {
+          setShowCreateView(false)
+          notification.success(
+            tWithFallback("ui.app.booking.location.notifications.created_title", "Location created"),
+            tWithFallback("ui.app.booking.location.notifications.created_body", "Your location has been created successfully."),
+          )
+        }}
+      />
     )
   }
 
@@ -98,21 +113,16 @@ export function LocationsList({ selectedId, onSelect }: LocationsListProps) {
   return (
     <div className="flex flex-col h-full">
       {/* Header with search and filters */}
-      <div className="p-3 border-b-2 space-y-2" style={{ background: 'var(--shell-surface)', borderColor: 'var(--shell-border)' }}>
+      <div className="p-3 border-b space-y-2" style={{ background: "var(--desktop-shell-accent)", borderColor: "var(--window-document-border)" }}>
         {/* Search bar */}
         <div className="flex gap-2">
           <div className="flex-1 relative">
-            <Search size={14} className="absolute left-2 top-1/2 -translate-y-1/2" style={{ color: 'var(--neutral-gray)' }} />
+            <Search size={14} className="absolute left-2 top-1/2 -translate-y-1/2" style={{ color: "var(--desktop-menu-text-muted)" }} />
             <input
               type="text"
               placeholder={tWithFallback("ui.app.booking.location.list.search_placeholder", "Search locations...")}
               aria-label={tWithFallback("ui.app.booking.location.list.search_aria_label", "Search locations")}
-              className="w-full pl-8 pr-2 py-1.5 border-2 focus:outline-none text-sm"
-              style={{
-                borderColor: 'var(--shell-border)',
-                background: 'var(--shell-input-surface)',
-                color: 'var(--shell-input-text)'
-              }}
+              className="desktop-interior-input w-full h-8 pl-8 pr-2 py-1.5 text-sm"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
@@ -121,27 +131,19 @@ export function LocationsList({ selectedId, onSelect }: LocationsListProps) {
             type="button"
             onClick={() => setShowFilters(!showFilters)}
             className={`desktop-interior-button px-3 py-1.5 flex items-center gap-1 ${
-              showFilters ? "shadow-inner" : ""
+              showFilters ? "desktop-interior-button-primary" : "desktop-interior-button-subtle"
             }`}
             aria-pressed={showFilters}
             aria-label={tWithFallback("ui.app.booking.location.filters.toggle", "Toggle location filters")}
             title={tWithFallback("ui.app.booking.location.filters.toggle", "Toggle location filters")}
-            style={{
-              background: showFilters ? 'var(--shell-selection-bg)' : 'var(--shell-button-surface)',
-              color: showFilters ? 'var(--shell-selection-text)' : 'var(--shell-text)'
-            }}
           >
             <Filter size={14} />
           </button>
           <button
             type="button"
-            onClick={() => setShowAddModal(true)}
-            className="desktop-interior-button px-3 py-1.5 flex items-center gap-1"
+            onClick={() => setShowCreateView(true)}
+            className="desktop-interior-button desktop-interior-button-primary px-3 py-1.5 flex items-center gap-1"
             title={tWithFallback("ui.app.booking.location.actions.new", "Create location")}
-            style={{
-              background: 'var(--shell-button-surface)',
-              color: 'var(--shell-text)'
-            }}
           >
             <Plus size={14} />
             <span className="text-xs">{tWithFallback("ui.app.booking.actions.new", "New")}</span>
@@ -155,12 +157,7 @@ export function LocationsList({ selectedId, onSelect }: LocationsListProps) {
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value as LocationStatus)}
               aria-label={tWithFallback("ui.app.booking.location.filters.status", "Filter by location status")}
-              className="px-2 py-1 border-2 text-xs"
-              style={{
-                borderColor: 'var(--shell-border)',
-                background: 'var(--shell-input-surface)',
-                color: 'var(--shell-input-text)'
-              }}
+              className="desktop-interior-select h-8 w-auto px-2 py-1 text-xs"
             >
               <option value="">{tWithFallback("ui.app.booking.location.filters.all_status", "All Status")}</option>
               <option value="active">{tWithFallback("ui.app.booking.location.status.active", "Active")}</option>
@@ -171,12 +168,7 @@ export function LocationsList({ selectedId, onSelect }: LocationsListProps) {
               value={subtypeFilter}
               onChange={(e) => setSubtypeFilter(e.target.value as LocationSubtype)}
               aria-label={tWithFallback("ui.app.booking.location.filters.subtype", "Filter by location type")}
-              className="px-2 py-1 border-2 text-xs"
-              style={{
-                borderColor: 'var(--shell-border)',
-                background: 'var(--shell-input-surface)',
-                color: 'var(--shell-input-text)'
-              }}
+              className="desktop-interior-select h-8 w-auto px-2 py-1 text-xs"
             >
               <option value="">{tWithFallback("ui.app.booking.filters.all_types", "All Types")}</option>
               <option value="branch">{tWithFallback("ui.app.booking.location.subtype.branch", "Branch")}</option>
@@ -185,7 +177,7 @@ export function LocationsList({ selectedId, onSelect }: LocationsListProps) {
             </select>
           </div>
         )}
-        <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+        <p className="text-xs" style={{ color: "var(--desktop-menu-text-muted)" }}>
           {tWithFallback(
             "ui.app.booking.location.list.result_count",
             "{count} locations",
@@ -197,11 +189,11 @@ export function LocationsList({ selectedId, onSelect }: LocationsListProps) {
       {/* Locations list */}
       <div className="flex-1 overflow-y-auto">
         {!locations ? (
-          <div className="p-4 text-center" style={{ color: 'var(--neutral-gray)' }}>
+          <div className="p-4 text-center" style={{ color: "var(--desktop-menu-text-muted)" }}>
             <p className="text-sm">{tWithFallback("ui.app.booking.location.list.loading", "Loading locations...")}</p>
           </div>
         ) : filteredLocations?.length === 0 ? (
-          <div className="p-4 text-center" style={{ color: 'var(--neutral-gray)' }}>
+          <div className="p-4 text-center" style={{ color: "var(--desktop-menu-text-muted)" }}>
             <MapPin size={32} className="mx-auto mb-2 opacity-30" />
             <p className="text-sm">{tWithFallback("ui.app.booking.location.list.empty", "No locations found")}</p>
             <p className="text-xs mt-1">
@@ -209,13 +201,13 @@ export function LocationsList({ selectedId, onSelect }: LocationsListProps) {
             </p>
           </div>
         ) : (
-          <div className="divide-y" style={{ borderColor: 'var(--shell-border)' }}>
+          <div className="divide-y" style={{ borderColor: "var(--window-document-border)" }}>
             {filteredLocations?.map((location) => (
               <button
                 key={location._id}
                 type="button"
                 onClick={() => onSelect(location._id)}
-                className="w-full p-3 text-left hover:opacity-80 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] focus-visible:ring-inset"
+                className="w-full p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] focus-visible:ring-inset hover:bg-[var(--desktop-menu-hover)]"
                 aria-pressed={selectedId === location._id}
                 aria-label={tWithFallback(
                   "ui.app.booking.location.list.row_aria_label",
@@ -226,16 +218,16 @@ export function LocationsList({ selectedId, onSelect }: LocationsListProps) {
                   },
                 )}
                 style={{
-                  background: selectedId === location._id ? 'var(--shell-selection-bg)' : 'transparent',
-                  color: selectedId === location._id ? 'var(--shell-selection-text)' : 'var(--shell-text)'
+                  background: selectedId === location._id ? "var(--desktop-menu-hover)" : "transparent",
+                  color: "var(--window-document-text)",
                 }}
               >
                 <div className="flex items-start gap-3">
                   <div
                     className="p-2 rounded"
                     style={{
-                      background: selectedId === location._id ? 'var(--shell-selection-text)' : 'var(--shell-selection-bg)',
-                      color: selectedId === location._id ? 'var(--shell-selection-bg)' : 'var(--shell-selection-text)'
+                      background: selectedId === location._id ? "var(--window-document-border)" : "var(--desktop-menu-hover)",
+                      color: "var(--window-document-text)",
                     }}
                   >
                     {getSubtypeIcon(location.subtype || "venue")}
@@ -248,7 +240,7 @@ export function LocationsList({ selectedId, onSelect }: LocationsListProps) {
                           className="px-1.5 py-0.5 text-xs rounded"
                           style={{
                             background: location.status === "inactive" ? 'var(--warning-bg)' : 'var(--error-bg)',
-                            color: 'white'
+                            color: "var(--window-document-text)"
                           }}
                         >
                           {location.status === "inactive"
@@ -266,8 +258,8 @@ export function LocationsList({ selectedId, onSelect }: LocationsListProps) {
                       <span
                         className="px-1.5 py-0.5 text-xs rounded"
                         style={{
-                          background: 'var(--shell-surface-elevated)',
-                          color: 'var(--shell-text)'
+                          background: "var(--desktop-menu-hover)",
+                          color: "var(--window-document-text)",
                         }}
                       >
                         {getSubtypeLabel(location.subtype || "")}
@@ -286,19 +278,6 @@ export function LocationsList({ selectedId, onSelect }: LocationsListProps) {
         )}
       </div>
 
-      {/* Add Modal */}
-      {showAddModal && (
-        <LocationFormModal
-          onClose={() => setShowAddModal(false)}
-          onSuccess={() => {
-            setShowAddModal(false)
-            notification.success(
-              tWithFallback("ui.app.booking.location.notifications.created_title", "Location created"),
-              tWithFallback("ui.app.booking.location.notifications.created_body", "Your location has been created successfully."),
-            )
-          }}
-        />
-      )}
     </div>
   )
 }

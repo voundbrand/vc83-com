@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Calendar } from "@/components/ui/calendar"
-import { CheckCircle2, CreditCard, Euro, Apple, Sparkles, Anchor, Users, Phone, MessageCircle, Loader2 } from "lucide-react"
+import { CheckCircle2, Sparkles, Anchor, Users, Phone, MessageCircle, Loader2 } from "lucide-react"
 import { format } from "date-fns"
 import { de, enUS, nl } from "date-fns/locale"
 import { useToast } from "@/hooks/use-toast"
@@ -32,10 +32,25 @@ interface BookingCheckoutSessionPayload {
   checkoutUrl?: string | null
 }
 
+interface BookingTicketContextPayload {
+  ticketId?: string | null
+  ticketCode?: string | null
+  holderEmail?: string | null
+  holderName?: string | null
+  lookupUrl?: string | null
+}
+
+interface BookingCheckoutFulfillmentPayload {
+  completedInApi?: boolean
+}
+
 interface BookingApiSuccessPayload {
   error?: string
   bookingId?: string
   checkoutSession?: BookingCheckoutSessionPayload | null
+  ticket?: BookingTicketContextPayload | null
+  tickets?: BookingTicketContextPayload[]
+  checkoutFulfillment?: BookingCheckoutFulfillmentPayload | null
   warnings?: string[]
 }
 
@@ -260,6 +275,9 @@ function BookingPageContent() {
   const [bookingComplete, setBookingComplete] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [bookingId, setBookingId] = useState<string | null>(null)
+  const [bookingTicket, setBookingTicket] = useState<BookingTicketContextPayload | null>(null)
+  const [termsAccepted, setTermsAccepted] = useState(false)
+  const [completedInApi, setCompletedInApi] = useState<boolean>(false)
   const [selectedCourse, setSelectedCourse] = useState<string | null>(null)
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined)
   const [selectedTime, setSelectedTime] = useState<string | null>(null)
@@ -274,13 +292,6 @@ function BookingPageContent() {
     message: "",
     tshirtSize: "",
     needsAccommodation: false,
-  })
-  const [paymentMethod, setPaymentMethod] = useState<"card" | "apple" | "paypal" | null>(null)
-  const [cardDetails, setCardDetails] = useState({
-    number: "",
-    expiry: "",
-    cvc: "",
-    name: "",
   })
 
   // T-shirt sizes
@@ -501,7 +512,7 @@ function BookingPageContent() {
             tshirtSize: formData.tshirtSize || undefined,
             needsAccommodation: formData.needsAccommodation,
           },
-          paymentMethod,
+          termsAccepted,
           totalAmount: totalPrice,
           language,
         }),
@@ -528,6 +539,8 @@ function BookingPageContent() {
       }
 
       setBookingId(result.bookingId ?? null)
+      setBookingTicket(result.ticket ?? null)
+      setCompletedInApi(Boolean(result.checkoutFulfillment?.completedInApi))
       setBookingComplete(true)
     } catch (err) {
       toast({
@@ -541,9 +554,13 @@ function BookingPageContent() {
     } finally {
       setIsSubmitting(false)
     }
-  }, [isSubmitting, selectedCourseData, selectedDate, selectedTime, boats, selectedSeatsCount, formData, paymentMethod, totalPrice, language, toast, t.booking.bookingFailed, t.booking.tryAgain])
+  }, [isSubmitting, selectedCourseData, selectedDate, selectedTime, boats, selectedSeatsCount, formData, termsAccepted, totalPrice, language, toast, t.booking.bookingFailed, t.booking.tryAgain])
 
   if (bookingComplete) {
+    const ticketLookupUrl = bookingTicket?.lookupUrl
+      || (bookingTicket?.ticketCode
+        ? `/ticket?code=${encodeURIComponent(String(bookingTicket.ticketCode))}&email=${encodeURIComponent(formData.email)}`
+        : null)
     return (
       <>
         <Header currentLanguage={language} onLanguageChange={setLanguage} navLinks={t.nav} forceScrolledStyle />
@@ -588,6 +605,16 @@ function BookingPageContent() {
                         {t.booking.bookingRef}
                       </span>
                       <span className="font-mono font-medium text-sm">{bookingId}</span>
+                    </div>
+                  )}
+                  {bookingTicket?.ticketCode && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">
+                        {t.booking.ticketCodeLabel}
+                      </span>
+                      <span className="font-mono font-medium text-sm">
+                        {bookingTicket.ticketCode}
+                      </span>
                     </div>
                   )}
                   <div className="flex justify-between">
@@ -645,6 +672,32 @@ function BookingPageContent() {
                     <span className="text-primary">&euro;{totalPrice.toFixed(2)}</span>
                   </div>
                 </div>
+
+                <Card className="bg-primary/5 border-primary/20">
+                  <CardContent className="pt-6 space-y-3 text-sm">
+                    <p className="font-medium text-primary">
+                      {t.booking.paymentOnSiteStatus}
+                    </p>
+                    <p className="text-muted-foreground">
+                      {t.booking.confirmationEmailNote}
+                    </p>
+                    <p className="text-muted-foreground">
+                      {t.booking.confirmationWeatherNote}
+                    </p>
+                    {selectedCourseData?.isMultiDay && (
+                      <p className="text-muted-foreground">
+                        {t.booking.confirmationTshirtNote}
+                      </p>
+                    )}
+                    {completedInApi && bookingTicket?.ticketCode && ticketLookupUrl && (
+                      <Button asChild size="sm" className="mt-2">
+                        <a href={ticketLookupUrl}>
+                          {t.booking.viewTicket}
+                        </a>
+                      </Button>
+                    )}
+                  </CardContent>
+                </Card>
               </CardContent>
             </Card>
           </div>
@@ -703,7 +756,7 @@ function BookingPageContent() {
                   },
                   {
                     num: 4,
-                    label: t.booking.steps.payment,
+                    label: t.booking.steps.confirmation || t.booking.steps.payment,
                   },
                 ].map((s, idx) => (
                   <div key={s.num} className="flex items-center">
@@ -1049,7 +1102,10 @@ function BookingPageContent() {
                     {t.booking.back}
                   </Button>
                   <Button
-                    onClick={() => setStep(4)}
+                    onClick={() => {
+                      setTermsAccepted(false)
+                      setStep(4)
+                    }}
                     disabled={!formData.name || !formData.email || !formData.phone || (isMultiDayCourse && !formData.tshirtSize)}
                     className="flex-1 bg-accent hover:bg-[#AA2023] text-accent-foreground shimmer-button"
                     size="lg"
@@ -1063,7 +1119,7 @@ function BookingPageContent() {
             {step === 4 && (
               <div className="space-y-6">
                 <h2 className="text-3xl font-serif font-bold text-primary mb-6">
-                  {t.booking.steps.payment}
+                  {t.booking.steps.confirmation || t.booking.steps.payment}
                 </h2>
 
                 <Card>
@@ -1113,175 +1169,24 @@ function BookingPageContent() {
                 <Card>
                   <CardHeader>
                     <CardTitle>
-                      {t.booking.paymentInfo}
+                      {t.booking.onSitePaymentTitle}
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <div className="grid grid-cols-3 gap-2 p-1 bg-muted rounded-lg">
-                      <Button
-                        type="button"
-                        variant={paymentMethod === "card" ? "default" : "ghost"}
-                        onClick={() => setPaymentMethod("card")}
-                        className="h-12"
-                      >
-                        <CreditCard className="h-5 w-5 mr-2" />
-                        Card
-                      </Button>
-                      <Button
-                        type="button"
-                        variant={paymentMethod === "apple" ? "default" : "ghost"}
-                        onClick={() => setPaymentMethod("apple")}
-                        className="h-12"
-                      >
-                        <Apple className="h-5 w-5 mr-2" />
-                        Apple Pay
-                      </Button>
-                      <Button
-                        type="button"
-                        variant={paymentMethod === "paypal" ? "default" : "ghost"}
-                        onClick={() => setPaymentMethod("paypal")}
-                        className="h-12"
-                      >
-                        <Euro className="h-5 w-5 mr-2" />
-                        PayPal
-                      </Button>
+                    <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 text-sm text-muted-foreground">
+                      {t.booking.onSitePaymentDesc}
                     </div>
-
-                    {/* Card payment form */}
-                    {paymentMethod === "card" && (
-                      <div className="space-y-4 pt-4">
-                        <div>
-                          <Label className="block text-sm font-medium mb-2">
-                            {t.booking.cardNumber}
-                          </Label>
-                          <div className="relative">
-                            <Input
-                              type="text"
-                              placeholder="1234 5678 9012 3456"
-                              value={cardDetails.number}
-                              onChange={(e) => {
-                                const value = e.target.value.replace(/\s/g, "")
-                                const formatted = value.match(/.{1,4}/g)?.join(" ") || value
-                                setCardDetails({ ...cardDetails, number: formatted })
-                              }}
-                              maxLength={19}
-                              className="pr-16"
-                            />
-                            <div className="absolute right-3 top-1/2 -translate-y-1/2 flex gap-1">
-                              <svg className="h-6 w-6" viewBox="0 0 48 32" fill="none">
-                                <rect width="48" height="32" rx="4" fill="#1434CB" />
-                                <circle cx="18" cy="16" r="8" fill="#EB001B" />
-                                <circle cx="30" cy="16" r="8" fill="#F79E1B" />
-                                <path
-                                  d="M24 9.6c1.4 1.4 2.3 3.3 2.3 5.4s-.9 4-2.3 5.4c-1.4-1.4-2.3-3.3-2.3-5.4s.9-4 2.3-5.4z"
-                                  fill="#FF5F00"
-                                />
-                              </svg>
-                              <svg className="h-6 w-6" viewBox="0 0 48 32" fill="none">
-                                <rect width="48" height="32" rx="4" fill="#0066B2" />
-                                <path
-                                  d="M27.8 16c0-5.5-4.5-10-10-10-2.2 0-4.2.7-5.8 1.9l11.9 16.2c2.6-1.8 4.5-4.8 4.5-8.1h-.6z"
-                                  fill="#F7B600"
-                                />
-                                <path
-                                  d="M17.8 26c5.5 0 10-4.5 10-10s-4.5-10-10-10c-2.2 0-4.2.7-5.8 1.9C9.4 9.7 8 12.7 8 16s1.4 6.3 4 8.1c1.6 1.2 3.6 1.9 5.8 1.9z"
-                                  fill="#0066B2"
-                                />
-                              </svg>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <Label className="block text-sm font-medium mb-2">
-                              {t.booking.expiryDate}
-                            </Label>
-                            <Input
-                              type="text"
-                              placeholder="MM/YY"
-                              value={cardDetails.expiry}
-                              onChange={(e) => {
-                                let value = e.target.value.replace(/\D/g, "")
-                                if (value.length >= 2) {
-                                  value = value.slice(0, 2) + "/" + value.slice(2, 4)
-                                }
-                                setCardDetails({ ...cardDetails, expiry: value })
-                              }}
-                              maxLength={5}
-                            />
-                          </div>
-                          <div>
-                            <Label className="block text-sm font-medium mb-2">CVC</Label>
-                            <Input
-                              type="text"
-                              placeholder="123"
-                              value={cardDetails.cvc}
-                              onChange={(e) => {
-                                const value = e.target.value.replace(/\D/g, "")
-                                setCardDetails({ ...cardDetails, cvc: value })
-                              }}
-                              maxLength={3}
-                            />
-                          </div>
-                        </div>
-
-                        <div>
-                          <Label className="block text-sm font-medium mb-2">
-                            {t.booking.cardholderName}
-                          </Label>
-                          <Input
-                            type="text"
-                            placeholder="Max Mustermann"
-                            value={cardDetails.name}
-                            onChange={(e) => setCardDetails({ ...cardDetails, name: e.target.value })}
-                          />
-                        </div>
-
-                        <div className="bg-muted p-3 rounded-lg flex items-start gap-2 text-sm">
-                          <svg
-                            className="h-5 w-5 text-muted-foreground flex-shrink-0 mt-0.5"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
-                            />
-                          </svg>
-                          <span className="text-muted-foreground">
-                            {t.booking.securePayment}
-                          </span>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Apple Pay */}
-                    {paymentMethod === "apple" && (
-                      <div className="space-y-4 pt-4">
-                        <div className="bg-muted p-8 rounded-lg text-center">
-                          <Apple className="h-12 w-12 mx-auto mb-4" />
-                          <p className="text-muted-foreground">
-                            {t.booking.useApplePay}
-                          </p>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* PayPal */}
-                    {paymentMethod === "paypal" && (
-                      <div className="space-y-4 pt-4">
-                        <div className="bg-muted p-8 rounded-lg text-center">
-                          <Euro className="h-12 w-12 mx-auto mb-4" />
-                          <p className="text-muted-foreground">
-                            {t.booking.paypalRedirect}
-                          </p>
-                        </div>
-                      </div>
-                    )}
+                    <label className="flex items-start gap-3 rounded-lg border border-border p-4 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={termsAccepted}
+                        onChange={(event) => setTermsAccepted(event.target.checked)}
+                        className="mt-1 h-4 w-4"
+                      />
+                      <span className="text-sm text-muted-foreground">
+                        {t.booking.agreeToTerms}
+                      </span>
+                    </label>
                   </CardContent>
                 </Card>
 
@@ -1292,12 +1197,7 @@ function BookingPageContent() {
                   </Button>
                   <Button
                     onClick={handleComplete}
-                    disabled={
-                      isSubmitting ||
-                      !paymentMethod ||
-                      (paymentMethod === "card" &&
-                        (!cardDetails.number || !cardDetails.expiry || !cardDetails.cvc || !cardDetails.name))
-                    }
+                    disabled={isSubmitting || !termsAccepted}
                     className="flex-1 shimmer-button"
                     size="lg"
                   >
@@ -1307,7 +1207,7 @@ function BookingPageContent() {
                         {t.booking.processing}
                       </>
                     ) : (
-                      t.booking.payLabel.replace("{amount}", `\u20AC${totalPrice.toFixed(2)}`)
+                      t.booking.confirmBooking
                     )}
                   </Button>
                 </div>

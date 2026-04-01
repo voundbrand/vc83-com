@@ -29,16 +29,16 @@ export function BookingSettings() {
     <div className="flex h-full flex-col sm:flex-row">
       {/* Left Sidebar */}
       <div
-        className="w-full flex-shrink-0 overflow-y-auto border-b-2 sm:w-48 sm:border-b-0 sm:border-r-2"
+        className="w-full flex-shrink-0 overflow-y-auto border-b sm:w-48 sm:border-b-0 sm:border-r"
         style={{
-          borderColor: 'var(--shell-border)',
-          background: 'var(--shell-surface-elevated)'
+          borderColor: "var(--window-document-border)",
+          background: "var(--desktop-shell-accent)",
         }}
       >
-        <div className="p-2">
+        <div className="p-2 space-y-1">
           <p
-            className="font-pixel text-xs px-2 py-2 mb-1"
-            style={{ color: 'var(--neutral-gray)' }}
+            className="text-xs px-2 py-2 font-semibold"
+            style={{ color: "var(--desktop-menu-text-muted)" }}
           >
             {tWithFallback("ui.app.booking.settings.title", "Settings")}
           </p>
@@ -49,21 +49,15 @@ export function BookingSettings() {
                 key={item.id}
                 type="button"
                 onClick={() => setActiveSection(item.id)}
-                className={`w-full text-left px-3 py-2 flex items-center gap-2 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] focus-visible:ring-inset ${
-                  activeSection === item.id ? "font-bold" : ""
+                className={`desktop-interior-button w-full justify-start px-3 py-2 text-xs ${
+                  activeSection === item.id
+                    ? "desktop-interior-button-primary"
+                    : "desktop-interior-button-subtle"
                 }`}
                 aria-current={activeSection === item.id ? "page" : undefined}
-                style={{
-                  background: activeSection === item.id
-                    ? 'var(--shell-selection-bg)'
-                    : 'transparent',
-                  color: activeSection === item.id
-                    ? 'var(--shell-selection-text)'
-                    : 'var(--shell-text)',
-                }}
               >
                 <Icon size={14} />
-                <span className="font-pixel text-xs">{tWithFallback(item.labelKey, item.fallback)}</span>
+                <span>{tWithFallback(item.labelKey, item.fallback)}</span>
               </button>
             )
           })}
@@ -73,7 +67,7 @@ export function BookingSettings() {
       {/* Right Content */}
       <div
         className="flex-1 overflow-y-auto p-4 sm:p-6"
-        style={{ background: 'var(--shell-surface)' }}
+        style={{ background: "var(--window-document-bg)" }}
       >
         {activeSection === "calendar" && <CalendarSettings />}
       </div>

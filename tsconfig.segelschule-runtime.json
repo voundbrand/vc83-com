@@ -1,0 +1,25 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@/*": [
+        "./src/*"
+      ],
+      "@convex/*": [
+        "./convex/*"
+      ]
+    }
+  },
+  "include": [
+    "apps/segelschule-altwarp/**/*.ts",
+    "apps/segelschule-altwarp/**/*.tsx",
+    "convex/**/*.ts",
+    "scripts/run-segelschule-booking-fixture.ts",
+    "src/**/*.ts",
+    "src/**/*.tsx"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
+}

@@ -304,9 +304,9 @@ export function AvailabilityScheduleEditor({ scheduleId, onBack }: AvailabilityS
   }
 
   const inputStyle = {
-    borderColor: "var(--shell-border)",
-    background: "var(--shell-input-surface)",
-    color: "var(--shell-input-text)",
+    borderColor: "var(--window-document-border)",
+    background: "var(--window-document-bg)",
+    color: "var(--window-document-text)",
   }
 
   const getDayLabel = (dayIndex: number) => {
@@ -323,11 +323,11 @@ export function AvailabilityScheduleEditor({ scheduleId, onBack }: AvailabilityS
   }
 
   return (
-    <div className="h-full flex flex-col" style={{ background: "var(--shell-surface)" }}>
+    <div className="h-full flex flex-col" style={{ background: "var(--window-document-bg)" }}>
       {/* Header Bar */}
       <div
-        className="p-4 border-b-2 flex items-center gap-3"
-        style={{ borderColor: "var(--shell-border)", background: "var(--shell-surface-elevated)" }}
+        className="p-4 border-b flex items-center gap-3"
+        style={{ borderColor: "var(--window-document-border)", background: "var(--desktop-shell-accent)" }}
       >
         <button
           className="desktop-interior-button p-1.5"
@@ -341,7 +341,7 @@ export function AvailabilityScheduleEditor({ scheduleId, onBack }: AvailabilityS
           <div className="flex items-center gap-2">
             {isEditingName ? (
               <input
-                className="font-pixel text-sm border-2 px-2 py-0.5 min-w-[200px]"
+                className="font-pixel text-sm border px-2 py-1 min-w-0 w-full sm:w-auto"
                 style={inputStyle}
                 value={scheduleName}
                 onChange={(e) => {
@@ -396,11 +396,7 @@ export function AvailabilityScheduleEditor({ scheduleId, onBack }: AvailabilityS
         )}
 
         <button
-          className="desktop-interior-button px-4 py-1.5 font-pixel text-xs"
-          style={{
-            background: "var(--shell-selection-bg)",
-            color: "var(--shell-selection-text)",
-          }}
+          className="desktop-interior-button desktop-interior-button-primary px-4 py-1.5 font-pixel text-xs"
           onClick={handleSave}
           disabled={isSaving || !isDirty}
         >
@@ -416,14 +412,14 @@ export function AvailabilityScheduleEditor({ scheduleId, onBack }: AvailabilityS
           {/* Left Column - Day Rows */}
           <div className="flex-[7] min-w-0">
             <div
-              className="border-2 rounded"
-              style={{ borderColor: "var(--shell-border)", background: "var(--shell-surface-elevated)" }}
+              className="border rounded-xl"
+              style={{ borderColor: "var(--window-document-border)", background: "var(--desktop-shell-accent)" }}
             >
               {days.map((day, dayIndex) => (
                 <div
                   key={dayIndex}
                   className={`p-3 flex items-start gap-3 ${dayIndex < days.length - 1 ? "border-b" : ""}`}
-                  style={{ borderColor: "var(--shell-border)" }}
+                  style={{ borderColor: "var(--window-document-border)" }}
                 >
                   {/* Toggle Switch */}
                   <label className="relative inline-flex items-center cursor-pointer mt-0.5 shrink-0">
@@ -434,17 +430,17 @@ export function AvailabilityScheduleEditor({ scheduleId, onBack }: AvailabilityS
                       className="sr-only peer"
                     />
                     <div
-                      className="w-8 h-4 border-2 rounded-full peer peer-checked:bg-[var(--shell-selection-bg)] transition-colors"
+                      className="w-8 h-4 border rounded-full peer peer-checked:bg-[var(--desktop-menu-hover)] transition-colors"
                       style={{
-                        borderColor: "var(--shell-border)",
-                        background: day.isAvailable ? "var(--shell-selection-bg)" : "var(--shell-input-surface)",
+                        borderColor: "var(--window-document-border)",
+                        background: day.isAvailable ? "var(--desktop-menu-hover)" : "var(--window-document-bg)",
                       }}
                     >
                       <div
                         className="absolute top-[3px] w-2.5 h-2.5 rounded-full border transition-transform"
                         style={{
-                          borderColor: "var(--shell-border)",
-                          background: "var(--shell-surface-elevated)",
+                          borderColor: "var(--window-document-border)",
+                          background: "var(--desktop-shell-accent)",
                           left: day.isAvailable ? "14px" : "3px",
                         }}
                       />
@@ -464,7 +460,7 @@ export function AvailabilityScheduleEditor({ scheduleId, onBack }: AvailabilityS
                       {day.timeRanges.map((range, rangeIndex) => (
                         <div key={rangeIndex} className="flex items-center gap-2">
                           <select
-                            className="border-2 font-pixel text-xs px-1.5 py-1 rounded-none"
+                            className="border font-pixel text-xs px-1.5 py-1 rounded-md"
                             style={inputStyle}
                             value={range.startTime}
                             onChange={(e) => updateTimeRange(dayIndex, rangeIndex, "startTime", e.target.value)}
@@ -479,7 +475,7 @@ export function AvailabilityScheduleEditor({ scheduleId, onBack }: AvailabilityS
                             -
                           </span>
                           <select
-                            className="border-2 font-pixel text-xs px-1.5 py-1 rounded-none"
+                            className="border font-pixel text-xs px-1.5 py-1 rounded-md"
                             style={inputStyle}
                             value={range.endTime}
                             onChange={(e) => updateTimeRange(dayIndex, rangeIndex, "endTime", e.target.value)}
@@ -542,8 +538,8 @@ export function AvailabilityScheduleEditor({ scheduleId, onBack }: AvailabilityS
 
             {/* Date Overrides */}
             <div
-              className="border-2 rounded mt-4 p-4"
-              style={{ borderColor: "var(--shell-border)", background: "var(--shell-surface-elevated)" }}
+              className="border rounded-xl mt-4 p-4"
+              style={{ borderColor: "var(--window-document-border)", background: "var(--desktop-shell-accent)" }}
             >
               <div className="flex items-center gap-2 mb-1">
                 <h3 className="font-pixel text-xs font-bold">
@@ -568,15 +564,15 @@ export function AvailabilityScheduleEditor({ scheduleId, onBack }: AvailabilityS
           {/* Right Column - Timezone */}
           <div className="flex-[3] min-w-0">
             <div
-              className="border-2 rounded p-4"
-              style={{ borderColor: "var(--shell-border)", background: "var(--shell-surface-elevated)" }}
+              className="border rounded-xl p-4"
+              style={{ borderColor: "var(--window-document-border)", background: "var(--desktop-shell-accent)" }}
             >
               <label className="font-pixel text-xs font-bold flex items-center gap-1.5 mb-2">
                 <Globe size={12} />
                 {tWithFallback("ui.app.booking.availability.editor.timezone", "Timezone")}
               </label>
               <select
-                className="w-full border-2 font-pixel text-xs px-2 py-1.5 rounded-none"
+                className="desktop-interior-select w-full font-pixel text-xs px-2 py-1.5"
                 style={inputStyle}
                 value={timezone}
                 onChange={(e) => {

@@ -13,11 +13,23 @@ import { getTaxCodesForCountry } from "@/lib/tax-calculator";
 import { AddonManager } from "./addon-manager";
 import { ProductAddon } from "@/types/product-addons";
 import { InvoicingConfigSection, InvoiceConfig } from "./invoicing-config-section";
-import { BookableConfigSection, BookableConfig, DEFAULT_BOOKABLE_CONFIG, BOOKABLE_PRESETS } from "./bookable-config-section";
-import { usePostHog } from "posthog-js/react";
+import {
+  BookableConfigSection,
+  BookableConfig,
+  DEFAULT_BOOKABLE_CONFIG,
+  buildBookableConfigForSubtype,
+  buildBookableShadowProperties,
+} from "./bookable-config-section";
+import { usePostHog } from "@/components/providers/posthog-provider";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { TemplateSelector } from "@/components/template-selector";
 import { TemplateSetSelector } from "@/components/template-set-selector";
+import {
+  getDefaultAvailabilityStructureForSubtype,
+  getDefaultAvailabilityStructureForModel,
+  normalizeAvailabilityStructure,
+} from "../../../../convex/lib/availabilityStructures";
+import type { AvailabilityModel } from "../../../../convex/lib/availabilityModels";
 
 /**
  * Helper: Derive default category label from subtype
@@ -52,6 +64,50 @@ function isBookableSubtype(subtype: string): boolean {
     "appointment", "class", "treatment"
   ];
   return bookableTypes.includes(subtype);
+}
+
+function buildBookableConfigFromProperties(
+  subtype: string,
+  props: Record<string, unknown>
+): BookableConfig {
+  const existingConfig = (props.bookableConfig as Partial<BookableConfig>) || {};
+  const storedModel = (props.availabilityModel as AvailabilityModel | undefined) || null;
+  const fallbackStructure =
+    storedModel === "date_range_inventory" && subtype === "room"
+      ? "hotel_room"
+      : storedModel === "date_range_inventory" && subtype === "accommodation"
+        ? "house_rental"
+        : storedModel && storedModel !== "time_slot"
+          ? getDefaultAvailabilityStructureForModel(storedModel)
+          : getDefaultAvailabilityStructureForSubtype(subtype);
+  const explicitStructure = normalizeAvailabilityStructure(
+    props.availabilityStructure
+      ?? existingConfig.availabilityStructure
+      ?? fallbackStructure
+  );
+
+  return buildBookableConfigForSubtype(subtype, {
+    ...existingConfig,
+    availabilityStructure: explicitStructure,
+    availabilityModel:
+      (props.availabilityModel as AvailabilityModel | undefined)
+      ?? existingConfig.availabilityModel,
+    availabilityContextKey:
+      (props.availabilityContextKey as BookableConfig["availabilityContextKey"] | undefined)
+      ?? existingConfig.availabilityContextKey,
+    inventoryMode:
+      (props.inventoryMode as BookableConfig["inventoryMode"] | undefined)
+      ?? existingConfig.inventoryMode,
+    requiresBookingAddress:
+      (props.requiresBookingAddress as boolean | undefined)
+      ?? existingConfig.requiresBookingAddress,
+    locationBehavior:
+      (props.locationBehavior as BookableConfig["locationBehavior"] | undefined)
+      ?? existingConfig.locationBehavior,
+    resourceTopologyProfile:
+      (props.resourceTopologyProfile as BookableConfig["resourceTopologyProfile"] | undefined)
+      ?? existingConfig.resourceTopologyProfile,
+  });
 }
 
 /**
@@ -331,11 +387,9 @@ export function ProductForm({
         // Ticket Template (legacy)
         ticketTemplateId: (props.ticketTemplateId as string) || "",
         // Bookable Configuration
-        bookableConfig: (props.bookableConfig as BookableConfig) || (
-          isBookableSubtype(subtype)
-            ? { ...DEFAULT_BOOKABLE_CONFIG, ...(BOOKABLE_PRESETS[subtype as keyof typeof BOOKABLE_PRESETS] || {}) }
-            : null
-        ),
+        bookableConfig: isBookableSubtype(subtype)
+          ? buildBookableConfigFromProperties(subtype, props)
+          : null,
       });
     }
   }, [existingProduct]);
@@ -401,28 +455,9 @@ export function ProductForm({
 
       // Bookable Configuration (for bookable resource/service types)
       if (isBookableSubtype(formData.subtype) && formData.bookableConfig) {
-        customProperties.bookableConfig = formData.bookableConfig;
-
-        // Persist availability model and model-specific fields at top level
-        // so the Convex backend dispatchers can read them directly.
         const bc = formData.bookableConfig;
-        customProperties.availabilityModel = bc.availabilityModel || "time_slot";
-
-        if (bc.availabilityModel === "date_range_inventory") {
-          customProperties.inventoryCount = bc.inventoryCount;
-          customProperties.minimumStayNights = bc.minimumStayNights;
-          customProperties.maximumStayNights = bc.maximumStayNights;
-          customProperties.checkInTime = bc.checkInTime;
-          customProperties.checkOutTime = bc.checkOutTime;
-          customProperties.baseNightlyRateCents = bc.baseNightlyRateCents;
-        } else if (bc.availabilityModel === "event_bound_seating") {
-          customProperties.totalSeats = bc.totalSeats;
-          customProperties.maxSeatsPerBooking = bc.maxSeatsPerBooking;
-        } else if (bc.availabilityModel === "departure_bound") {
-          customProperties.totalPassengerSeats = bc.totalPassengerSeats;
-          customProperties.vehicleType = bc.vehicleType;
-          customProperties.boardingMinutesBefore = bc.boardingMinutesBefore;
-        }
+        customProperties.bookableConfig = bc;
+        Object.assign(customProperties, buildBookableShadowProperties(bc));
       }
 
       // Form linking (generalized - works for all product types)
@@ -631,7 +666,7 @@ export function ProductForm({
                 : formData.categoryLabel,
               // Auto-apply bookable preset when switching to a bookable type
               bookableConfig: isBookableSubtype(newSubtype)
-                ? { ...DEFAULT_BOOKABLE_CONFIG, ...(BOOKABLE_PRESETS[newSubtype as keyof typeof BOOKABLE_PRESETS] || {}) }
+                ? buildBookableConfigForSubtype(newSubtype)
                 : null
             });
           }}
@@ -1090,6 +1125,16 @@ export function ProductForm({
           config={formData.bookableConfig || DEFAULT_BOOKABLE_CONFIG}
           onChange={(bookableConfig) => setFormData({ ...formData, bookableConfig })}
           subtype={formData.subtype}
+          onSuggestedSubtypeChange={(nextSubtype) =>
+            setFormData((current) => ({
+              ...current,
+              subtype: nextSubtype,
+              categoryLabel:
+                current.categoryLabel === getDefaultCategoryLabel(current.subtype)
+                  ? getDefaultCategoryLabel(nextSubtype)
+                  : current.categoryLabel,
+            }))
+          }
         />
       )}
 

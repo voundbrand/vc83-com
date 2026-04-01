@@ -14,6 +14,8 @@
  * - "staff" - Therapists, consultants, instructors
  * - "equipment" - Vehicles, projectors, tools
  * - "space" - Desks, parking spots, lockers
+ * - "vehicle" - Boats, buses, ferries, aircraft, charter assets
+ * - "accommodation" - Houses, apartments, cabins, whole-unit rentals
  *
  * BOOKABLE SERVICE TYPES (subtype):
  * - "appointment" - 1:1 meetings, consultations
@@ -471,7 +473,7 @@ export const createProduct = mutation({
       // Standard product types
       "ticket", "physical", "digital",
       // Bookable resource types
-      "room", "staff", "equipment", "space",
+      "room", "staff", "equipment", "space", "vehicle", "accommodation",
       // Bookable service types
       "appointment", "class", "treatment",
     ];

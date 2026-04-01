@@ -411,8 +411,7 @@ export const getSyncStatus = query({
 
     return {
       calendarSyncEnabled: syncSettings.calendar === true,
-      lastSyncAt: (connection as Record<string, unknown>)
-        .lastCalendarSyncAt as number | undefined,
+      lastSyncAt: connection.lastSyncAt,
       lastSyncError: connection.lastSyncError || null,
       totalEventsSync: connectionEvents.length,
       connectionStatus: connection.status,
@@ -1191,13 +1190,13 @@ export const updateSyncTimestamp = internalMutation({
   },
   handler: async (ctx, args) => {
     const update: Record<string, unknown> = {
-      lastCalendarSyncAt: Date.now(),
+      lastSyncAt: Date.now(),
       updatedAt: Date.now(),
     };
     if (args.error) {
       update.lastSyncError = args.error;
     } else {
-      update.lastSyncError = null;
+      update.lastSyncError = undefined;
     }
     await ctx.db.patch(args.connectionId, update);
   },

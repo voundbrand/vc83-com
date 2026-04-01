@@ -25,6 +25,12 @@
 import { query, mutation, internalQuery, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
+import { fromZonedTime, toZonedTime } from "date-fns-tz";
+import {
+  getAvailabilityContextError,
+  resolveAvailabilityModel,
+  resolveRequestedQuantity,
+} from "./lib/availabilityModels";
 import { requireAuthenticatedUser } from "./rbacHelpers";
 
 // ============================================================================
@@ -212,23 +218,29 @@ export const getAvailableSlots = query({
     const DAY_MS = 24 * 60 * 60 * 1000;
 
     // Iterate through each day in the range
-    for (let dayTs = startOfDay(args.startDate); dayTs <= args.endDate; dayTs += DAY_MS) {
+    for (let dayTs = startOfDay(args.startDate, timezone); dayTs <= args.endDate; dayTs += DAY_MS) {
       // Check if day is blocked
       if (isDateBlocked(dayTs, blocks)) continue;
 
       // Get the day of week (0=Sunday)
-      const dayOfWeek = new Date(dayTs).getUTCDay();
+      const dayOfWeek = getDayOfWeek(dayTs, timezone);
 
       // Get all time ranges for this day (supports multiple ranges per day)
-      const daySchedules = getSchedulesForDay(dayTs, dayOfWeek, schedules, exceptions);
+      const daySchedules = getSchedulesForDay(
+        dayTs,
+        dayOfWeek,
+        schedules,
+        exceptions,
+        timezone
+      );
       if (daySchedules.length === 0) continue;
 
       // Generate slots for each time range
       for (const schedule of daySchedules) {
         if (!schedule.isAvailable) continue;
 
-        const dayStart = parseTimeToTimestamp(schedule.startTime, dayTs);
-        const dayEnd = parseTimeToTimestamp(schedule.endTime, dayTs);
+        const dayStart = parseTimeToTimestamp(schedule.startTime, dayTs, timezone);
+        const dayEnd = parseTimeToTimestamp(schedule.endTime, dayTs, timezone);
 
         for (let slotStart = dayStart; slotStart + slotDuration * 60000 <= dayEnd; slotStart += slotIncrement * 60000) {
           const slotEnd = slotStart + slotDuration * 60000;
@@ -479,6 +491,9 @@ export const createException = mutation({
       if (!isValidTime(args.customHours.startTime) || !isValidTime(args.customHours.endTime)) {
         throw new Error("Invalid time format. Use HH:MM (24-hour format)");
       }
+      if (args.customHours.endTime <= args.customHours.startTime) {
+        throw new Error("Exception end time must be after start time");
+      }
     }
 
     // Check for existing exception on this date
@@ -528,6 +543,93 @@ export const createException = mutation({
     });
 
     return { exceptionId };
+  },
+});
+
+/**
+ * UPDATE EXCEPTION
+ * Update a single-date exception
+ */
+export const updateException = mutation({
+  args: {
+    sessionId: v.string(),
+    exceptionId: v.id("objects"),
+    date: v.optional(v.number()),
+    isAvailable: v.optional(v.boolean()),
+    customHours: v.optional(
+      v.object({
+        startTime: v.string(),
+        endTime: v.string(),
+      })
+    ),
+    reason: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    await requireAuthenticatedUser(ctx, args.sessionId);
+
+    const exception = await ctx.db.get(args.exceptionId);
+    if (!exception || exception.type !== "availability" || exception.subtype !== "exception") {
+      throw new Error("Exception not found");
+    }
+
+    const currentProps = exception.customProperties as Record<string, unknown>;
+    const resourceId = currentProps.resourceId as Id<"objects"> | undefined;
+    if (!resourceId) {
+      throw new Error("Exception is missing a resource link");
+    }
+
+    const updatedProps: Record<string, unknown> = { ...currentProps };
+
+    if (args.date !== undefined) updatedProps.date = args.date;
+    if (args.isAvailable !== undefined) updatedProps.isAvailable = args.isAvailable;
+    if (args.customHours !== undefined) updatedProps.customHours = args.customHours;
+    if (args.reason !== undefined) updatedProps.reason = args.reason;
+
+    if (updatedProps.isAvailable === false) {
+      updatedProps.customHours = null;
+    }
+
+    if (updatedProps.customHours) {
+      const customHours = updatedProps.customHours as { startTime: string; endTime: string };
+      if (!isValidTime(customHours.startTime) || !isValidTime(customHours.endTime)) {
+        throw new Error("Invalid time format. Use HH:MM (24-hour format)");
+      }
+      if (customHours.endTime <= customHours.startTime) {
+        throw new Error("Exception end time must be after start time");
+      }
+    }
+
+    const nextDate = updatedProps.date as number | undefined;
+    if (typeof nextDate !== "number" || !Number.isFinite(nextDate)) {
+      throw new Error("Exception date is required");
+    }
+
+    const existingExceptions = await findExceptionsForDate(ctx, resourceId, nextDate);
+    for (const existing of existingExceptions) {
+      if (existing._id === args.exceptionId) {
+        continue;
+      }
+
+      const links = await ctx.db
+        .query("objectLinks")
+        .withIndex("by_to_link_type", (q) =>
+          q.eq("toObjectId", existing._id).eq("linkType", "has_availability")
+        )
+        .collect();
+
+      for (const link of links) {
+        await ctx.db.delete(link._id);
+      }
+      await ctx.db.delete(existing._id);
+    }
+
+    await ctx.db.patch(args.exceptionId, {
+      name: `Exception: ${formatDate(nextDate)}`,
+      customProperties: updatedProps,
+      updatedAt: Date.now(),
+    });
+
+    return { exceptionId: args.exceptionId };
   },
 });
 
@@ -592,8 +694,8 @@ export const createBlock = mutation({
     }
 
     // Validate dates
-    if (args.endDate <= args.startDate) {
-      throw new Error("End date must be after start date");
+    if (args.endDate < args.startDate) {
+      throw new Error("End date must be on or after start date");
     }
 
     // Create block
@@ -658,8 +760,8 @@ export const updateBlock = mutation({
     // Validate dates
     const startDate = (updatedProps.startDate as number) || 0;
     const endDate = (updatedProps.endDate as number) || 0;
-    if (endDate <= startDate) {
-      throw new Error("End date must be after start date");
+    if (endDate < startDate) {
+      throw new Error("End date must be on or after start date");
     }
 
     await ctx.db.patch(args.blockId, {
@@ -1479,9 +1581,16 @@ function getScheduleForDay(
   dateTs: number,
   dayOfWeek: number,
   schedules: Array<{ customProperties?: unknown }>,
-  exceptions: Array<{ customProperties?: unknown }>
+  exceptions: Array<{ customProperties?: unknown }>,
+  timezone = "UTC"
 ): { startTime: string; endTime: string; isAvailable: boolean } | null {
-  const ranges = getSchedulesForDay(dateTs, dayOfWeek, schedules, exceptions);
+  const ranges = getSchedulesForDay(
+    dateTs,
+    dayOfWeek,
+    schedules,
+    exceptions,
+    timezone
+  );
   return ranges.length > 0 ? ranges[0] : null;
 }
 
@@ -1493,7 +1602,8 @@ function getSchedulesForDay(
   dateTs: number,
   dayOfWeek: number,
   schedules: Array<{ customProperties?: unknown }>,
-  exceptions: Array<{ customProperties?: unknown }>
+  exceptions: Array<{ customProperties?: unknown }>,
+  timezone = "UTC"
 ): Array<{ startTime: string; endTime: string; isAvailable: boolean }> {
   // Check for exception first
   for (const exception of exceptions) {
@@ -1501,7 +1611,7 @@ function getSchedulesForDay(
     const exceptionDate = props.date as number;
 
     // Check if same day (compare dates without time)
-    if (isSameDay(dateTs, exceptionDate)) {
+    if (isSameDay(dateTs, exceptionDate, timezone)) {
       if (!props.isAvailable) {
         return []; // Day is unavailable
       }
@@ -1542,7 +1652,8 @@ function getSchedulesForDay(
 async function findExceptionsForDate(
   ctx: any,
   resourceId: Id<"objects">,
-  date: number
+  date: number,
+  timezone = "UTC"
 ) {
   const links = await ctx.db
     .query("objectLinks")
@@ -1560,7 +1671,7 @@ async function findExceptionsForDate(
     }
 
     const props = availability.customProperties as Record<string, unknown>;
-    if (isSameDay(date, props.date as number)) {
+    if (isSameDay(date, props.date as number, timezone)) {
       exceptions.push(availability);
     }
   }
@@ -1571,33 +1682,41 @@ async function findExceptionsForDate(
 /**
  * Check if two timestamps are on the same day
  */
-function isSameDay(ts1: number, ts2: number): boolean {
-  const d1 = new Date(ts1);
-  const d2 = new Date(ts2);
+function isSameDay(ts1: number, ts2: number, timezone = "UTC"): boolean {
+  const d1 = toZonedTime(new Date(ts1), timezone);
+  const d2 = toZonedTime(new Date(ts2), timezone);
   return (
-    d1.getUTCFullYear() === d2.getUTCFullYear() &&
-    d1.getUTCMonth() === d2.getUTCMonth() &&
-    d1.getUTCDate() === d2.getUTCDate()
+    d1.getFullYear() === d2.getFullYear() &&
+    d1.getMonth() === d2.getMonth() &&
+    d1.getDate() === d2.getDate()
   );
 }
 
 /**
  * Get start of day timestamp
  */
-function startOfDay(ts: number): number {
-  const d = new Date(ts);
-  d.setUTCHours(0, 0, 0, 0);
-  return d.getTime();
+function startOfDay(ts: number, timezone = "UTC"): number {
+  const zoned = toZonedTime(new Date(ts), timezone);
+  zoned.setHours(0, 0, 0, 0);
+  return fromZonedTime(zoned, timezone).getTime();
 }
 
 /**
  * Parse time string to timestamp for a given day
  */
-function parseTimeToTimestamp(time: string, dayTs: number): number {
+function parseTimeToTimestamp(
+  time: string,
+  dayTs: number,
+  timezone = "UTC"
+): number {
   const [hours, minutes] = time.split(":").map(Number);
-  const d = new Date(dayTs);
-  d.setUTCHours(hours, minutes, 0, 0);
-  return d.getTime();
+  const zoned = toZonedTime(new Date(dayTs), timezone);
+  zoned.setHours(hours, minutes, 0, 0);
+  return fromZonedTime(zoned, timezone).getTime();
+}
+
+function getDayOfWeek(ts: number, timezone = "UTC"): number {
+  return toZonedTime(new Date(ts), timezone).getDay();
 }
 
 /**
@@ -1744,11 +1863,11 @@ export const checkConflictByModel = internalQuery({
     startDateTime: v.number(),
     endDateTime: v.number(),
     excludeBookingId: v.optional(v.id("objects")),
-    // For seat-based models
+    timezone: v.optional(v.string()),
+    participants: v.optional(v.number()),
     seatCount: v.optional(v.number()),
-    // For event-bound
+    passengerCount: v.optional(v.number()),
     eventId: v.optional(v.id("objects")),
-    // For departure-bound
     departureId: v.optional(v.id("objects")),
   },
   handler: async (ctx, args) => {
@@ -1756,18 +1875,95 @@ export const checkConflictByModel = internalQuery({
     if (!resource) return { hasConflict: true, reason: "Resource not found" };
 
     const resourceProps = resource.customProperties as Record<string, unknown> | undefined;
-    const model = (resourceProps?.availabilityModel as string) || "time_slot";
+    const bookableConfig = resourceProps?.bookableConfig as
+      | Record<string, unknown>
+      | undefined;
+    const model = resolveAvailabilityModel(resourceProps, bookableConfig);
+    const contextError = getAvailabilityContextError({
+      model,
+      eventId: args.eventId,
+      departureId: args.departureId,
+    });
+    if (contextError) {
+      return { hasConflict: true, reason: contextError };
+    }
 
     switch (model) {
       case "time_slot":
       case "date_range_inventory": {
         // Use existing time-overlap + capacity check
-        const bufferBefore = (resourceProps?.bufferBefore as number) || 0;
-        const bufferAfter = (resourceProps?.bufferAfter as number) || 0;
-        const capacity = (resourceProps?.capacity as number) || 1;
+        const bufferBefore =
+          (resourceProps?.bufferBefore as number)
+          || (bookableConfig?.bufferBefore as number)
+          || 0;
+        const bufferAfter =
+          (resourceProps?.bufferAfter as number)
+          || (bookableConfig?.bufferAfter as number)
+          || 0;
+        const capacity =
+          (resourceProps?.capacity as number)
+          || (bookableConfig?.capacity as number)
+          || 1;
+        const timezone =
+          args.timezone
+          || (resourceProps?.timezone as string)
+          || (bookableConfig?.timezone as string)
+          || "UTC";
 
         const effectiveStart = args.startDateTime - bufferBefore * 60000;
         const effectiveEnd = args.endDateTime + bufferAfter * 60000;
+        const dayStart = startOfDay(args.startDateTime, timezone);
+
+        const { schedules, exceptions, blocks } = await getAvailabilityData(
+          ctx,
+          args.resourceId,
+          dayStart,
+          args.endDateTime
+        );
+        const hasStructuredAvailability =
+          schedules.length > 0 || exceptions.length > 0 || blocks.length > 0;
+
+        if (hasStructuredAvailability) {
+          if (isDateBlocked(dayStart, blocks)) {
+            return {
+              hasConflict: true,
+              reason: "Outside configured availability",
+            };
+          }
+
+          const dayOfWeek = getDayOfWeek(dayStart, timezone);
+          const daySchedules = getSchedulesForDay(
+            dayStart,
+            dayOfWeek,
+            schedules,
+            exceptions,
+            timezone
+          );
+          const requestedFitsSchedule = daySchedules.some((schedule) => {
+            const scheduleStart = parseTimeToTimestamp(
+              schedule.startTime,
+              dayStart,
+              timezone
+            );
+            const scheduleEnd = parseTimeToTimestamp(
+              schedule.endTime,
+              dayStart,
+              timezone
+            );
+            return (
+              schedule.isAvailable &&
+              args.startDateTime >= scheduleStart &&
+              args.endDateTime <= scheduleEnd
+            );
+          });
+
+          if (!requestedFitsSchedule) {
+            return {
+              hasConflict: true,
+              reason: "Outside configured availability",
+            };
+          }
+        }
 
         const bookings = await getBookingsInRange(ctx, args.resourceId, effectiveStart, effectiveEnd);
 
@@ -1792,10 +1988,16 @@ export const checkConflictByModel = internalQuery({
       }
 
       case "event_bound_seating": {
+        const seatCount = resolveRequestedQuantity({
+          model,
+          participants: args.participants,
+          seatCount: args.seatCount,
+          passengerCount: args.passengerCount,
+          fallback: 1,
+        });
         if (!args.eventId) {
           return { hasConflict: true, reason: "eventId required for event_bound_seating" };
         }
-        const seatCount = args.seatCount || 1;
 
         // Look up seat map for this event
         const seatMapLinks = await ctx.db
@@ -1835,10 +2037,16 @@ export const checkConflictByModel = internalQuery({
       }
 
       case "departure_bound": {
+        const passengerCount = resolveRequestedQuantity({
+          model,
+          participants: args.participants,
+          seatCount: args.seatCount,
+          passengerCount: args.passengerCount,
+          fallback: 1,
+        });
         if (!args.departureId) {
           return { hasConflict: true, reason: "departureId required for departure_bound" };
         }
-        const passengerCount = args.seatCount || 1;
 
         const departure = await ctx.db.get(args.departureId);
         if (!departure || departure.type !== "departure") {
@@ -1925,22 +2133,30 @@ export const getAvailableSlotsInternal = internalQuery({
       return [];
     }
 
+    const timezone = args.timezone || (resourceProps?.timezone as string) || "UTC";
+
     // Generate slots (capacity-aware)
     const slots: TimeSlot[] = [];
     const DAY_MS = 24 * 60 * 60 * 1000;
 
-    for (let dayTs = startOfDay(args.startDate); dayTs <= args.endDate; dayTs += DAY_MS) {
+    for (let dayTs = startOfDay(args.startDate, timezone); dayTs <= args.endDate; dayTs += DAY_MS) {
       if (isDateBlocked(dayTs, blocks)) continue;
 
-      const dayOfWeek = new Date(dayTs).getUTCDay();
-      const daySchedules = getSchedulesForDay(dayTs, dayOfWeek, schedules, exceptions);
+      const dayOfWeek = getDayOfWeek(dayTs, timezone);
+      const daySchedules = getSchedulesForDay(
+        dayTs,
+        dayOfWeek,
+        schedules,
+        exceptions,
+        timezone
+      );
       if (daySchedules.length === 0) continue;
 
       for (const schedule of daySchedules) {
         if (!schedule.isAvailable) continue;
 
-        const dayStart = parseTimeToTimestamp(schedule.startTime, dayTs);
-        const dayEnd = parseTimeToTimestamp(schedule.endTime, dayTs);
+        const dayStart = parseTimeToTimestamp(schedule.startTime, dayTs, timezone);
+        const dayEnd = parseTimeToTimestamp(schedule.endTime, dayTs, timezone);
 
         for (let slotStart = dayStart; slotStart + slotDuration * 60000 <= dayEnd; slotStart += slotIncrement * 60000) {
           const slotEnd = slotStart + slotDuration * 60000;
@@ -2304,6 +2520,10 @@ export const createBlockInternal = internalMutation({
     const resource = await ctx.db.get(args.resourceId);
     if (!resource || resource.organizationId !== args.organizationId) {
       throw new Error("Resource not found");
+    }
+
+    if (args.endDate < args.startDate) {
+      throw new Error("End date must be on or after start date");
     }
 
     // Create block

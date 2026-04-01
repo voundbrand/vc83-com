@@ -40,6 +40,16 @@ const seatSelectionValidator = v.object({
   seatNumbers: v.array(v.number()),
 });
 
+const MICROSOFT_CALENDAR_WRITE_SCOPES = [
+  "Calendars.ReadWrite",
+  "Calendars.ReadWrite.Shared",
+];
+
+const GOOGLE_CALENDAR_WRITE_SCOPES = [
+  "https://www.googleapis.com/auth/calendar",
+  "https://www.googleapis.com/auth/calendar.events",
+];
+
 type SeatGroupConfig = {
   groupId: string;
   label?: string;
@@ -70,6 +80,33 @@ type SeatAvailabilitySnapshot = {
   unassignedParticipants: number;
 };
 
+type CalendarConnectionReadinessDiagnostic = {
+  connectionId: string;
+  provider: string;
+  status: string | null;
+  syncEnabled: boolean;
+  canWriteCalendar: boolean;
+  pushCalendarId: string | null;
+  writeReady: boolean;
+  issues: string[];
+};
+
+type CalendarPushReadinessDiagnostics = {
+  checkedAt: number;
+  linkedConnectionCount: number;
+  writeReadyConnectionCount: number;
+  writeReady: boolean;
+  issues: string[];
+  recommendations: string[];
+  connections: CalendarConnectionReadinessDiagnostic[];
+};
+
+type CalendarPushRuntimeDiagnostics = CalendarPushReadinessDiagnostics & {
+  bookingStatus: string;
+  calendarPushScheduled: boolean;
+  calendarPushScheduledAt: number | null;
+};
+
 function normalizeOptionalString(value: unknown): string | null {
   if (typeof value !== "string") return null;
   const normalized = value.trim();
@@ -87,6 +124,194 @@ function normalizePositiveInteger(value: unknown): number {
     }
   }
   return 0;
+}
+
+function hasAnyScope(
+  scopes: string[] | undefined,
+  requiredScopes: readonly string[]
+): boolean {
+  if (!Array.isArray(scopes) || scopes.length === 0) {
+    return false;
+  }
+  return scopes.some((scope) => requiredScopes.includes(scope));
+}
+
+function hasCalendarWriteScope(
+  provider: unknown,
+  scopes: string[] | undefined
+): boolean {
+  if (provider === "google") {
+    return hasAnyScope(scopes, GOOGLE_CALENDAR_WRITE_SCOPES);
+  }
+  if (provider === "microsoft") {
+    return hasAnyScope(scopes, MICROSOFT_CALENDAR_WRITE_SCOPES);
+  }
+  return false;
+}
+
+function buildCalendarReadinessRecommendations(issues: string[]): string[] {
+  const recommendations = new Set<string>();
+
+  for (const issue of issues) {
+    if (issue === "calendar_links_missing") {
+      recommendations.add(
+        "Link at least one Google or Microsoft calendar connection to this resource (or org default calendar settings) before go-live."
+      );
+    }
+    if (issue === "calendar_links_not_write_ready") {
+      recommendations.add(
+        "Ensure at least one linked connection is active, calendar sync is enabled, and calendar write scopes are granted."
+      );
+    }
+    if (issue === "calendar_connection_missing") {
+      recommendations.add(
+        "Reconnect or relink the missing OAuth calendar connection from the Booking setup workspace."
+      );
+    }
+    if (issue === "calendar_connection_inactive") {
+      recommendations.add(
+        "Reactivate revoked/inactive calendar OAuth connections before accepting confirmed bookings."
+      );
+    }
+    if (issue === "calendar_sync_disabled") {
+      recommendations.add(
+        "Enable calendar sync on the linked OAuth connection so confirmed bookings can be pushed."
+      );
+    }
+    if (issue === "calendar_write_scope_missing") {
+      recommendations.add(
+        "Re-authenticate the calendar connection with write scopes (Google calendar.events/calendar or Microsoft Calendars.ReadWrite)."
+      );
+    }
+    if (issue === "calendar_google_push_calendar_missing") {
+      recommendations.add(
+        "Select a Google push calendar ID in calendar settings for each linked connection."
+      );
+    }
+    if (issue === "calendar_readiness_lookup_failed") {
+      recommendations.add(
+        "Run calendar readiness diagnostics from the booking setup tool and fix connectivity before launch."
+      );
+    }
+  }
+
+  return Array.from(recommendations);
+}
+
+async function buildCalendarPushReadinessDiagnostics(args: {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ctx: any;
+  organizationId: Id<"organizations">;
+  resourceId: Id<"objects">;
+}): Promise<CalendarPushReadinessDiagnostics> {
+  const checkedAt = Date.now();
+  const issueCodes = new Set<string>();
+  const diagnostics: CalendarPushReadinessDiagnostics = {
+    checkedAt,
+    linkedConnectionCount: 0,
+    writeReadyConnectionCount: 0,
+    writeReady: false,
+    issues: [],
+    recommendations: [],
+    connections: [],
+  };
+
+  try {
+    const linkedConnections = (await args.ctx.runQuery(
+      getInternal().calendarSyncOntology.getResourceCalendarConnections,
+      {
+        resourceId: args.resourceId,
+        organizationId: args.organizationId,
+      }
+    )) as Array<{
+      connectionId: Id<"oauthConnections">;
+      provider: string;
+      pushCalendarId: string | null;
+    }> | null;
+
+    const normalizedLinks = Array.isArray(linkedConnections)
+      ? linkedConnections
+      : [];
+    diagnostics.linkedConnectionCount = normalizedLinks.length;
+
+    if (normalizedLinks.length === 0) {
+      issueCodes.add("calendar_links_missing");
+    }
+
+    for (const linkedConnection of normalizedLinks) {
+      const connectionId = String(linkedConnection.connectionId);
+      const connection = await args.ctx.db.get(
+        linkedConnection.connectionId as Id<"oauthConnections">
+      );
+
+      const provider = normalizeOptionalString(
+        connection?.provider || linkedConnection.provider
+      ) || "unknown";
+      const status = normalizeOptionalString(connection?.status);
+      const syncEnabled =
+        ((connection?.syncSettings || {}) as Record<string, unknown>)
+          .calendar === true;
+      const scopes = Array.isArray(connection?.scopes)
+        ? (connection.scopes as string[])
+        : undefined;
+      const canWriteCalendar = hasCalendarWriteScope(provider, scopes);
+      const pushCalendarId =
+        provider === "google"
+          ? normalizeOptionalString(linkedConnection.pushCalendarId)
+          : null;
+
+      const connectionIssues: string[] = [];
+      if (!connection) {
+        connectionIssues.push("calendar_connection_missing");
+      }
+      if (status !== "active") {
+        connectionIssues.push("calendar_connection_inactive");
+      }
+      if (!syncEnabled) {
+        connectionIssues.push("calendar_sync_disabled");
+      }
+      if (!canWriteCalendar) {
+        connectionIssues.push("calendar_write_scope_missing");
+      }
+      if (provider === "google" && !pushCalendarId) {
+        connectionIssues.push("calendar_google_push_calendar_missing");
+      }
+
+      const writeReady = connectionIssues.length === 0;
+      if (writeReady) {
+        diagnostics.writeReadyConnectionCount += 1;
+      }
+
+      for (const issue of connectionIssues) {
+        issueCodes.add(issue);
+      }
+
+      diagnostics.connections.push({
+        connectionId,
+        provider,
+        status,
+        syncEnabled,
+        canWriteCalendar,
+        pushCalendarId,
+        writeReady,
+        issues: connectionIssues,
+      });
+    }
+
+    diagnostics.writeReady = diagnostics.writeReadyConnectionCount > 0;
+    if (!diagnostics.writeReady) {
+      issueCodes.add("calendar_links_not_write_ready");
+    }
+  } catch (error) {
+    issueCodes.add("calendar_readiness_lookup_failed");
+    console.error("Failed to build booking calendar readiness diagnostics:", error);
+  }
+
+  diagnostics.issues = Array.from(issueCodes);
+  diagnostics.recommendations = buildCalendarReadinessRecommendations(
+    diagnostics.issues
+  );
+  return diagnostics;
 }
 
 function readCustomProperties(value: unknown): Record<string, unknown> {
@@ -537,6 +762,11 @@ export const customerCheckoutInternal = internalMutation({
     participants: v.optional(v.number()),
     notes: v.optional(v.string()),
     source: v.optional(v.string()),
+    eventId: v.optional(v.id("objects")),
+    departureId: v.optional(v.id("objects")),
+    seatCount: v.optional(v.number()),
+    passengerCount: v.optional(v.number()),
+    ignoreOutsideAvailability: v.optional(v.boolean()),
     seatSelections: v.optional(v.array(seatSelectionValidator)),
     seatInventory: v.optional(seatInventoryValidator),
   },
@@ -547,6 +777,7 @@ export const customerCheckoutInternal = internalMutation({
     contactId: Id<"objects"> | null;
     remainingCapacity: number;
     totalAmountCents: number;
+    calendarDiagnostics: CalendarPushRuntimeDiagnostics;
   }> => {
     // 1. Load and validate resource
     const resource = await ctx.db.get(args.resourceId);
@@ -563,7 +794,6 @@ export const customerCheckoutInternal = internalMutation({
       throw new Error("Resource is not bookable");
     }
 
-    const availabilityModel = (resourceProps?.availabilityModel as string) || "time_slot";
     const capacity =
       normalizePositiveInteger(resourceProps?.capacity) ||
       normalizePositiveInteger(bookableConfig?.capacity) ||
@@ -594,28 +824,34 @@ export const customerCheckoutInternal = internalMutation({
         })
       : null;
 
-    // 2. Check availability / conflicts
-    if (availabilityModel === "time_slot" || availabilityModel === "date_range_inventory") {
-      const hasConflict = await ctx.runQuery(getInternal().availabilityOntology.checkConflict, {
-        resourceId: args.resourceId,
-        startDateTime: args.startDateTime,
-        endDateTime: args.endDateTime,
-      });
-      if (hasConflict) {
-        throw new Error("No availability for the selected time slot");
-      }
-    } else {
-      const conflictResult = await ctx.runQuery(getInternal().availabilityOntology.checkConflictByModel, {
+    // 2. Check availability / conflicts through the model-aware dispatcher
+    const conflictResult = await ctx.runQuery(
+      getInternal().availabilityOntology.checkConflictByModel,
+      {
         resourceId: args.resourceId,
         organizationId: args.organizationId,
         startDateTime: args.startDateTime,
         endDateTime: args.endDateTime,
-        seatCount: participants,
-      });
-
-      if (conflictResult.hasConflict) {
-        throw new Error(conflictResult.reason || "No availability for the selected time slot");
+        ...(args.timezone ? { timezone: args.timezone } : {}),
+        participants,
+        ...(args.seatCount !== undefined ? { seatCount: args.seatCount } : {}),
+        ...(args.passengerCount !== undefined
+          ? { passengerCount: args.passengerCount }
+          : {}),
+        ...(args.eventId !== undefined ? { eventId: args.eventId } : {}),
+        ...(args.departureId !== undefined
+          ? { departureId: args.departureId }
+          : {}),
       }
+    );
+    const canIgnoreOutsideAvailability =
+      args.ignoreOutsideAvailability === true
+      && conflictResult.reason === "Outside configured availability";
+
+    if (conflictResult.hasConflict && !canIgnoreOutsideAvailability) {
+      throw new Error(
+        conflictResult.reason || "No availability for the selected time slot"
+      );
     }
 
     if (seatInventoryConfig) {
@@ -740,6 +976,13 @@ export const customerCheckoutInternal = internalMutation({
     // 7. Determine if confirmation is required
     const confirmationRequired = (bookableConfig?.confirmationRequired as boolean) ?? false;
 
+    // 7.5. Snapshot calendar write-readiness for go-live diagnostics
+    const calendarReadinessDiagnostics = await buildCalendarPushReadinessDiagnostics({
+      ctx,
+      organizationId: args.organizationId,
+      resourceId: args.resourceId,
+    });
+
     // 8. Create booking via internal mutation
     const result = await ctx.runMutation(getInternal().bookingOntology.createBookingInternal, {
       organizationId: args.organizationId,
@@ -759,25 +1002,57 @@ export const customerCheckoutInternal = internalMutation({
       confirmationRequired,
       notes: args.notes,
       isAdminBooking: false,
+      ...(args.eventId !== undefined ? { eventId: args.eventId } : {}),
+      ...(args.departureId !== undefined
+        ? { departureId: args.departureId }
+        : {}),
+      ...(args.seatCount !== undefined ? { seatCount: args.seatCount } : {}),
+      ...(args.passengerCount !== undefined
+        ? { passengerCount: args.passengerCount }
+        : {}),
+      ...(args.ignoreOutsideAvailability === true
+        ? { ignoreOutsideAvailability: true }
+        : {}),
     });
 
-    if (seatInventoryConfig && (normalizedSeatSelections.length > 0 || seatInventoryConfig.groups.length > 0)) {
+    const calendarPushScheduled = result.status === "confirmed";
+    const calendarPushScheduledAt = calendarPushScheduled ? Date.now() : null;
+    const calendarDiagnostics: CalendarPushRuntimeDiagnostics = {
+      ...calendarReadinessDiagnostics,
+      bookingStatus: result.status,
+      calendarPushScheduled,
+      calendarPushScheduledAt,
+    };
+
+    const shouldPersistSeatInventory =
+      Boolean(
+        seatInventoryConfig &&
+        (normalizedSeatSelections.length > 0 || seatInventoryConfig.groups.length > 0)
+      );
+    try {
       const bookingDoc = await ctx.db.get(result.bookingId as Id<"objects">);
       if (bookingDoc) {
         const currentProps = readCustomProperties(bookingDoc);
         await ctx.db.patch(result.bookingId, {
           customProperties: {
             ...currentProps,
-            seatSelections: normalizedSeatSelections,
-            seatInventoryGroups: seatInventoryConfig.groups,
-            seatSelectionStrict: seatInventoryConfig.strictSeatSelection,
+            ...(shouldPersistSeatInventory
+              ? {
+                  seatSelections: normalizedSeatSelections,
+                  seatInventoryGroups: seatInventoryConfig?.groups || [],
+                  seatSelectionStrict: seatInventoryConfig?.strictSeatSelection || false,
+                }
+              : {}),
+            calendarPushDiagnostics: calendarDiagnostics,
           },
           updatedAt: Date.now(),
         });
       }
+    } catch (error) {
+      console.error("Failed to patch booking calendar diagnostics:", error);
     }
 
-    if (result.status === "confirmed") {
+    if (calendarPushScheduled) {
       await ctx.scheduler.runAfter(
         0,
         getInternal().calendarSyncOntology.pushBookingToCalendar,
@@ -808,9 +1083,24 @@ export const customerCheckoutInternal = internalMutation({
         organizationId: args.organizationId,
         startDateTime: args.startDateTime,
         endDateTime: args.endDateTime,
-        seatCount: 1,
+        ...(args.timezone ? { timezone: args.timezone } : {}),
+        participants: 1,
+        ...(args.seatCount !== undefined ? { seatCount: args.seatCount } : {}),
+        ...(args.passengerCount !== undefined
+          ? { passengerCount: args.passengerCount }
+          : {}),
+        ...(args.eventId !== undefined ? { eventId: args.eventId } : {}),
+        ...(args.departureId !== undefined
+          ? { departureId: args.departureId }
+          : {}),
       });
-      remainingCapacity = postConflict.hasConflict ? 0 : Math.max(0, capacity - participants);
+      const canIgnorePostConflict =
+        args.ignoreOutsideAvailability === true
+        && postConflict.reason === "Outside configured availability";
+      remainingCapacity =
+        postConflict.hasConflict && !canIgnorePostConflict
+          ? 0
+          : Math.max(0, capacity - participants);
     }
 
     return {
@@ -820,6 +1110,7 @@ export const customerCheckoutInternal = internalMutation({
       contactId,
       remainingCapacity,
       totalAmountCents,
+      calendarDiagnostics,
     };
   },
 });
@@ -829,4 +1120,5 @@ export const __testables = {
   countSelectedSeats,
   buildSeatAvailabilitySnapshot,
   validateRequestedSeatSelection,
+  buildCalendarReadinessRecommendations,
 };

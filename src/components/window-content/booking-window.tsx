@@ -7,11 +7,15 @@ import { BookingsList } from "./booking-window/bookings-list"
 import { BookingDetail } from "./booking-window/booking-detail"
 import { LocationsList } from "./booking-window/locations-list"
 import { LocationDetail } from "./booking-window/location-detail"
-import { AvailabilitySchedulesList } from "./booking-window/availability-schedules-list"
-import { AvailabilityScheduleEditor } from "./booking-window/availability-schedule-editor"
+import { ResourceAvailability } from "./booking-window/resource-availability"
 import { BookingSettings } from "./booking-window/booking-settings"
 import { BookingSetupWizard } from "./booking-window/booking-setup-wizard"
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations"
+import {
+  InteriorRoot,
+  InteriorTabButton,
+  InteriorTabRow,
+} from "@/components/window-content/shared/interior-primitives"
 import type { Id } from "../../../convex/_generated/dataModel"
 
 type ViewType = "bookings" | "locations" | "availability" | "setup" | "settings"
@@ -28,8 +32,6 @@ export function BookingWindow({ initialTab, fullScreen = false }: BookingWindowP
   const [selectedBookingId, setSelectedBookingId] = useState<Id<"objects"> | null>(null)
   const [selectedLocationId, setSelectedLocationId] = useState<Id<"objects"> | null>(null)
   const [selectedResourceId, setSelectedResourceId] = useState<Id<"objects"> | null>(null)
-  const [availabilityView, setAvailabilityView] = useState<"list" | "editor">("list")
-  const [editingScheduleId, setEditingScheduleId] = useState<Id<"objects"> | null>(null)
 
   // Reset selection when switching views
   const handleViewSwitch = (view: ViewType) => {
@@ -37,133 +39,97 @@ export function BookingWindow({ initialTab, fullScreen = false }: BookingWindowP
     setSelectedBookingId(null)
     setSelectedLocationId(null)
     setSelectedResourceId(null)
-    setAvailabilityView("list")
-    setEditingScheduleId(null)
   }
 
   return (
-    <div className="h-full flex flex-col" style={{ background: 'var(--win95-bg)' }}>
+    <InteriorRoot className="flex h-full flex-col">
       {/* View Switcher Tabs */}
-      <div
-        className="flex flex-wrap items-center gap-1 border-b-2 p-2"
+      <InteriorTabRow
+        className="gap-2 px-2 py-2"
         role="tablist"
         aria-label={tWithFallback("ui.app.booking.tabs.aria_label", "Booking sections")}
-        style={{
-          borderColor: 'var(--win95-border)',
-          background: 'var(--win95-bg-light)'
-        }}
       >
         {/* Back to desktop link (full-screen mode only) */}
         {fullScreen && (
           <Link
             href="/"
-            className="retro-button px-3 py-2 flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--focus-ring-offset)]"
+            className="desktop-interior-button inline-flex h-9 items-center gap-2 px-3 text-xs"
             title={tWithFallback("ui.app.booking.nav.back_to_desktop", "Back to Desktop")}
             aria-label={tWithFallback("ui.app.booking.nav.back_to_desktop", "Back to Desktop")}
           >
-            <ArrowLeft size={16} />
+            <ArrowLeft size={14} />
           </Link>
         )}
-        <button
-          type="button"
+        <InteriorTabButton
+          active={activeView === "bookings"}
           id="booking-tab-bookings"
           role="tab"
           aria-selected={activeView === "bookings"}
           aria-controls="booking-view-bookings-panel"
           onClick={() => handleViewSwitch("bookings")}
-          className={`retro-button px-4 py-2 flex items-center gap-2 ${
-            activeView === "bookings" ? "shadow-inner" : ""
-          }`}
-          style={{
-            background: activeView === "bookings" ? 'var(--win95-selected-bg)' : 'var(--win95-button-face)',
-            color: activeView === "bookings" ? 'var(--win95-selected-text)' : 'var(--win95-text)',
-          }}
+          className="flex items-center gap-2"
         >
-          <Calendar size={16} />
-          <span className="font-pixel text-xs">
+          <Calendar size={14} />
+          <span>
             {tWithFallback("ui.app.booking.tabs.bookings", "Bookings")}
           </span>
-        </button>
-        <button
-          type="button"
+        </InteriorTabButton>
+        <InteriorTabButton
+          active={activeView === "locations"}
           id="booking-tab-locations"
           role="tab"
           aria-selected={activeView === "locations"}
           aria-controls="booking-view-locations-panel"
           onClick={() => handleViewSwitch("locations")}
-          className={`retro-button px-4 py-2 flex items-center gap-2 ${
-            activeView === "locations" ? "shadow-inner" : ""
-          }`}
-          style={{
-            background: activeView === "locations" ? 'var(--win95-selected-bg)' : 'var(--win95-button-face)',
-            color: activeView === "locations" ? 'var(--win95-selected-text)' : 'var(--win95-text)',
-          }}
+          className="flex items-center gap-2"
         >
-          <MapPin size={16} />
-          <span className="font-pixel text-xs">
+          <MapPin size={14} />
+          <span>
             {tWithFallback("ui.app.booking.tabs.locations", "Locations")}
           </span>
-        </button>
-        <button
-          type="button"
+        </InteriorTabButton>
+        <InteriorTabButton
+          active={activeView === "availability"}
           id="booking-tab-availability"
           role="tab"
           aria-selected={activeView === "availability"}
           aria-controls="booking-view-availability-panel"
           onClick={() => handleViewSwitch("availability")}
-          className={`retro-button px-4 py-2 flex items-center gap-2 ${
-            activeView === "availability" ? "shadow-inner" : ""
-          }`}
-          style={{
-            background: activeView === "availability" ? 'var(--win95-selected-bg)' : 'var(--win95-button-face)',
-            color: activeView === "availability" ? 'var(--win95-selected-text)' : 'var(--win95-text)',
-          }}
+          className="flex items-center gap-2"
         >
-          <Clock size={16} />
-          <span className="font-pixel text-xs">
+          <Clock size={14} />
+          <span>
             {tWithFallback("ui.app.booking.tabs.availability", "Availability")}
           </span>
-        </button>
-        <button
-          type="button"
+        </InteriorTabButton>
+        <InteriorTabButton
+          active={activeView === "settings"}
           id="booking-tab-settings"
           role="tab"
           aria-selected={activeView === "settings"}
           aria-controls="booking-view-settings-panel"
           onClick={() => handleViewSwitch("settings")}
-          className={`retro-button px-4 py-2 flex items-center gap-2 ${
-            activeView === "settings" ? "shadow-inner" : ""
-          }`}
-          style={{
-            background: activeView === "settings" ? 'var(--win95-selected-bg)' : 'var(--win95-button-face)',
-            color: activeView === "settings" ? 'var(--win95-selected-text)' : 'var(--win95-text)',
-          }}
+          className="flex items-center gap-2"
         >
-          <Settings size={16} />
-          <span className="font-pixel text-xs">
+          <Settings size={14} />
+          <span>
             {tWithFallback("ui.app.booking.tabs.settings", "Settings")}
           </span>
-        </button>
-        <button
-          type="button"
+        </InteriorTabButton>
+        <InteriorTabButton
+          active={activeView === "setup"}
           id="booking-tab-setup"
           role="tab"
           aria-selected={activeView === "setup"}
           aria-controls="booking-view-setup-panel"
           onClick={() => handleViewSwitch("setup")}
-          className={`retro-button px-4 py-2 flex items-center gap-2 ${
-            activeView === "setup" ? "shadow-inner" : ""
-          }`}
-          style={{
-            background: activeView === "setup" ? 'var(--win95-selected-bg)' : 'var(--win95-button-face)',
-            color: activeView === "setup" ? 'var(--win95-selected-text)' : 'var(--win95-text)',
-          }}
+          className="flex items-center gap-2"
         >
-          <Wand2 size={16} />
-          <span className="font-pixel text-xs">
+          <Wand2 size={14} />
+          <span>
             {tWithFallback("ui.app.booking.tabs.setup", "Setup Wizard")}
           </span>
-        </button>
+        </InteriorTabButton>
 
         {/* Spacer */}
         <div className="flex-1" />
@@ -172,14 +138,14 @@ export function BookingWindow({ initialTab, fullScreen = false }: BookingWindowP
         {!fullScreen && (
           <Link
             href="/booking"
-            className="retro-button px-3 py-2 flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--focus-ring-offset)]"
+            className="desktop-interior-button inline-flex h-9 items-center gap-2 px-3 text-xs"
             title={tWithFallback("ui.app.booking.nav.open_full_screen", "Open Full Screen")}
             aria-label={tWithFallback("ui.app.booking.nav.open_full_screen", "Open Full Screen")}
           >
-            <Maximize2 size={16} />
+            <Maximize2 size={14} />
           </Link>
         )}
-      </div>
+      </InteriorTabRow>
 
       {/* Content Area */}
       {activeView === "setup" ? (
@@ -188,7 +154,7 @@ export function BookingWindow({ initialTab, fullScreen = false }: BookingWindowP
           role="tabpanel"
           aria-labelledby="booking-tab-setup"
           className="flex-1 overflow-y-auto p-4 sm:p-6"
-          style={{ background: "var(--shell-surface)" }}
+          style={{ background: "var(--window-document-bg)" }}
         >
           <BookingSetupWizard />
         </div>
@@ -208,26 +174,10 @@ export function BookingWindow({ initialTab, fullScreen = false }: BookingWindowP
           aria-labelledby="booking-tab-availability"
           className="flex-1 overflow-hidden"
         >
-          {availabilityView === "list" ? (
-            <AvailabilitySchedulesList
-              onEdit={(id) => {
-                setEditingScheduleId(id)
-                setAvailabilityView("editor")
-              }}
-              onCreate={() => {
-                setEditingScheduleId(null)
-                setAvailabilityView("editor")
-              }}
-            />
-          ) : (
-            <AvailabilityScheduleEditor
-              scheduleId={editingScheduleId}
-              onBack={() => {
-                setAvailabilityView("list")
-                setEditingScheduleId(null)
-              }}
-            />
-          )}
+          <ResourceAvailability
+            selectedResourceId={selectedResourceId}
+            onSelectResource={setSelectedResourceId}
+          />
         </div>
       ) : (
         <div
@@ -238,10 +188,10 @@ export function BookingWindow({ initialTab, fullScreen = false }: BookingWindowP
         >
           {/* Left: List View */}
           <div
-            className="h-1/2 border-b-2 overflow-y-auto lg:h-auto lg:w-1/2 lg:border-b-0 lg:border-r-2"
+            className="h-1/2 overflow-y-auto border-b lg:h-auto lg:w-1/2 lg:border-b-0 lg:border-r"
             style={{
-              borderColor: 'var(--win95-border)',
-              background: 'var(--win95-bg-light)'
+              borderColor: "var(--window-document-border)",
+              background: "var(--desktop-shell-accent)",
             }}
           >
             {activeView === "bookings" ? (
@@ -260,15 +210,15 @@ export function BookingWindow({ initialTab, fullScreen = false }: BookingWindowP
           {/* Right: Detail View */}
           <div
             className="h-1/2 overflow-y-auto p-4 lg:h-auto lg:w-1/2"
-            style={{ background: 'var(--win95-bg)' }}
+            style={{ background: "var(--window-document-bg)" }}
           >
             {activeView === "bookings" ? (
               selectedBookingId ? (
                 <BookingDetail bookingId={selectedBookingId} />
               ) : (
-                <div className="mx-auto flex h-full max-w-sm flex-col items-center justify-center text-center" style={{ color: 'var(--neutral-gray)' }}>
+                <div className="mx-auto flex h-full max-w-sm flex-col items-center justify-center text-center" style={{ color: "var(--desktop-menu-text-muted)" }}>
                   <Calendar size={48} className="mb-4 opacity-30" />
-                  <p className="font-pixel text-sm">
+                  <p className="text-sm font-semibold" style={{ color: "var(--window-document-text)" }}>
                     {tWithFallback("ui.app.booking.detail.select_booking", "Select a booking")}
                   </p>
                   <p className="text-xs mt-2">
@@ -280,9 +230,9 @@ export function BookingWindow({ initialTab, fullScreen = false }: BookingWindowP
               selectedLocationId ? (
                 <LocationDetail locationId={selectedLocationId} />
               ) : (
-                <div className="mx-auto flex h-full max-w-sm flex-col items-center justify-center text-center" style={{ color: 'var(--neutral-gray)' }}>
+                <div className="mx-auto flex h-full max-w-sm flex-col items-center justify-center text-center" style={{ color: "var(--desktop-menu-text-muted)" }}>
                   <MapPin size={48} className="mb-4 opacity-30" />
-                  <p className="font-pixel text-sm">
+                  <p className="text-sm font-semibold" style={{ color: "var(--window-document-text)" }}>
                     {tWithFallback("ui.app.booking.location.detail.select_location", "Select a location")}
                   </p>
                   <p className="text-xs mt-2">
@@ -294,6 +244,6 @@ export function BookingWindow({ initialTab, fullScreen = false }: BookingWindowP
           </div>
         </div>
       )}
-    </div>
+    </InteriorRoot>
   )
 }

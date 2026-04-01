@@ -17,6 +17,39 @@ describe("booking workflow setup blueprint helpers", () => {
     ])
   })
 
+  it("defaults to custom catalog baseline when setupTemplate is omitted", () => {
+    const catalog = __testables.buildSeatBookingCatalog({})
+
+    expect(catalog.timezone).toBe("Europe/Berlin")
+    expect(catalog.defaultAvailableTimes).toEqual([
+      "09:00",
+      "10:00",
+      "11:00",
+      "13:00",
+      "14:00",
+      "15:00",
+    ])
+    expect(catalog.inventoryGroups).toEqual([])
+    expect(catalog.courses).toEqual([])
+  })
+
+  it("normalizes setup template values and falls back to custom", () => {
+    expect(__testables.resolveSetupTemplate(undefined)).toBe("custom")
+    expect(__testables.resolveSetupTemplate(" custom ")).toBe("custom")
+    expect(__testables.resolveSetupTemplate(" SAILING_SCHOOL_TWO_BOATS ")).toBe(
+      "sailing_school_two_boats"
+    )
+  })
+
+  it("normalizes surface identity tokens with lowercase fallback defaults", () => {
+    expect(
+      __testables.normalizeSurfaceIdentityToken(" Segelschule-Altwarp ", "my-app")
+    ).toBe("segelschule-altwarp")
+    expect(__testables.normalizeSurfaceIdentityToken(undefined, "my-app")).toBe(
+      "my-app"
+    )
+  })
+
   it("builds legacy bridge bindings from catalog courses", () => {
     const catalog = __testables.buildSeatBookingCatalog({
       setupTemplate: "sailing_school_two_boats",
@@ -134,5 +167,49 @@ describe("booking workflow setup blueprint helpers", () => {
         courseOverride: {},
       })
     ).toBe(0)
+  })
+
+  it("summarizes planner calendar readiness with actionable warning codes", () => {
+    const summary = __testables.buildPlannerCalendarReadinessSummary({
+      readiness: {
+        google: {
+          work: {
+            hasConnection: true,
+            status: "active",
+            syncEnabled: true,
+            canWriteCalendar: true,
+            calendarWriteReady: true,
+            connectionType: "organizational",
+            email: "ops@example.com",
+            lastSyncError: null,
+          },
+          private: {
+            hasConnection: false,
+            status: null,
+            syncEnabled: false,
+            canWriteCalendar: false,
+            calendarWriteReady: false,
+            connectionType: null,
+            email: null,
+            lastSyncError: null,
+          },
+        },
+      },
+    })
+
+    expect(summary.writeReady).toBe(true)
+    expect(summary.warningCodes).toContain("calendar_connection_missing")
+    expect(summary.warningCodes).not.toContain("calendar_write_not_ready")
+    expect(summary.checks).toHaveLength(2)
+  })
+
+  it("flags missing planner readiness snapshots as not go-live ready", () => {
+    const summary = __testables.buildPlannerCalendarReadinessSummary(null)
+
+    expect(summary.writeReady).toBe(false)
+    expect(summary.warningCodes).toContain("calendar_readiness_missing")
+    expect(summary.warningCodes).toContain("calendar_write_not_ready")
+    expect(summary.recommendations.length).toBeGreaterThan(0)
+    expect(summary.checks).toEqual([])
   })
 })

@@ -7,7 +7,17 @@ const USER_ID = "user_system" as any
 const CONTACT_ID = "contact_1" as any
 const BOOKING_ID = "booking_1" as any
 
-function buildMockCtx(resultStatus: string) {
+function buildMockCtx(
+  resultStatus: string,
+  options?: {
+    calendarConnections?: Array<{
+      connectionId: string
+      provider: string
+      pushCalendarId: string | null
+    }>
+    connectionDocs?: Record<string, Record<string, unknown>>
+  }
+) {
   const resource = {
     _id: RESOURCE_ID,
     type: "product",
@@ -25,10 +35,36 @@ function buildMockCtx(resultStatus: string) {
     },
   }
 
-  const runQuery = vi
-    .fn()
-    .mockResolvedValueOnce(false)
-    .mockResolvedValueOnce({ hasConflict: false })
+  const calendarConnections = options?.calendarConnections || []
+  const connectionDocs = options?.connectionDocs || {}
+
+  const runQuery = vi.fn(async (_ref: unknown, args: Record<string, unknown>) => {
+    if (
+      args.resourceId === RESOURCE_ID
+      && args.organizationId === ORG_ID
+      && !("startDateTime" in args)
+      && !("endDateTime" in args)
+    ) {
+      return calendarConnections
+    }
+    if (
+      args.resourceId === RESOURCE_ID
+      && typeof args.startDateTime === "number"
+      && typeof args.endDateTime === "number"
+      && !("seatCount" in args)
+    ) {
+      return false
+    }
+    if (
+      args.resourceId === RESOURCE_ID
+      && typeof args.startDateTime === "number"
+      && typeof args.endDateTime === "number"
+      && typeof args.seatCount === "number"
+    ) {
+      return { hasConflict: false }
+    }
+    return null
+  })
   const runMutation = vi.fn().mockResolvedValue({
     bookingId: BOOKING_ID,
     status: resultStatus,
@@ -39,6 +75,15 @@ function buildMockCtx(resultStatus: string) {
     get: vi.fn(async (id: unknown) => {
       if (id === RESOURCE_ID) {
         return resource
+      }
+      if (id === BOOKING_ID) {
+        return {
+          _id: BOOKING_ID,
+          customProperties: {},
+        }
+      }
+      if (typeof id === "string" && connectionDocs[id]) {
+        return connectionDocs[id]
       }
       return null
     }),
@@ -65,6 +110,7 @@ function buildMockCtx(resultStatus: string) {
       throw new Error(`Unexpected query table: ${table}`)
     }),
     insert: vi.fn(async () => CONTACT_ID),
+    patch: vi.fn(async () => undefined),
   }
 
   return {
@@ -79,7 +125,24 @@ function buildMockCtx(resultStatus: string) {
 
 describe("resource booking checkout calendar handoff", () => {
   it("schedules calendar push when booking is confirmed", async () => {
-    const ctx = buildMockCtx("confirmed")
+    const ctx = buildMockCtx("confirmed", {
+      calendarConnections: [
+        {
+          connectionId: "oauth_google_1",
+          provider: "google",
+          pushCalendarId: "primary",
+        },
+      ],
+      connectionDocs: {
+        oauth_google_1: {
+          _id: "oauth_google_1",
+          provider: "google",
+          status: "active",
+          scopes: ["https://www.googleapis.com/auth/calendar.events"],
+          syncSettings: { calendar: true },
+        },
+      },
+    })
 
     const result = await (customerCheckoutInternal as any)._handler(ctx, {
       organizationId: ORG_ID,
@@ -99,6 +162,9 @@ describe("resource booking checkout calendar handoff", () => {
 
     expect(result.success).toBe(true)
     expect(result.status).toBe("confirmed")
+    expect(result.calendarDiagnostics.writeReady).toBe(true)
+    expect(result.calendarDiagnostics.writeReadyConnectionCount).toBe(1)
+    expect(result.calendarDiagnostics.issues).toEqual([])
     expect(ctx.scheduler.runAfter).toHaveBeenCalledTimes(1)
     expect(ctx.scheduler.runAfter).toHaveBeenCalledWith(
       0,
@@ -129,6 +195,9 @@ describe("resource booking checkout calendar handoff", () => {
 
     expect(result.success).toBe(true)
     expect(result.status).toBe("pending_confirmation")
+    expect(result.calendarDiagnostics.writeReady).toBe(false)
+    expect(result.calendarDiagnostics.issues).toContain("calendar_links_missing")
+    expect(result.calendarDiagnostics.calendarPushScheduled).toBe(false)
     expect(ctx.scheduler.runAfter).not.toHaveBeenCalled()
   })
 })

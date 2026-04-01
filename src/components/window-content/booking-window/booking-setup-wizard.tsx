@@ -92,6 +92,13 @@ interface ConfigureBookingWorkflowResult {
     legacyBindingsJson?: string
     calendarReadiness?: Record<string, unknown> | null
     bindings?: BookingSurfaceBindingRow[]
+    questions?: BookingSetupInterviewQuestion[]
+    hints?: string[]
+    requiredSequence?: string[]
+    nextAction?: string
+    suggestedCatalog?: Record<string, unknown>
+    catalog?: Record<string, unknown>
+    payload?: Record<string, unknown>
     total?: number
     bindingId?: string
     [key: string]: unknown
@@ -109,12 +116,14 @@ type SetupWorkflowAction =
 
 type SetupWorkflowMode = "preview" | "execute" | "interview"
 
-const DEFAULT_INVENTORY_GROUPS: SetupInventoryGroupRow[] = [
+const DEFAULT_TIMES_CSV = "09:00,10:00,11:00,13:00,14:00,15:00"
+
+const SAILING_PRESET_INVENTORY_GROUPS: SetupInventoryGroupRow[] = [
   { id: "fraukje", label: "Fraukje", capacity: 4 },
   { id: "rose", label: "Rose", capacity: 4 },
 ]
 
-const DEFAULT_COURSES: SetupCourseRow[] = [
+const SAILING_PRESET_COURSES: SetupCourseRow[] = [
   {
     courseId: "schnupper",
     displayName: "Taster course",
@@ -129,7 +138,7 @@ const DEFAULT_COURSES: SetupCourseRow[] = [
     courseId: "grund",
     displayName: "Weekend course",
     bookingDurationMinutes: 480,
-    availableTimes: "09:00,10:00,11:00,13:00,14:00,15:00",
+    availableTimes: DEFAULT_TIMES_CSV,
     bookingResourceId: "",
     checkoutProductId: "",
     checkoutPublicUrl: "",
@@ -139,13 +148,48 @@ const DEFAULT_COURSES: SetupCourseRow[] = [
     courseId: "intensiv",
     displayName: "Intensive sailing license course",
     bookingDurationMinutes: 480,
-    availableTimes: "09:00,10:00,11:00,13:00,14:00,15:00",
+    availableTimes: DEFAULT_TIMES_CSV,
     bookingResourceId: "",
     checkoutProductId: "",
     checkoutPublicUrl: "",
     isMultiDay: true,
   },
 ]
+
+function cloneInventoryGroups(
+  value: SetupInventoryGroupRow[]
+): SetupInventoryGroupRow[] {
+  return value.map((group) => ({ ...group }))
+}
+
+function cloneCourses(value: SetupCourseRow[]): SetupCourseRow[] {
+  return value.map((course) => ({ ...course }))
+}
+
+function resolveTemplatePreset(
+  template: SetupTemplate
+): {
+  timezone: string
+  defaultTimes: string
+  inventoryGroups: SetupInventoryGroupRow[]
+  courses: SetupCourseRow[]
+} {
+  if (template === "sailing_school_two_boats") {
+    return {
+      timezone: "Europe/Berlin",
+      defaultTimes: DEFAULT_TIMES_CSV,
+      inventoryGroups: cloneInventoryGroups(SAILING_PRESET_INVENTORY_GROUPS),
+      courses: cloneCourses(SAILING_PRESET_COURSES),
+    }
+  }
+
+  return {
+    timezone: "Europe/Berlin",
+    defaultTimes: DEFAULT_TIMES_CSV,
+    inventoryGroups: [],
+    courses: [],
+  }
+}
 
 function splitCsv(value: string): string[] {
   return value
@@ -218,6 +262,140 @@ function toLocalDate(value: number): string {
   return date.toLocaleString()
 }
 
+interface BookingSetupInterviewQuestion {
+  id: string
+  title: string
+  description: string
+  fieldPath: string
+  answerType: string
+  required: boolean
+  defaultValue?: unknown
+  options?: string[]
+}
+
+function normalizeCatalogFromUnknown(
+  value: unknown,
+  fallbackTimesCsv: string
+): {
+  timezone?: string
+  defaultTimesCsv?: string
+  inventoryGroups?: SetupInventoryGroupRow[]
+  courses?: SetupCourseRow[]
+} | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null
+  }
+
+  const record = value as Record<string, unknown>
+  const timezone = normalizeOptionalString(record.timezone) || undefined
+  const defaultTimes = normalizeTimeSlotsFromUnknown(record.defaultAvailableTimes)
+  const fallbackTimes = defaultTimes.length > 0
+    ? defaultTimes.join(",")
+    : fallbackTimesCsv
+
+  const inventoryGroups = Array.isArray(record.inventoryGroups)
+    ? record.inventoryGroups
+      .map((rawGroup) => {
+        if (!rawGroup || typeof rawGroup !== "object") {
+          return null
+        }
+        const group = rawGroup as Record<string, unknown>
+        const id = normalizeOptionalString(group.id)?.toLowerCase()
+        const label = normalizeOptionalString(group.label)
+        const capacity = normalizePositiveInteger(group.capacity)
+        if (!id || !label || !capacity) {
+          return null
+        }
+        return { id, label, capacity }
+      })
+      .filter((entry): entry is SetupInventoryGroupRow => Boolean(entry))
+    : undefined
+
+  const courses = Array.isArray(record.courses)
+    ? record.courses
+      .map((rawCourse) => {
+        if (!rawCourse || typeof rawCourse !== "object") {
+          return null
+        }
+        const course = rawCourse as Record<string, unknown>
+        const courseId = normalizeOptionalString(
+          course.courseId || course.id
+        )?.toLowerCase()
+        const bookingDurationMinutes = normalizePositiveInteger(
+          course.bookingDurationMinutes
+        )
+        if (!courseId || !bookingDurationMinutes) {
+          return null
+        }
+        const displayName = normalizeOptionalString(course.displayName) || courseId
+        const availableTimes = normalizeTimeSlotsFromUnknown(course.availableTimes)
+        return {
+          courseId,
+          displayName,
+          bookingDurationMinutes,
+          availableTimes:
+            availableTimes.length > 0 ? availableTimes.join(",") : fallbackTimes,
+          bookingResourceId: normalizeOptionalString(course.bookingResourceId) || "",
+          checkoutProductId: normalizeOptionalString(course.checkoutProductId) || "",
+          checkoutPublicUrl: normalizeOptionalString(course.checkoutPublicUrl) || "",
+          isMultiDay: course.isMultiDay === true,
+        }
+      })
+      .filter((entry): entry is SetupCourseRow => Boolean(entry))
+    : undefined
+
+  const hasValues = Boolean(
+    timezone
+    || defaultTimes.length > 0
+    || (inventoryGroups && inventoryGroups.length >= 0)
+    || (courses && courses.length >= 0)
+  )
+  if (!hasValues) {
+    return null
+  }
+
+  return {
+    timezone,
+    defaultTimesCsv: defaultTimes.length > 0 ? defaultTimes.join(",") : undefined,
+    inventoryGroups,
+    courses,
+  }
+}
+
+function resolveCatalogFromActionData(
+  data: ConfigureBookingWorkflowResult["data"],
+  fallbackTimesCsv: string
+) {
+  if (!data || typeof data !== "object") {
+    return null
+  }
+  const topLevel = normalizeCatalogFromUnknown(
+    (data as Record<string, unknown>).catalog,
+    fallbackTimesCsv
+  )
+  if (topLevel) {
+    return topLevel
+  }
+
+  const suggested = normalizeCatalogFromUnknown(
+    (data as Record<string, unknown>).suggestedCatalog,
+    fallbackTimesCsv
+  )
+  if (suggested) {
+    return suggested
+  }
+
+  const payload = (data as Record<string, unknown>).payload
+  if (payload && typeof payload === "object" && !Array.isArray(payload)) {
+    return normalizeCatalogFromUnknown(
+      (payload as Record<string, unknown>).runtimeConfig,
+      fallbackTimesCsv
+    )
+  }
+
+  return null
+}
+
 export function BookingSetupWizard() {
   const { sessionId } = useAuth()
   const currentOrganization = useCurrentOrganization()
@@ -229,24 +407,29 @@ export function BookingSetupWizard() {
     _api?.ai?.tools?.bookingWorkflowTool?.executeConfigureBookingWorkflow
   ) as ConfigureBookingWorkflowAction
 
+  const customPreset = useMemo(() => resolveTemplatePreset("custom"), [])
   const [setupTemplate, setSetupTemplate] =
-    useState<SetupTemplate>("sailing_school_two_boats")
+    useState<SetupTemplate>("custom")
   const [appSlug, setAppSlug] = useState("my-app")
   const [surfaceType, setSurfaceType] = useState("booking")
   const [surfaceKey, setSurfaceKey] = useState("default")
-  const [timezone, setTimezone] = useState("Europe/Berlin")
-  const [defaultTimes, setDefaultTimes] = useState(
-    "09:00,10:00,11:00,13:00,14:00,15:00"
-  )
+  const [timezone, setTimezone] = useState(customPreset.timezone)
+  const [defaultTimes, setDefaultTimes] = useState(customPreset.defaultTimes)
   const [bindingEnabled, setBindingEnabled] = useState(true)
   const [bindingPriority, setBindingPriority] = useState(100)
   const [inventoryGroups, setInventoryGroups] =
-    useState<SetupInventoryGroupRow[]>(DEFAULT_INVENTORY_GROUPS)
-  const [courses, setCourses] = useState<SetupCourseRow[]>(DEFAULT_COURSES)
+    useState<SetupInventoryGroupRow[]>(customPreset.inventoryGroups)
+  const [courses, setCourses] = useState<SetupCourseRow[]>(customPreset.courses)
 
   const [diagnostics, setDiagnostics] = useState<BookingSetupDiagnostic[]>([])
   const [warnings, setWarnings] = useState<string[]>([])
   const [bindings, setBindings] = useState<BookingSurfaceBindingRow[]>([])
+  const [interviewQuestions, setInterviewQuestions] = useState<
+    BookingSetupInterviewQuestion[]
+  >([])
+  const [interviewHints, setInterviewHints] = useState<string[]>([])
+  const [requiredSequence, setRequiredSequence] = useState<string[]>([])
+  const [nextAction, setNextAction] = useState<string | null>(null)
   const [envMapping, setEnvMapping] = useState<Record<string, string>>({})
   const [bookingCatalogJson, setBookingCatalogJson] = useState("")
   const [legacyBindingsJson, setLegacyBindingsJson] = useState("")
@@ -268,13 +451,13 @@ export function BookingSetupWizard() {
     if (Array.isArray(availableApps)) {
       for (const app of availableApps) {
         if (typeof app?.code === "string" && app.code.trim()) {
-          slugs.add(app.code.trim())
+          slugs.add(app.code.trim().toLowerCase())
         }
       }
     }
 
     for (const binding of bindings) {
-      const slug = binding.appSlug?.trim()
+      const slug = binding.appSlug?.trim().toLowerCase()
       if (slug) {
         slugs.add(slug)
       }
@@ -285,7 +468,9 @@ export function BookingSetupWizard() {
     )
   }, [availableApps, bindings])
 
-  const normalizedAppSlug = appSlug.trim()
+  const normalizedAppSlug = appSlug.trim().toLowerCase()
+  const normalizedSurfaceType = surfaceType.trim().toLowerCase()
+  const normalizedSurfaceKey = surfaceKey.trim().toLowerCase()
   const appSlugIsCustom =
     !normalizedAppSlug || !registeredAppSlugs.includes(normalizedAppSlug)
   const appSlugSelectValue = appSlugIsCustom ? "__custom__" : normalizedAppSlug
@@ -320,18 +505,19 @@ export function BookingSetupWizard() {
     () =>
       [
         "I am org owner. Configure universal booking setup for my app.",
-        `appSlug=${appSlug}`,
-        `surface=${surfaceType}/${surfaceKey}`,
+        `appSlug=${normalizedAppSlug || "my-app"}`,
+        `surface=${normalizedSurfaceType || "booking"}/${normalizedSurfaceKey || "default"}`,
         `template=${setupTemplate}`,
         "",
-        "Run:",
-        "1) configure_booking_workflow(action=generate_booking_setup_blueprint)",
-        "2) fill missing course->bookingResourceId + checkoutProductId and optional checkoutPublicUrl from diagnostics",
-        "3) configure_booking_workflow(action=upsert_booking_surface_binding, mode=execute)",
-        "4) configure_booking_workflow(action=list_booking_surface_bindings)",
-        "5) return PASS/FAIL with unresolved warnings.",
+        "Deterministic sequence:",
+        "1) configure_booking_workflow(action=bootstrap_booking_surface, mode=interview)",
+        "2) Ask only for missing inventory/profile/pricing inputs.",
+        "3) Return one booking_writeback_v1 block with merged wizard fields.",
+        "4) configure_booking_workflow(action=bootstrap_booking_surface, mode=execute, bootstrapInput=<answers>)",
+        "5) configure_booking_workflow(action=list_booking_surface_bindings)",
+        "6) return PASS/FAIL with unresolved warnings and exact next action.",
       ].join("\n"),
-    [appSlug, surfaceType, surfaceKey, setupTemplate]
+    [normalizedAppSlug, normalizedSurfaceType, normalizedSurfaceKey, setupTemplate]
   )
 
   const canRun = Boolean(sessionId)
@@ -364,19 +550,19 @@ export function BookingSetupWizard() {
 
         const incomingAppSlug = normalizeOptionalString(detail.appSlug)
         if (incomingAppSlug) {
-          setAppSlug(incomingAppSlug)
+          setAppSlug(incomingAppSlug.toLowerCase())
           appliedCount += 1
         }
 
         const incomingSurfaceType = normalizeOptionalString(detail.surfaceType)
         if (incomingSurfaceType) {
-          setSurfaceType(incomingSurfaceType)
+          setSurfaceType(incomingSurfaceType.toLowerCase())
           appliedCount += 1
         }
 
         const incomingSurfaceKey = normalizeOptionalString(detail.surfaceKey)
         if (incomingSurfaceKey) {
-          setSurfaceKey(incomingSurfaceKey)
+          setSurfaceKey(incomingSurfaceKey.toLowerCase())
           appliedCount += 1
         }
 
@@ -520,6 +706,25 @@ export function BookingSetupWizard() {
     return unsubscribe
   }, [currentOrganizationId, defaultTimes, notification, sessionId])
 
+  function applyTemplateDefaults(template: SetupTemplate) {
+    const preset = resolveTemplatePreset(template)
+    setSetupTemplate(template)
+    setTimezone(preset.timezone)
+    setDefaultTimes(preset.defaultTimes)
+    setInventoryGroups(preset.inventoryGroups)
+    setCourses(preset.courses)
+    setDiagnostics([])
+    setWarnings([])
+    setInterviewQuestions([])
+    setInterviewHints([])
+    setRequiredSequence([])
+    setNextAction(null)
+    setStatusMessage(
+      `Template defaults loaded for "${template}".`
+    )
+    setStatusError(null)
+  }
+
   function patchInventoryGroup(
     index: number,
     updates: Partial<SetupInventoryGroupRow>
@@ -553,6 +758,19 @@ export function BookingSetupWizard() {
 
   function updateFromActionResult(result: ConfigureBookingWorkflowResult) {
     const resultData = result.data || {}
+    const normalizedCatalog = resolveCatalogFromActionData(resultData, defaultTimes)
+    if (normalizedCatalog?.timezone) {
+      setTimezone(normalizedCatalog.timezone)
+    }
+    if (normalizedCatalog?.defaultTimesCsv) {
+      setDefaultTimes(normalizedCatalog.defaultTimesCsv)
+    }
+    if (Array.isArray(normalizedCatalog?.inventoryGroups)) {
+      setInventoryGroups(normalizedCatalog.inventoryGroups)
+    }
+    if (Array.isArray(normalizedCatalog?.courses)) {
+      setCourses(normalizedCatalog.courses)
+    }
     if (Array.isArray(resultData.diagnostics)) {
       setDiagnostics(resultData.diagnostics)
     }
@@ -562,6 +780,49 @@ export function BookingSetupWizard() {
     if (Array.isArray(resultData.bindings)) {
       setBindings(resultData.bindings)
     }
+    if (Array.isArray(resultData.questions)) {
+      const questions = resultData.questions
+        .filter((question): question is BookingSetupInterviewQuestion => {
+          if (!question || typeof question !== "object") {
+            return false
+          }
+          const record = question as unknown as Record<string, unknown>
+          return typeof record.id === "string"
+            && typeof record.title === "string"
+            && typeof record.description === "string"
+            && typeof record.fieldPath === "string"
+            && typeof record.answerType === "string"
+            && typeof record.required === "boolean"
+        })
+      setInterviewQuestions(questions)
+    } else {
+      setInterviewQuestions([])
+    }
+    if (Array.isArray(resultData.hints)) {
+      setInterviewHints(
+        resultData.hints
+          .filter((hint): hint is string => typeof hint === "string")
+          .map((hint) => hint.trim())
+          .filter((hint) => hint.length > 0)
+      )
+    } else {
+      setInterviewHints([])
+    }
+    if (Array.isArray(resultData.requiredSequence)) {
+      setRequiredSequence(
+        resultData.requiredSequence
+          .filter((step): step is string => typeof step === "string")
+          .map((step) => step.trim())
+          .filter((step) => step.length > 0)
+      )
+    } else {
+      setRequiredSequence([])
+    }
+    const resultNextAction =
+      typeof resultData.nextAction === "string"
+        ? resultData.nextAction.trim()
+        : ""
+    setNextAction(resultNextAction || null)
     if (resultData.envMapping && typeof resultData.envMapping === "object") {
       setEnvMapping(resultData.envMapping as Record<string, string>)
     }
@@ -592,14 +853,20 @@ export function BookingSetupWizard() {
     setIsRunning(true)
     setStatusError(null)
     setStatusMessage(null)
+    const normalizedAppSlug = appSlug.trim().toLowerCase() || "my-app"
+    const normalizedSurfaceType = surfaceType.trim().toLowerCase() || "booking"
+    const normalizedSurfaceKey = surfaceKey.trim().toLowerCase() || "default"
+    const effectiveMode =
+      mode
+      || (action === "bootstrap_booking_surface" ? "interview" : "preview")
     try {
       const result = await executeConfigureBookingWorkflow({
         sessionId,
         action,
-        mode,
-        appSlug,
-        surfaceType,
-        surfaceKey,
+        mode: effectiveMode,
+        appSlug: normalizedAppSlug,
+        surfaceType: normalizedSurfaceType,
+        surfaceKey: normalizedSurfaceKey,
         bindingEnabled,
         priority: bindingPriority,
         setupTemplate,
@@ -608,6 +875,7 @@ export function BookingSetupWizard() {
         bootstrapInput:
           action === "bootstrap_booking_surface"
             ? {
+                catalogInput,
                 checkoutStrategy: "per_course",
                 publishCheckouts: true,
                 reuseExistingMappings: true,
@@ -621,6 +889,9 @@ export function BookingSetupWizard() {
 
       updateFromActionResult(result)
       setStatusMessage(result.message || "Action completed.")
+      setAppSlug(normalizedAppSlug)
+      setSurfaceType(normalizedSurfaceType)
+      setSurfaceKey(normalizedSurfaceKey)
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Setup action failed"
@@ -652,9 +923,9 @@ export function BookingSetupWizard() {
     const encodedPayload = encodeUtf8Base64({
       contractVersion: "booking_setup_chat_context_v1",
       requestedAt: Date.now(),
-      appSlug,
-      surfaceType,
-      surfaceKey,
+      appSlug: normalizedAppSlug || "my-app",
+      surfaceType: normalizedSurfaceType || "booking",
+      surfaceKey: normalizedSurfaceKey || "default",
       setupTemplate,
       bindingEnabled,
       priority: bindingPriority,
@@ -668,6 +939,10 @@ export function BookingSetupWizard() {
         warnings: diagnostic.warnings,
       })),
       warnings,
+      requiredSequence,
+      nextAction,
+      interviewQuestions,
+      interviewHints,
       operatorPrompt,
     })
 
@@ -713,10 +988,10 @@ export function BookingSetupWizard() {
   return (
     <div className="space-y-4 pb-6">
       <div
-        className="border-2 p-4"
+        className="rounded-xl border p-4"
         style={{
-          borderColor: "var(--shell-border)",
-          background: "var(--shell-surface-elevated)",
+          borderColor: "var(--window-document-border)",
+          background: "var(--desktop-shell-accent)",
         }}
       >
         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
@@ -730,7 +1005,7 @@ export function BookingSetupWizard() {
           <div className="flex items-center gap-2 self-start sm:self-auto">
             <button
               type="button"
-              className="desktop-interior-button px-2 py-1 text-[10px] sm:text-xs flex items-center gap-1"
+              className="desktop-interior-button px-2 py-1 text-xs sm:text-xs flex items-center gap-1"
               onClick={openBookingSetupChat}
               disabled={isRunning || !canRun}
               title="Open AI Assistant for booking setup"
@@ -757,10 +1032,10 @@ export function BookingSetupWizard() {
 
       {!canRun && (
         <div
-          className="border-2 p-3 text-xs flex items-center gap-2"
+          className="rounded-lg border p-3 text-xs flex items-center gap-2"
           style={{
             borderColor: "var(--warning)",
-            background: "var(--shell-surface-elevated)",
+            background: "var(--desktop-shell-accent)",
             color: "var(--warning)",
           }}
         >
@@ -773,10 +1048,10 @@ export function BookingSetupWizard() {
       )}
 
       <div
-        className="border-2 p-4 space-y-3"
+        className="rounded-xl border p-4 space-y-3"
         style={{
-          borderColor: "var(--shell-border)",
-          background: "var(--shell-surface-elevated)",
+          borderColor: "var(--window-document-border)",
+          background: "var(--desktop-shell-accent)",
         }}
       >
         <h3 className="font-pixel text-xs">
@@ -793,18 +1068,30 @@ export function BookingSetupWizard() {
               onChange={(event) =>
                 setSetupTemplate(event.target.value as SetupTemplate)
               }
-              className="px-2 py-1.5 border-2 text-xs"
+              className="px-2 py-1.5 border text-xs"
               style={{
-                borderColor: "var(--shell-border)",
-                background: "var(--shell-input-surface)",
-                color: "var(--shell-input-text)",
+                borderColor: "var(--window-document-border)",
+                background: "var(--window-document-bg)",
+                color: "var(--window-document-text)",
               }}
             >
+              <option value="custom">custom</option>
               <option value="sailing_school_two_boats">
                 sailing_school_two_boats
               </option>
-              <option value="custom">custom</option>
             </select>
+            <button
+              type="button"
+              className="desktop-interior-button px-2 py-1 text-xs self-start"
+              onClick={() => applyTemplateDefaults(setupTemplate)}
+              disabled={isRunning}
+            >
+              Load template defaults
+            </button>
+            <span style={{ color: "var(--neutral-gray)" }}>
+              `custom` keeps catalog schema generic. `sailing_school_two_boats`
+              is a preset only.
+            </span>
           </label>
           <label className="text-xs flex flex-col gap-1">
             App Slug
@@ -820,11 +1107,11 @@ export function BookingSetupWizard() {
                 }
                 setAppSlug(value)
               }}
-              className="px-2 py-1.5 border-2 text-xs"
+              className="px-2 py-1.5 border text-xs"
               style={{
-                borderColor: "var(--shell-border)",
-                background: "var(--shell-input-surface)",
-                color: "var(--shell-input-text)",
+                borderColor: "var(--window-document-border)",
+                background: "var(--window-document-bg)",
+                color: "var(--window-document-text)",
               }}
             >
               {registeredAppSlugs.map((slug) => (
@@ -842,12 +1129,12 @@ export function BookingSetupWizard() {
             {appSlugIsCustom && (
               <input
                 value={appSlug}
-                onChange={(event) => setAppSlug(event.target.value)}
-                className="px-2 py-1.5 border-2 text-xs"
+                onChange={(event) => setAppSlug(event.target.value.toLowerCase())}
+                className="px-2 py-1.5 border text-xs"
                 style={{
-                  borderColor: "var(--shell-border)",
-                  background: "var(--shell-input-surface)",
-                  color: "var(--shell-input-text)",
+                  borderColor: "var(--window-document-border)",
+                  background: "var(--window-document-bg)",
+                  color: "var(--window-document-text)",
                 }}
                 placeholder="Custom app slug"
               />
@@ -857,12 +1144,12 @@ export function BookingSetupWizard() {
             Surface Type
             <input
               value={surfaceType}
-              onChange={(event) => setSurfaceType(event.target.value)}
-              className="px-2 py-1.5 border-2 text-xs"
+              onChange={(event) => setSurfaceType(event.target.value.toLowerCase())}
+              className="px-2 py-1.5 border text-xs"
               style={{
-                borderColor: "var(--shell-border)",
-                background: "var(--shell-input-surface)",
-                color: "var(--shell-input-text)",
+                borderColor: "var(--window-document-border)",
+                background: "var(--window-document-bg)",
+                color: "var(--window-document-text)",
               }}
             />
           </label>
@@ -870,12 +1157,12 @@ export function BookingSetupWizard() {
             Surface Key
             <input
               value={surfaceKey}
-              onChange={(event) => setSurfaceKey(event.target.value)}
-              className="px-2 py-1.5 border-2 text-xs"
+              onChange={(event) => setSurfaceKey(event.target.value.toLowerCase())}
+              className="px-2 py-1.5 border text-xs"
               style={{
-                borderColor: "var(--shell-border)",
-                background: "var(--shell-input-surface)",
-                color: "var(--shell-input-text)",
+                borderColor: "var(--window-document-border)",
+                background: "var(--window-document-bg)",
+                color: "var(--window-document-text)",
               }}
             />
           </label>
@@ -884,11 +1171,11 @@ export function BookingSetupWizard() {
             <input
               value={timezone}
               onChange={(event) => setTimezone(event.target.value)}
-              className="px-2 py-1.5 border-2 text-xs"
+              className="px-2 py-1.5 border text-xs"
               style={{
-                borderColor: "var(--shell-border)",
-                background: "var(--shell-input-surface)",
-                color: "var(--shell-input-text)",
+                borderColor: "var(--window-document-border)",
+                background: "var(--window-document-bg)",
+                color: "var(--window-document-text)",
               }}
             />
           </label>
@@ -897,11 +1184,11 @@ export function BookingSetupWizard() {
             <input
               value={defaultTimes}
               onChange={(event) => setDefaultTimes(event.target.value)}
-              className="px-2 py-1.5 border-2 text-xs"
+              className="px-2 py-1.5 border text-xs"
               style={{
-                borderColor: "var(--shell-border)",
-                background: "var(--shell-input-surface)",
-                color: "var(--shell-input-text)",
+                borderColor: "var(--window-document-border)",
+                background: "var(--window-document-bg)",
+                color: "var(--window-document-text)",
               }}
             />
           </label>
@@ -915,11 +1202,11 @@ export function BookingSetupWizard() {
                   Number.parseInt(event.target.value || "100", 10) || 100
                 )
               }
-              className="px-2 py-1.5 border-2 text-xs"
+              className="px-2 py-1.5 border text-xs"
               style={{
-                borderColor: "var(--shell-border)",
-                background: "var(--shell-input-surface)",
-                color: "var(--shell-input-text)",
+                borderColor: "var(--window-document-border)",
+                background: "var(--window-document-bg)",
+                color: "var(--window-document-text)",
               }}
             />
           </label>
@@ -935,10 +1222,10 @@ export function BookingSetupWizard() {
       </div>
 
       <div
-        className="border-2 p-4 space-y-3"
+        className="rounded-xl border p-4 space-y-3"
         style={{
-          borderColor: "var(--shell-border)",
-          background: "var(--shell-surface-elevated)",
+          borderColor: "var(--window-document-border)",
+          background: "var(--desktop-shell-accent)",
         }}
       >
         <div className="flex items-center justify-between">
@@ -968,11 +1255,11 @@ export function BookingSetupWizard() {
               onChange={(event) =>
                 patchInventoryGroup(index, { id: event.target.value })
               }
-              className="sm:col-span-4 px-2 py-1.5 border-2 text-xs"
+              className="sm:col-span-4 px-2 py-1.5 border text-xs"
               style={{
-                borderColor: "var(--shell-border)",
-                background: "var(--shell-input-surface)",
-                color: "var(--shell-input-text)",
+                borderColor: "var(--window-document-border)",
+                background: "var(--window-document-bg)",
+                color: "var(--window-document-text)",
               }}
               placeholder="group id"
             />
@@ -981,11 +1268,11 @@ export function BookingSetupWizard() {
               onChange={(event) =>
                 patchInventoryGroup(index, { label: event.target.value })
               }
-              className="sm:col-span-5 px-2 py-1.5 border-2 text-xs"
+              className="sm:col-span-5 px-2 py-1.5 border text-xs"
               style={{
-                borderColor: "var(--shell-border)",
-                background: "var(--shell-input-surface)",
-                color: "var(--shell-input-text)",
+                borderColor: "var(--window-document-border)",
+                background: "var(--window-document-bg)",
+                color: "var(--window-document-text)",
               }}
               placeholder="group label"
             />
@@ -999,11 +1286,11 @@ export function BookingSetupWizard() {
                     Number.parseInt(event.target.value || "1", 10) || 1,
                 })
               }
-              className="sm:col-span-2 px-2 py-1.5 border-2 text-xs"
+              className="sm:col-span-2 px-2 py-1.5 border text-xs"
               style={{
-                borderColor: "var(--shell-border)",
-                background: "var(--shell-input-surface)",
-                color: "var(--shell-input-text)",
+                borderColor: "var(--window-document-border)",
+                background: "var(--window-document-bg)",
+                color: "var(--window-document-text)",
               }}
             />
             <button
@@ -1023,10 +1310,10 @@ export function BookingSetupWizard() {
       </div>
 
       <div
-        className="border-2 p-4 space-y-3"
+        className="rounded-xl border p-4 space-y-3"
         style={{
-          borderColor: "var(--shell-border)",
-          background: "var(--shell-surface-elevated)",
+          borderColor: "var(--window-document-border)",
+          background: "var(--desktop-shell-accent)",
         }}
       >
         <div className="flex items-center justify-between">
@@ -1058,7 +1345,7 @@ export function BookingSetupWizard() {
           <div
             key={`${course.courseId}-${index}`}
             className="border p-3 space-y-2"
-            style={{ borderColor: "var(--shell-border)" }}
+            style={{ borderColor: "var(--window-document-border)" }}
           >
             <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
               <input
@@ -1066,11 +1353,11 @@ export function BookingSetupWizard() {
                 onChange={(event) =>
                   patchCourse(index, { courseId: event.target.value })
                 }
-                className="px-2 py-1.5 border-2 text-xs"
+                className="px-2 py-1.5 border text-xs"
                 style={{
-                  borderColor: "var(--shell-border)",
-                  background: "var(--shell-input-surface)",
-                  color: "var(--shell-input-text)",
+                  borderColor: "var(--window-document-border)",
+                  background: "var(--window-document-bg)",
+                  color: "var(--window-document-text)",
                 }}
                 placeholder="profile id"
               />
@@ -1079,11 +1366,11 @@ export function BookingSetupWizard() {
                 onChange={(event) =>
                   patchCourse(index, { displayName: event.target.value })
                 }
-                className="px-2 py-1.5 border-2 text-xs sm:col-span-2"
+                className="px-2 py-1.5 border text-xs sm:col-span-2"
                 style={{
-                  borderColor: "var(--shell-border)",
-                  background: "var(--shell-input-surface)",
-                  color: "var(--shell-input-text)",
+                  borderColor: "var(--window-document-border)",
+                  background: "var(--window-document-bg)",
+                  color: "var(--window-document-text)",
                 }}
                 placeholder="display name"
               />
@@ -1097,11 +1384,11 @@ export function BookingSetupWizard() {
                       Number.parseInt(event.target.value || "1", 10) || 1,
                   })
                 }
-                className="px-2 py-1.5 border-2 text-xs"
+                className="px-2 py-1.5 border text-xs"
                 style={{
-                  borderColor: "var(--shell-border)",
-                  background: "var(--shell-input-surface)",
-                  color: "var(--shell-input-text)",
+                  borderColor: "var(--window-document-border)",
+                  background: "var(--window-document-bg)",
+                  color: "var(--window-document-text)",
                 }}
                 placeholder="duration"
               />
@@ -1112,11 +1399,11 @@ export function BookingSetupWizard() {
                 onChange={(event) =>
                   patchCourse(index, { availableTimes: event.target.value })
                 }
-                className="px-2 py-1.5 border-2 text-xs"
+                className="px-2 py-1.5 border text-xs"
                 style={{
-                  borderColor: "var(--shell-border)",
-                  background: "var(--shell-input-surface)",
-                  color: "var(--shell-input-text)",
+                  borderColor: "var(--window-document-border)",
+                  background: "var(--window-document-bg)",
+                  color: "var(--window-document-text)",
                 }}
                 placeholder="available times CSV"
               />
@@ -1127,11 +1414,11 @@ export function BookingSetupWizard() {
                     bookingResourceId: event.target.value,
                   })
                 }
-                className="px-2 py-1.5 border-2 text-xs"
+                className="px-2 py-1.5 border text-xs"
                 style={{
-                  borderColor: "var(--shell-border)",
-                  background: "var(--shell-input-surface)",
-                  color: "var(--shell-input-text)",
+                  borderColor: "var(--window-document-border)",
+                  background: "var(--window-document-bg)",
+                  color: "var(--window-document-text)",
                 }}
                 placeholder="bookingResourceId"
               />
@@ -1142,11 +1429,11 @@ export function BookingSetupWizard() {
                     checkoutProductId: event.target.value,
                   })
                 }
-                className="px-2 py-1.5 border-2 text-xs"
+                className="px-2 py-1.5 border text-xs"
                 style={{
-                  borderColor: "var(--shell-border)",
-                  background: "var(--shell-input-surface)",
-                  color: "var(--shell-input-text)",
+                  borderColor: "var(--window-document-border)",
+                  background: "var(--window-document-bg)",
+                  color: "var(--window-document-text)",
                 }}
                 placeholder="checkoutProductId"
               />
@@ -1159,11 +1446,11 @@ export function BookingSetupWizard() {
                     checkoutPublicUrl: event.target.value,
                   })
                 }
-                className="px-2 py-1.5 border-2 text-xs sm:col-span-3"
+                className="px-2 py-1.5 border text-xs sm:col-span-3"
                 style={{
-                  borderColor: "var(--shell-border)",
-                  background: "var(--shell-input-surface)",
-                  color: "var(--shell-input-text)",
+                  borderColor: "var(--window-document-border)",
+                  background: "var(--window-document-bg)",
+                  color: "var(--window-document-text)",
                 }}
                 placeholder="checkoutPublicUrl (optional)"
               />
@@ -1231,14 +1518,34 @@ export function BookingSetupWizard() {
         >
           List Bindings
         </button>
+        <button
+          type="button"
+          className="desktop-interior-button px-3 py-1.5 text-xs"
+          onClick={() =>
+            void runWorkflowAction("bootstrap_booking_surface", "interview")
+          }
+          disabled={isRunning || !canRun}
+        >
+          Bootstrap Interview
+        </button>
+        <button
+          type="button"
+          className="desktop-interior-button px-3 py-1.5 text-xs"
+          onClick={() =>
+            void runWorkflowAction("bootstrap_booking_surface", "execute")
+          }
+          disabled={isRunning || !canRun}
+        >
+          Bootstrap Execute
+        </button>
       </div>
 
       {(statusMessage || statusError) && (
         <div
-          className="border-2 p-3 text-xs"
+          className="rounded-lg border p-3 text-xs"
           style={{
             borderColor: statusError ? "var(--error-bg)" : "var(--success-bg)",
-            background: "var(--shell-surface-elevated)",
+            background: "var(--desktop-shell-accent)",
             color: statusError ? "var(--error-bg)" : "var(--success-bg)",
           }}
         >
@@ -1256,12 +1563,69 @@ export function BookingSetupWizard() {
         </div>
       )}
 
+      {(interviewQuestions.length > 0 || interviewHints.length > 0 || requiredSequence.length > 0 || nextAction) && (
+        <div
+          className="border p-4 space-y-2"
+          style={{
+            borderColor: "var(--window-document-border)",
+            background: "var(--desktop-shell-accent)",
+          }}
+        >
+          <h3 className="font-pixel text-xs">Interview / Execute Flow</h3>
+          {requiredSequence.length > 0 && (
+            <div className="text-xs" style={{ color: "var(--desktop-menu-text-muted)" }}>
+              sequence: {requiredSequence.join(" -> ")}
+            </div>
+          )}
+          {nextAction && (
+            <div className="text-xs" style={{ color: "var(--window-document-text)" }}>
+              next: {nextAction}
+            </div>
+          )}
+          {interviewQuestions.length > 0 && (
+            <div className="space-y-2">
+              {interviewQuestions.map((question) => (
+                <div
+                  key={question.id}
+                  className="border p-2 text-xs"
+                  style={{ borderColor: "var(--window-document-border)" }}
+                >
+                  <div className="font-semibold">
+                    {question.title} ({question.id})
+                  </div>
+                  <div>{question.description}</div>
+                  <div>
+                    field={question.fieldPath} type={question.answerType} required=
+                    {String(question.required)}
+                  </div>
+                  {typeof question.defaultValue !== "undefined" && (
+                    <div style={{ color: "var(--desktop-menu-text-muted)" }}>
+                      default={JSON.stringify(question.defaultValue)}
+                    </div>
+                  )}
+                  {Array.isArray(question.options) && question.options.length > 0 && (
+                    <div style={{ color: "var(--desktop-menu-text-muted)" }}>
+                      options={question.options.join(", ")}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+          {interviewHints.length > 0 && (
+            <div className="text-xs" style={{ color: "var(--desktop-menu-text-muted)" }}>
+              hints: {interviewHints.join(" | ")}
+            </div>
+          )}
+        </div>
+      )}
+
       {diagnostics.length > 0 && (
         <div
-          className="border-2 p-4 space-y-3"
+          className="rounded-xl border p-4 space-y-3"
           style={{
-            borderColor: "var(--shell-border)",
-            background: "var(--shell-surface-elevated)",
+            borderColor: "var(--window-document-border)",
+            background: "var(--desktop-shell-accent)",
           }}
         >
           <h3 className="font-pixel text-xs">Diagnostics</h3>
@@ -1269,7 +1633,7 @@ export function BookingSetupWizard() {
             <div
               key={diagnostic.courseId}
               className="border p-3 text-xs space-y-2"
-              style={{ borderColor: "var(--shell-border)" }}
+              style={{ borderColor: "var(--window-document-border)" }}
             >
               <div className="font-semibold">{diagnostic.displayName}</div>
               <div>courseId: {diagnostic.courseId}</div>
@@ -1281,7 +1645,7 @@ export function BookingSetupWizard() {
                 checkoutPublicUrl: {diagnostic.checkoutPublicUrl || "(optional)"}
               </div>
               {diagnostic.warnings.length > 0 && (
-                <div className="text-[11px]" style={{ color: "var(--warning)" }}>
+                <div className="text-xs" style={{ color: "var(--warning)" }}>
                   warnings: {diagnostic.warnings.join(", ")}
                 </div>
               )}
@@ -1290,7 +1654,7 @@ export function BookingSetupWizard() {
                   <button
                     type="button"
                     key={`resource-${diagnostic.courseId}-${candidate.id}`}
-                    className="desktop-interior-button px-2 py-1 text-[11px]"
+                    className="desktop-interior-button px-2 py-1 text-xs"
                     onClick={() =>
                       applyCandidate(
                         diagnostic.courseId,
@@ -1308,7 +1672,7 @@ export function BookingSetupWizard() {
                   <button
                     type="button"
                     key={`checkout-${diagnostic.courseId}-${candidate.id}`}
-                    className="desktop-interior-button px-2 py-1 text-[11px]"
+                    className="desktop-interior-button px-2 py-1 text-xs"
                     onClick={() =>
                       applyCandidate(
                         diagnostic.courseId,
@@ -1326,7 +1690,7 @@ export function BookingSetupWizard() {
                   <button
                     type="button"
                     key={`checkout-url-${diagnostic.courseId}-${candidateUrl}`}
-                    className="desktop-interior-button px-2 py-1 text-[11px]"
+                    className="desktop-interior-button px-2 py-1 text-xs"
                     onClick={() =>
                       applyCandidate(
                         diagnostic.courseId,
@@ -1342,7 +1706,7 @@ export function BookingSetupWizard() {
             </div>
           ))}
           {warnings.length > 0 && (
-            <div className="text-[11px]" style={{ color: "var(--warning)" }}>
+            <div className="text-xs" style={{ color: "var(--warning)" }}>
               {warnings.join(" | ")}
             </div>
           )}
@@ -1350,10 +1714,10 @@ export function BookingSetupWizard() {
       )}
 
       <div
-        className="border-2 p-4 space-y-2"
+        className="rounded-xl border p-4 space-y-2"
         style={{
-          borderColor: "var(--shell-border)",
-          background: "var(--shell-surface-elevated)",
+          borderColor: "var(--window-document-border)",
+          background: "var(--desktop-shell-accent)",
         }}
       >
         <h3 className="font-pixel text-xs">Env Mapping</h3>
@@ -1364,11 +1728,11 @@ export function BookingSetupWizard() {
             envMapping.SEGELSCHULE_BOOKING_CATALOG_JSON ||
             bookingCatalogJson
           }
-          className="w-full h-24 px-2 py-1.5 border-2 text-xs"
+          className="w-full h-24 px-2 py-1.5 border text-xs"
           style={{
-            borderColor: "var(--shell-border)",
-            background: "var(--shell-input-surface)",
-            color: "var(--shell-input-text)",
+            borderColor: "var(--window-document-border)",
+            background: "var(--window-document-bg)",
+            color: "var(--window-document-text)",
           }}
         />
         <div className="flex flex-wrap gap-2">
@@ -1417,10 +1781,10 @@ export function BookingSetupWizard() {
 
       {bindings.length > 0 && (
         <div
-          className="border-2 p-4 space-y-2"
+          className="rounded-xl border p-4 space-y-2"
           style={{
-            borderColor: "var(--shell-border)",
-            background: "var(--shell-surface-elevated)",
+            borderColor: "var(--window-document-border)",
+            background: "var(--desktop-shell-accent)",
           }}
         >
           <h3 className="font-pixel text-xs">Saved Bindings</h3>
@@ -1428,7 +1792,7 @@ export function BookingSetupWizard() {
             <div
               key={binding.bindingId}
               className="border p-2 text-xs"
-              style={{ borderColor: "var(--shell-border)" }}
+              style={{ borderColor: "var(--window-document-border)" }}
             >
               <div>{binding.name || binding.bindingId}</div>
               <div>
@@ -1445,42 +1809,42 @@ export function BookingSetupWizard() {
 
       {calendarReadinessJson && (
         <div
-          className="border-2 p-4 space-y-2"
+          className="rounded-xl border p-4 space-y-2"
           style={{
-            borderColor: "var(--shell-border)",
-            background: "var(--shell-surface-elevated)",
+            borderColor: "var(--window-document-border)",
+            background: "var(--desktop-shell-accent)",
           }}
         >
           <h3 className="font-pixel text-xs">Google Calendar Readiness</h3>
           <textarea
             readOnly
             value={calendarReadinessJson}
-            className="w-full h-32 px-2 py-1.5 border-2 text-xs"
+            className="w-full h-32 px-2 py-1.5 border text-xs"
             style={{
-              borderColor: "var(--shell-border)",
-              background: "var(--shell-input-surface)",
-              color: "var(--shell-input-text)",
+              borderColor: "var(--window-document-border)",
+              background: "var(--window-document-bg)",
+              color: "var(--window-document-text)",
             }}
           />
         </div>
       )}
 
       <div
-        className="border-2 p-4 space-y-2"
+        className="rounded-xl border p-4 space-y-2"
         style={{
-          borderColor: "var(--shell-border)",
-          background: "var(--shell-surface-elevated)",
+          borderColor: "var(--window-document-border)",
+          background: "var(--desktop-shell-accent)",
         }}
       >
         <h3 className="font-pixel text-xs">Agent Prompt</h3>
         <textarea
           readOnly
           value={operatorPrompt}
-          className="w-full h-28 px-2 py-1.5 border-2 text-xs"
+          className="w-full h-28 px-2 py-1.5 border text-xs"
           style={{
-            borderColor: "var(--shell-border)",
-            background: "var(--shell-input-surface)",
-            color: "var(--shell-input-text)",
+            borderColor: "var(--window-document-border)",
+            background: "var(--window-document-bg)",
+            color: "var(--window-document-text)",
           }}
         />
         <button

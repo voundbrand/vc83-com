@@ -647,6 +647,10 @@ export const completeResourceBooking = httpAction(async (ctx, request) => {
  *     phone?: string
  *   },
  *   participants?: number,           // Number of people (default: 1)
+ *   eventId?: string,                // Required for event_bound_seating
+ *   departureId?: string,            // Required for departure_bound
+ *   seatCount?: number,              // Seat count for event-bound bookings
+ *   passengerCount?: number,         // Passenger count for departure bookings
  *   notes?: string,                  // Customer notes
  *   source?: string                  // "web" | "mobile" | "v0-app"
  * }
@@ -724,6 +728,14 @@ export const customerCheckout = httpAction(async (ctx, request) => {
       timezone: body.timezone,
       customer: body.customer,
       participants: body.participants || 1,
+      ...(body.eventId ? { eventId: body.eventId as Id<"objects"> } : {}),
+      ...(body.departureId
+        ? { departureId: body.departureId as Id<"objects"> }
+        : {}),
+      ...(body.seatCount !== undefined ? { seatCount: body.seatCount } : {}),
+      ...(body.passengerCount !== undefined
+        ? { passengerCount: body.passengerCount }
+        : {}),
       notes: body.notes,
       source: body.source || "web",
     });
@@ -741,6 +753,12 @@ export const customerCheckout = httpAction(async (ctx, request) => {
   } catch (error) {
     console.error("API POST /resource-bookings/checkout error:", error);
     const errorMessage = error instanceof Error ? error.message : "Internal server error";
+    if (errorMessage.includes("required for")) {
+      return new Response(
+        JSON.stringify({ error: errorMessage }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      );
+    }
     if (errorMessage.includes("Conflict") || errorMessage.includes("capacity")) {
       return new Response(
         JSON.stringify({ error: errorMessage }),

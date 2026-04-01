@@ -7,6 +7,7 @@ import type { Id } from "../../../../convex/_generated/dataModel"
 import { useNotification } from "@/hooks/use-notification"
 import { useState } from "react"
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations"
+import { InteriorBadge } from "@/components/window-content/shared/interior-primitives"
 
 // Workaround for Convex deep type instantiation issue
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -44,8 +45,8 @@ export function BookingDetail({ bookingId }: BookingDetailProps) {
 
   if (!sessionId) {
     return (
-      <div className="p-4 text-center" style={{ color: 'var(--neutral-gray)' }}>
-        <p className="font-pixel text-sm">
+      <div className="p-4 text-center" style={{ color: "var(--desktop-menu-text-muted)" }}>
+        <p className="text-sm font-semibold" style={{ color: "var(--window-document-text)" }}>
           {tWithFallback("ui.app.booking.auth.login_required_title", "Please log in")}
         </p>
       </div>
@@ -54,7 +55,7 @@ export function BookingDetail({ bookingId }: BookingDetailProps) {
 
   if (!booking) {
     return (
-      <div className="p-4 text-center" style={{ color: 'var(--neutral-gray)' }}>
+      <div className="p-4 text-center" style={{ color: "var(--desktop-menu-text-muted)" }}>
         <p className="text-sm">
           {tWithFallback("ui.app.booking.detail.loading", "Loading booking details...")}
         </p>
@@ -97,6 +98,23 @@ export function BookingDetail({ bookingId }: BookingDetailProps) {
     }
   }
 
+  const getStatusTone = (status: string): "success" | "warn" | "error" | "info" | "default" => {
+    switch (status) {
+      case "pending_confirmation":
+        return "warn"
+      case "confirmed":
+        return "info"
+      case "checked_in":
+      case "completed":
+        return "success"
+      case "cancelled":
+      case "no_show":
+        return "error"
+      default:
+        return "default"
+    }
+  }
+
   const getStatusLabel = (status: string) => {
     switch (status) {
       case "pending_confirmation": return tWithFallback("ui.app.booking.status.pending_confirmation", "Pending Confirmation")
@@ -125,8 +143,8 @@ export function BookingDetail({ bookingId }: BookingDetailProps) {
   } as const
 
   const attentionPanelStyle = {
-    background: "var(--warning-bg)",
-    borderColor: "var(--window-document-border)",
+    background: "var(--tone-warning-soft)",
+    borderColor: "var(--tone-warning)",
   } as const
 
   const actionButtonClassName =
@@ -221,15 +239,13 @@ export function BookingDetail({ bookingId }: BookingDetailProps) {
           <h2 className="font-pixel text-sm truncate">{booking.customerName}</h2>
           <span className="shrink-0 text-xs capitalize opacity-70">{getSubtypeLabel(booking.subtype)}</span>
         </div>
-        <span
-          className="px-3 py-1 text-xs font-medium rounded-lg"
-          style={{
-            background: getStatusColor(booking.status),
-            color: 'white'
-          }}
+        <InteriorBadge
+          tone={getStatusTone(booking.status)}
+          className="px-3 py-1 text-xs font-medium"
+          style={{ background: getStatusColor(booking.status) }}
         >
           {getStatusLabel(booking.status)}
-        </span>
+        </InteriorBadge>
       </div>
 
       {/* Time Info */}
@@ -376,10 +392,10 @@ export function BookingDetail({ bookingId }: BookingDetailProps) {
           className="p-3 rounded-lg border"
           style={attentionPanelStyle}
         >
-          <p className="text-xs font-medium mb-1" style={{ color: "white" }}>
+          <p className="text-xs font-medium mb-1" style={{ color: "var(--tone-warning)" }}>
             {tWithFallback("ui.app.booking.detail.internal_notes", "Internal Notes")}
           </p>
-          <p className="text-sm" style={{ color: "white" }}>{booking.internalNotes}</p>
+          <p className="text-sm" style={{ color: "var(--window-document-text)" }}>{booking.internalNotes}</p>
         </div>
       )}
 
@@ -390,16 +406,14 @@ export function BookingDetail({ bookingId }: BookingDetailProps) {
             <button
               type="button"
               onClick={handleConfirm}
-              className={actionButtonClassName}
-              style={{ background: 'var(--success-bg)', color: 'white' }}
+              className={`${actionButtonClassName} desktop-interior-button-primary`}
             >
               <CheckCircle size={14} /> {tWithFallback("ui.app.booking.actions.confirm", "Confirm")}
             </button>
             <button
               type="button"
               onClick={() => setShowCancelDialog(true)}
-              className={actionButtonClassName}
-              style={{ background: 'var(--error-bg)', color: 'white' }}
+              className={`${actionButtonClassName} desktop-interior-button-danger`}
             >
               <XCircle size={14} /> {tWithFallback("ui.app.booking.actions.decline", "Decline")}
             </button>
@@ -411,24 +425,21 @@ export function BookingDetail({ bookingId }: BookingDetailProps) {
             <button
               type="button"
               onClick={handleCheckIn}
-              className={actionButtonClassName}
-              style={{ background: 'var(--success-bg)', color: 'white' }}
+              className={`${actionButtonClassName} desktop-interior-button-primary`}
             >
               <User size={14} /> {tWithFallback("ui.app.booking.actions.check_in", "Check In")}
             </button>
             <button
               type="button"
               onClick={handleNoShow}
-              className={actionButtonClassName}
-              style={{ background: 'var(--warning-bg)', color: 'white' }}
+              className={`${actionButtonClassName} desktop-interior-button-subtle`}
             >
               <AlertCircle size={14} /> {tWithFallback("ui.app.booking.actions.no_show", "No Show")}
             </button>
             <button
               type="button"
               onClick={() => setShowCancelDialog(true)}
-              className={actionButtonClassName}
-              style={{ background: 'var(--error-bg)', color: 'white' }}
+              className={`${actionButtonClassName} desktop-interior-button-danger`}
             >
               <XCircle size={14} /> {tWithFallback("ui.app.booking.actions.cancel", "Cancel")}
             </button>
@@ -439,68 +450,57 @@ export function BookingDetail({ bookingId }: BookingDetailProps) {
           <button
             type="button"
             onClick={handleComplete}
-            className={actionButtonClassName}
-            style={{ background: 'var(--success-bg)', color: 'white' }}
+            className={`${actionButtonClassName} desktop-interior-button-primary`}
           >
             <CheckCircle size={14} /> {tWithFallback("ui.app.booking.actions.complete", "Complete")}
           </button>
         )}
       </div>
 
-      {/* Cancel Dialog */}
+      {/* Inline Cancel Panel */}
       {showCancelDialog && (
         <div
-          className="fixed inset-0 flex items-center justify-center z-50 p-4"
-          style={{ background: "var(--modal-overlay-bg)" }}
-          onClick={() => setShowCancelDialog(false)}
+          className="p-4 rounded-xl border"
+          style={{
+            background: "var(--window-document-bg)",
+            borderColor: "var(--window-document-border)",
+          }}
+          role="region"
+          aria-labelledby="booking-cancel-dialog-title"
         >
-          <div
-            className="p-4 rounded-xl border max-w-md w-full"
+          <h3 id="booking-cancel-dialog-title" className="font-pixel text-sm mb-3">
+            {tWithFallback("ui.app.booking.cancel_dialog.title", "Cancel Booking")}
+          </h3>
+          <textarea
+            placeholder={tWithFallback("ui.app.booking.cancel_dialog.reason_placeholder", "Reason for cancellation (optional)")}
+            aria-label={tWithFallback("ui.app.booking.cancel_dialog.reason_aria_label", "Cancellation reason")}
+            className="desktop-interior-textarea w-full p-2 text-sm resize-none h-24"
             style={{
-              background: 'var(--window-document-bg)',
-              borderColor: 'var(--window-document-border)'
+              borderColor: "var(--window-document-border)",
+              background: "var(--window-document-bg)",
+              color: "var(--window-document-text)",
             }}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="booking-cancel-dialog-title"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3 id="booking-cancel-dialog-title" className="font-pixel text-sm mb-3">
-              {tWithFallback("ui.app.booking.cancel_dialog.title", "Cancel Booking")}
-            </h3>
-            <textarea
-              placeholder={tWithFallback("ui.app.booking.cancel_dialog.reason_placeholder", "Reason for cancellation (optional)")}
-              aria-label={tWithFallback("ui.app.booking.cancel_dialog.reason_aria_label", "Cancellation reason")}
-              className="w-full p-2 border text-sm resize-none h-24"
-              style={{
-                borderColor: 'var(--window-document-border)',
-                background: 'var(--shell-input-surface)',
-                color: 'var(--shell-input-text)'
+            value={cancellationReason}
+            onChange={(e) => setCancellationReason(e.target.value)}
+          />
+          <div className="flex gap-2 mt-3">
+            <button
+              type="button"
+              onClick={handleCancel}
+              className="desktop-interior-button desktop-interior-button-danger px-4 py-2 text-xs flex-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] focus-visible:ring-inset"
+            >
+              {tWithFallback("ui.app.booking.cancel_dialog.confirm_button", "Cancel Booking")}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setShowCancelDialog(false)
+                setCancellationReason("")
               }}
-              value={cancellationReason}
-              onChange={(e) => setCancellationReason(e.target.value)}
-            />
-            <div className="flex gap-2 mt-3">
-              <button
-                type="button"
-                onClick={handleCancel}
-                className="desktop-interior-button px-4 py-2 text-xs flex-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] focus-visible:ring-inset"
-                style={{ background: 'var(--error-bg)', color: 'white' }}
-              >
-                {tWithFallback("ui.app.booking.cancel_dialog.confirm_button", "Cancel Booking")}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowCancelDialog(false)
-                  setCancellationReason("")
-                }}
-                className="desktop-interior-button px-4 py-2 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] focus-visible:ring-inset"
-                style={{ background: 'var(--shell-button-surface)' }}
-              >
-                {tWithFallback("ui.app.booking.cancel_dialog.keep_button", "Keep Booking")}
-              </button>
-            </div>
+              className="desktop-interior-button desktop-interior-button-subtle px-4 py-2 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] focus-visible:ring-inset"
+            >
+              {tWithFallback("ui.app.booking.cancel_dialog.keep_button", "Keep Booking")}
+            </button>
           </div>
         </div>
       )}

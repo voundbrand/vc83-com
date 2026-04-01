@@ -61,6 +61,12 @@ const DEFAULT_BLUEPRINT_COURSES = [
 
 type SeatBookingSetupTemplate = "sailing_school_two_boats" | "custom";
 
+const BOOKING_BOOTSTRAP_SEQUENCE = [
+  "bootstrap_booking_surface(mode=interview)",
+  "bootstrap_booking_surface(mode=execute, bootstrapInput=<answers>)",
+  "list_booking_surface_bindings",
+] as const;
+
 interface SeatBookingCatalogInventoryGroup {
   id: string;
   label: string;
@@ -115,6 +121,33 @@ interface BookingBootstrapQuestion {
   options?: string[];
 }
 
+interface PlannerCalendarModeSnapshot {
+  hasConnection?: unknown;
+  status?: unknown;
+  syncEnabled?: unknown;
+  canWriteCalendar?: unknown;
+  calendarWriteReady?: unknown;
+  connectionType?: unknown;
+  email?: unknown;
+  lastSyncError?: unknown;
+}
+
+interface PlannerCalendarReadinessDiagnostic {
+  provider: string;
+  mode: "work" | "private";
+  connectionType: string | null;
+  email: string | null;
+  calendarWriteReady: boolean;
+  issues: string[];
+}
+
+interface PlannerCalendarReadinessSummary {
+  writeReady: boolean;
+  warningCodes: string[];
+  recommendations: string[];
+  checks: PlannerCalendarReadinessDiagnostic[];
+}
+
 function normalizeOptionalString(value: unknown): string | undefined {
   if (typeof value !== "string") {
     return undefined;
@@ -154,6 +187,158 @@ function normalizePositiveInteger(value: unknown): number | undefined {
     }
   }
   return undefined;
+}
+
+function normalizeUnknownRecord(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+  return value as Record<string, unknown>;
+}
+
+function buildCalendarReadinessRecommendations(issueCodes: string[]): string[] {
+  const recommendations = new Set<string>();
+  for (const issueCode of issueCodes) {
+    if (issueCode === "calendar_readiness_missing") {
+      recommendations.add(
+        "Run calendar onboarding first and reconnect Google/Microsoft before booking go-live."
+      );
+    }
+    if (issueCode === "calendar_write_not_ready") {
+      recommendations.add(
+        "At least one work/private calendar mode must report calendarWriteReady=true before launch."
+      );
+    }
+    if (issueCode === "calendar_connection_missing") {
+      recommendations.add(
+        "Connect a calendar provider to this org in OAuth settings and rerun diagnostics."
+      );
+    }
+    if (issueCode === "calendar_connection_inactive") {
+      recommendations.add(
+        "Re-activate the OAuth calendar connection (status must be active)."
+      );
+    }
+    if (issueCode === "calendar_sync_disabled") {
+      recommendations.add(
+        "Enable calendar sync on the connected provider."
+      );
+    }
+    if (issueCode === "calendar_write_scope_missing") {
+      recommendations.add(
+        "Re-authorize with write scopes (Google calendar/calendar.events or Microsoft Calendars.ReadWrite)."
+      );
+    }
+    if (issueCode === "calendar_last_sync_error") {
+      recommendations.add(
+        "Resolve the latest sync error and run one confirmed booking reconciliation check."
+      );
+    }
+  }
+  return Array.from(recommendations);
+}
+
+function buildPlannerCalendarModeDiagnostic(args: {
+  provider: string;
+  mode: "work" | "private";
+  modeSnapshot: unknown;
+}): PlannerCalendarReadinessDiagnostic {
+  const snapshot = normalizeUnknownRecord(args.modeSnapshot) || {};
+  const hasConnection = snapshot.hasConnection === true;
+  const status = normalizeOptionalString(snapshot.status) || null;
+  const syncEnabled = snapshot.syncEnabled === true;
+  const canWriteCalendar = snapshot.canWriteCalendar === true;
+  const calendarWriteReady = snapshot.calendarWriteReady === true;
+  const issues: string[] = [];
+
+  if (!hasConnection) {
+    issues.push("calendar_connection_missing");
+  }
+  if (hasConnection && status !== "active") {
+    issues.push("calendar_connection_inactive");
+  }
+  if (hasConnection && !syncEnabled) {
+    issues.push("calendar_sync_disabled");
+  }
+  if (hasConnection && !canWriteCalendar) {
+    issues.push("calendar_write_scope_missing");
+  }
+  const lastSyncError = normalizeOptionalString(snapshot.lastSyncError);
+  if (lastSyncError) {
+    issues.push("calendar_last_sync_error");
+  }
+
+  return {
+    provider: args.provider,
+    mode: args.mode,
+    connectionType: normalizeOptionalString(snapshot.connectionType) || null,
+    email: normalizeOptionalString(snapshot.email) || null,
+    calendarWriteReady,
+    issues,
+  };
+}
+
+function buildPlannerCalendarReadinessSummary(
+  calendarReadiness: {
+    readiness?: Record<string, unknown>;
+  } | null
+): PlannerCalendarReadinessSummary {
+  if (!calendarReadiness?.readiness) {
+    return {
+      writeReady: false,
+      warningCodes: ["calendar_readiness_missing", "calendar_write_not_ready"],
+      recommendations: buildCalendarReadinessRecommendations([
+        "calendar_readiness_missing",
+        "calendar_write_not_ready",
+      ]),
+      checks: [],
+    };
+  }
+
+  const readinessRecord = normalizeUnknownRecord(calendarReadiness.readiness) || {};
+  const checks: PlannerCalendarReadinessDiagnostic[] = [];
+  const warningCodeSet = new Set<string>();
+
+  for (const [provider, providerSnapshot] of Object.entries(readinessRecord)) {
+    const providerRecord = normalizeUnknownRecord(providerSnapshot) || {};
+    checks.push(
+      buildPlannerCalendarModeDiagnostic({
+        provider,
+        mode: "work",
+        modeSnapshot: (providerRecord as Record<string, unknown>).work as PlannerCalendarModeSnapshot,
+      })
+    );
+    checks.push(
+      buildPlannerCalendarModeDiagnostic({
+        provider,
+        mode: "private",
+        modeSnapshot: (providerRecord as Record<string, unknown>).private as PlannerCalendarModeSnapshot,
+      })
+    );
+  }
+
+  if (checks.length === 0) {
+    warningCodeSet.add("calendar_readiness_missing");
+  }
+
+  for (const check of checks) {
+    for (const issue of check.issues) {
+      warningCodeSet.add(issue);
+    }
+  }
+
+  const writeReady = checks.some((check) => check.calendarWriteReady);
+  if (!writeReady) {
+    warningCodeSet.add("calendar_write_not_ready");
+  }
+
+  const warningCodes = Array.from(warningCodeSet);
+  return {
+    writeReady,
+    warningCodes,
+    recommendations: buildCalendarReadinessRecommendations(warningCodes),
+    checks,
+  };
 }
 
 function normalizeCourseId(value: unknown): string | undefined {
@@ -335,21 +520,50 @@ function buildDefaultSeatBookingCatalog(): SeatBookingCatalog {
   };
 }
 
+function buildEmptySeatBookingCatalog(): SeatBookingCatalog {
+  return {
+    contractVersion: BOOKING_SETUP_BLUEPRINT_CONTRACT_VERSION,
+    timezone: DEFAULT_BLUEPRINT_TIMEZONE,
+    defaultAvailableTimes: [...DEFAULT_BLUEPRINT_TIMES],
+    inventoryGroups: [],
+    courses: [],
+  };
+}
+
+function resolveSetupTemplate(value: unknown): SeatBookingSetupTemplate {
+  const normalized = normalizeOptionalString(value);
+  return normalized?.toLowerCase() === "sailing_school_two_boats"
+    ? "sailing_school_two_boats"
+    : "custom";
+}
+
+function normalizeSurfaceIdentityToken(
+  value: unknown,
+  fallback: string
+): string {
+  return (normalizeOptionalString(value) || fallback).toLowerCase();
+}
+
+function buildCatalogCoverageWarnings(catalog: SeatBookingCatalog): string[] {
+  const warnings = new Set<string>();
+  if (catalog.inventoryGroups.length === 0) {
+    warnings.add("missing_inventory_groups");
+  }
+  if (catalog.courses.length === 0) {
+    warnings.add("missing_profiles");
+  }
+  return Array.from(warnings);
+}
+
 function buildSeatBookingCatalog(args: {
   setupTemplate?: string;
   catalogInput?: unknown;
 }): SeatBookingCatalog {
-  const template = args.setupTemplate as SeatBookingSetupTemplate | undefined;
+  const template = resolveSetupTemplate(args.setupTemplate);
   const baseCatalog =
-    template === "custom"
-      ? {
-          contractVersion: BOOKING_SETUP_BLUEPRINT_CONTRACT_VERSION,
-          timezone: DEFAULT_BLUEPRINT_TIMEZONE,
-          defaultAvailableTimes: [...DEFAULT_BLUEPRINT_TIMES],
-          inventoryGroups: [] as SeatBookingCatalogInventoryGroup[],
-          courses: [] as SeatBookingCatalogCourse[],
-        }
-      : buildDefaultSeatBookingCatalog();
+    template === "sailing_school_two_boats"
+      ? buildDefaultSeatBookingCatalog()
+      : buildEmptySeatBookingCatalog();
 
   if (!args.catalogInput || typeof args.catalogInput !== "object") {
     return baseCatalog;
@@ -693,8 +907,9 @@ EXAMPLE WORKFLOW (Sailing Course):
         },
         mode: {
           type: "string",
-          enum: ["preview", "execute"],
-          description: "preview = show what will be created, execute = actually create"
+          enum: ["preview", "interview", "execute"],
+          description:
+            "preview/interview = collect setup answers and plan actions, execute = actually create"
         },
         workItemId: {
           type: "string",
@@ -1682,8 +1897,9 @@ async function generateBookingSetupBlueprint(
   }
 ) {
   const mode = args.mode || "preview";
+  const resolvedTemplate = resolveSetupTemplate(args.setupTemplate);
   const catalog = buildSeatBookingCatalog({
-    setupTemplate: args.setupTemplate,
+    setupTemplate: resolvedTemplate,
     catalogInput: args.catalogInput,
   });
   const legacyBindings = buildLegacyBindingsFromCatalog(catalog);
@@ -1727,12 +1943,17 @@ async function generateBookingSetupBlueprint(
     checkoutEntities,
   });
 
-  const warnings = diagnostics
+  const warningCodes = new Set(
+    diagnostics
     .filter((course) => course.warnings.length > 0)
     .map(
       (course) =>
         `${course.courseId}: ${course.warnings.join(", ")}`
-    );
+    )
+  );
+  for (const warningCode of buildCatalogCoverageWarnings(catalog)) {
+    warningCodes.add(warningCode);
+  }
 
   let calendarReadiness:
     | {
@@ -1753,9 +1974,16 @@ async function generateBookingSetupBlueprint(
       );
       calendarReadiness = readinessResult || null;
     } catch {
-      warnings.push("calendar_readiness_lookup_failed");
+      warningCodes.add("calendar_readiness_lookup_failed");
     }
   }
+  const calendarReadinessDiagnostics = buildPlannerCalendarReadinessSummary(
+    calendarReadiness
+  );
+  for (const warningCode of calendarReadinessDiagnostics.warningCodes) {
+    warningCodes.add(warningCode);
+  }
+  const warnings = Array.from(warningCodes);
 
   const serializedCatalog = JSON.stringify(catalog);
   const serializedLegacyBindings = JSON.stringify(legacyBindings);
@@ -1781,7 +2009,7 @@ async function generateBookingSetupBlueprint(
     mode,
     data: {
       contractVersion: BOOKING_SETUP_BLUEPRINT_CONTRACT_VERSION,
-      template: args.setupTemplate || "sailing_school_two_boats",
+      template: resolvedTemplate,
       catalog,
       legacyBindings,
       bookingCatalogJson: JSON.stringify(catalog, null, 2),
@@ -1790,6 +2018,7 @@ async function generateBookingSetupBlueprint(
       diagnostics,
       warnings,
       calendarReadiness,
+      calendarReadinessDiagnostics,
       nextSteps,
     },
     message:
@@ -1815,11 +2044,12 @@ async function upsertBookingSurfaceBinding(
   }
 ) {
   const mode = args.mode || "preview";
-  const appSlug = normalizeOptionalString(args.appSlug) || "segelschule-altwarp";
-  const surfaceType = normalizeOptionalString(args.surfaceType) || "booking";
-  const surfaceKey = normalizeOptionalString(args.surfaceKey) || "default";
+  const appSlug = normalizeSurfaceIdentityToken(args.appSlug, "my-app");
+  const surfaceType = normalizeSurfaceIdentityToken(args.surfaceType, "booking");
+  const surfaceKey = normalizeSurfaceIdentityToken(args.surfaceKey, "default");
+  const resolvedTemplate = resolveSetupTemplate(args.setupTemplate);
   const catalog = buildSeatBookingCatalog({
-    setupTemplate: args.setupTemplate,
+    setupTemplate: resolvedTemplate,
     catalogInput: args.catalogInput,
   });
   const legacyBindings = buildLegacyBindingsFromCatalog(catalog);
@@ -1882,10 +2112,14 @@ async function bootstrapBookingSurface(
     bootstrapInput?: unknown;
   }
 ) {
-  const mode = normalizeOptionalString(args.mode) || "interview";
-  const appSlug = normalizeOptionalString(args.appSlug) || "my-app";
-  const surfaceType = normalizeOptionalString(args.surfaceType) || "booking";
-  const surfaceKey = normalizeOptionalString(args.surfaceKey) || "default";
+  const mode =
+    normalizeOptionalString(args.mode) === "execute"
+      ? "execute"
+      : "interview";
+  const appSlug = normalizeSurfaceIdentityToken(args.appSlug, "my-app");
+  const surfaceType = normalizeSurfaceIdentityToken(args.surfaceType, "booking");
+  const surfaceKey = normalizeSurfaceIdentityToken(args.surfaceKey, "default");
+  const resolvedTemplate = resolveSetupTemplate(args.setupTemplate);
   const bootstrapConfig = normalizeRecord(args.bootstrapInput) || {};
   const catalogInput =
     typeof bootstrapConfig.catalogInput !== "undefined"
@@ -1893,7 +2127,7 @@ async function bootstrapBookingSurface(
       : args.catalogInput;
 
   const catalog = buildSeatBookingCatalog({
-    setupTemplate: args.setupTemplate,
+    setupTemplate: resolvedTemplate,
     catalogInput,
   });
 
@@ -1912,8 +2146,12 @@ async function bootstrapBookingSurface(
         appSlug,
         surfaceType,
         surfaceKey,
+        setupTemplate: resolvedTemplate,
         questions,
         suggestedCatalog: catalog,
+        requiredSequence: [...BOOKING_BOOTSTRAP_SEQUENCE],
+        nextAction:
+          "Call bootstrap_booking_surface(mode=execute) with bootstrapInput populated from interview answers.",
         hints: [
           "Answer questions, then call bootstrap_booking_surface with mode=execute and bootstrapInput.",
           "bootstrapInput.coursePricing supports per-course overrides for price/currency/resource/checkout names.",
@@ -2307,9 +2545,15 @@ async function bootstrapBookingSurface(
     productEntities,
     checkoutEntities,
   });
-  const warnings = diagnostics
-    .filter((course) => course.warnings.length > 0)
-    .map((course) => `${course.courseId}: ${course.warnings.join(", ")}`);
+  const warningSet = new Set(
+    diagnostics
+      .filter((course) => course.warnings.length > 0)
+      .map((course) => `${course.courseId}: ${course.warnings.join(", ")}`)
+  );
+  for (const warningCode of buildCatalogCoverageWarnings(updatedCatalog)) {
+    warningSet.add(warningCode);
+  }
+  const warnings = Array.from(warningSet);
   const legacyBindings = buildLegacyBindingsFromCatalog(updatedCatalog);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -2355,6 +2599,10 @@ async function bootstrapBookingSurface(
       legacyBindingsJson: JSON.stringify(legacyBindings, null, 2),
       diagnostics,
       warnings,
+      requiredSequence: [...BOOKING_BOOTSTRAP_SEQUENCE],
+      nextAction: pass
+        ? "Run list_booking_surface_bindings to verify saved identities."
+        : "Fill missing mappings from diagnostics, then rerun bootstrap_booking_surface(mode=execute).",
       createdResources,
       createdCheckouts,
       binding,
@@ -2375,8 +2623,8 @@ async function listBookingSurfaceBindingsAction(
     surfaceType?: string;
   }
 ) {
-  const appSlug = normalizeOptionalString(args.appSlug) || undefined;
-  const surfaceType = normalizeOptionalString(args.surfaceType) || undefined;
+  const appSlug = normalizeOptionalString(args.appSlug)?.toLowerCase() || undefined;
+  const surfaceType = normalizeOptionalString(args.surfaceType)?.toLowerCase() || undefined;
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const bindings = await (ctx as any).runQuery(
@@ -2407,4 +2655,7 @@ export const __testables = {
   buildCourseSetupDiagnostics,
   buildBookingBootstrapInterviewQuestions,
   resolveCoursePriceCents,
+  buildPlannerCalendarReadinessSummary,
+  resolveSetupTemplate,
+  normalizeSurfaceIdentityToken,
 };

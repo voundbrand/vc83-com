@@ -3,27 +3,40 @@
 import { useState, useEffect, useCallback } from "react";
 import { Clock, DollarSign, Users, Calendar, Settings, Ship, Armchair, BedDouble } from "lucide-react";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
+import {
+  buildAvailabilityStructureDrivenConfig,
+  getAvailabilityStructureDefinition,
+  getDefaultAvailabilityStructureForSubtype,
+  listAvailabilityStructureDefinitions,
+  type AvailabilityInventoryMode,
+  type AvailabilityLocationBehavior,
+  type AvailabilityPriceUnit,
+  type AvailabilityStructureDrivenConfig,
+  type AvailabilityStructureKey,
+} from "../../../../convex/lib/availabilityStructures";
+import { formatResourceTopologyProfile } from "../../../../convex/lib/resourceTopology";
+import type {
+  AvailabilityContextKey,
+  AvailabilityModel,
+} from "../../../../convex/lib/availabilityModels";
 
 /**
  * Bookable Resource Configuration
  *
  * Configuration options for products that can be booked.
- * Supports 4 availability models:
- * - time_slot: Appointments, consultations, classes (existing)
- * - date_range_inventory: Hotel rooms, vacation rentals, equipment by day
- * - event_bound_seating: Venues with a fixed number of seats per event
- * - departure_bound: Vehicles (boats, planes, buses) with seats per departure
+ * Operators choose a business-level availability structure and the base
+ * availability model is derived from that semantic layer.
  */
 
-export type AvailabilityModel =
-  | "time_slot"
-  | "date_range_inventory"
-  | "event_bound_seating"
-  | "departure_bound";
-
 export interface BookableConfig {
-  // Availability Model
+  // Structure-driven metadata
+  availabilityStructure: AvailabilityStructureKey;
   availabilityModel: AvailabilityModel;
+  availabilityContextKey: AvailabilityContextKey;
+  inventoryMode: AvailabilityInventoryMode;
+  requiresBookingAddress: boolean;
+  locationBehavior: AvailabilityLocationBehavior;
+  resourceTopologyProfile: AvailabilityStructureDrivenConfig["resourceTopologyProfile"];
 
   // --- Time-Slot fields ---
   bookingMode: "calendar" | "date-range" | "both";
@@ -38,7 +51,7 @@ export interface BookableConfig {
   capacity: number;
   confirmationRequired: boolean;
   pricePerUnit: number;
-  priceUnit: "hour" | "day" | "night" | "session" | "flat" | "seat" | "per_person";
+  priceUnit: AvailabilityPriceUnit;
 
   // Deposit
   depositRequired: boolean;
@@ -59,7 +72,7 @@ export interface BookableConfig {
 
   // --- Departure-Bound fields ---
   totalPassengerSeats?: number;   // seats on the vehicle
-  vehicleType?: string;           // ferry, bus, train, aircraft
+  vehicleType?: string;           // boat, ferry, bus, train, aircraft
   boardingMinutesBefore?: number; // boarding opens N min before departure
 
   // Additional
@@ -68,66 +81,67 @@ export interface BookableConfig {
   specialties?: string[];
 }
 
-export const DEFAULT_BOOKABLE_CONFIG: BookableConfig = {
-  availabilityModel: "time_slot",
-  bookingMode: "calendar",
-  minDuration: 60,
-  maxDuration: 480,
-  durationUnit: "minutes",
-  slotIncrement: 30,
-  bufferBefore: 0,
-  bufferAfter: 15,
-  capacity: 1,
-  confirmationRequired: false,
-  pricePerUnit: 0,
-  priceUnit: "hour",
-  depositRequired: false,
-  depositAmountCents: 0,
-  depositPercent: 0,
-};
+type BookableSubtype =
+  | "room"
+  | "staff"
+  | "equipment"
+  | "space"
+  | "vehicle"
+  | "accommodation"
+  | "appointment"
+  | "class"
+  | "treatment";
 
-// Preset configurations for different bookable types
-export const BOOKABLE_PRESETS: Record<string, Partial<BookableConfig>> = {
+const SUBTYPE_BOOKABLE_OVERRIDES: Record<BookableSubtype, Partial<BookableConfig>> = {
   room: {
-    availabilityModel: "time_slot",
     bookingMode: "both",
     durationUnit: "hours",
-    capacity: 1,
     priceUnit: "hour",
   },
   staff: {
-    availabilityModel: "time_slot",
     bookingMode: "calendar",
     durationUnit: "minutes",
     slotIncrement: 15,
-    capacity: 1,
     priceUnit: "session",
   },
   equipment: {
-    availabilityModel: "time_slot",
     bookingMode: "both",
     durationUnit: "hours",
-    capacity: 1,
     priceUnit: "day",
   },
   space: {
-    availabilityModel: "time_slot",
     bookingMode: "both",
     durationUnit: "hours",
-    capacity: 1,
     priceUnit: "hour",
   },
+  vehicle: {
+    bookingMode: "calendar",
+    durationUnit: "minutes",
+    minDuration: 180,
+    maxDuration: 1440,
+    slotIncrement: 60,
+    priceUnit: "flat",
+    depositRequired: true,
+    depositPercent: 25,
+    vehicleType: "boat",
+    boardingMinutesBefore: 30,
+  },
+  accommodation: {
+    bookingMode: "date-range",
+    durationUnit: "nights",
+    priceUnit: "night",
+    confirmationRequired: true,
+    depositRequired: true,
+    depositPercent: 25,
+  },
   appointment: {
-    availabilityModel: "time_slot",
     bookingMode: "calendar",
     durationUnit: "minutes",
     slotIncrement: 15,
-    capacity: 1,
     priceUnit: "session",
     bufferAfter: 15,
   },
   class: {
-    availabilityModel: "time_slot",
     bookingMode: "calendar",
     durationUnit: "minutes",
     capacity: 10,
@@ -135,80 +149,114 @@ export const BOOKABLE_PRESETS: Record<string, Partial<BookableConfig>> = {
     confirmationRequired: false,
   },
   treatment: {
-    availabilityModel: "time_slot",
     bookingMode: "calendar",
     durationUnit: "minutes",
     slotIncrement: 15,
-    capacity: 1,
     priceUnit: "session",
     bufferBefore: 5,
     bufferAfter: 15,
   },
-  accommodation: {
-    availabilityModel: "date_range_inventory",
-    bookingMode: "date-range",
-    durationUnit: "nights",
-    minDuration: 1,
-    maxDuration: 30,
-    capacity: 1,
-    priceUnit: "night",
-    confirmationRequired: true,
-    depositRequired: true,
-    depositPercent: 20,
-    inventoryCount: 1,
-    minimumStayNights: 1,
-    maximumStayNights: 30,
-    checkInTime: "15:00",
-    checkOutTime: "11:00",
-    baseNightlyRateCents: 0,
-  },
-  vehicle: {
-    availabilityModel: "departure_bound",
-    bookingMode: "both",
-    durationUnit: "hours",
-    minDuration: 60,
-    maxDuration: 1440,
-    capacity: 1,
-    priceUnit: "per_person",
-    depositRequired: true,
-    depositPercent: 25,
-    totalPassengerSeats: 50,
-    vehicleType: "ferry",
-    boardingMinutesBefore: 30,
-  },
 };
 
-const AVAILABILITY_MODEL_OPTIONS: Array<{
-  value: AvailabilityModel;
-  label: string;
-  description: string;
-}> = [
-  {
-    value: "time_slot",
-    label: "Time Slot",
-    description: "Appointments, consultations, classes with specific time windows",
-  },
-  {
-    value: "date_range_inventory",
-    label: "Date-Range Inventory",
-    description: "Hotel rooms, rentals — units available across date ranges",
-  },
-  {
-    value: "event_bound_seating",
-    label: "Event Seating",
-    description: "Venues with a fixed number of seats per event/showing",
-  },
-  {
-    value: "departure_bound",
-    label: "Departure / Transport",
-    description: "Vehicles (boats, planes, buses) with seats per departure",
-  },
-];
+function isBookableSubtype(value: string): value is BookableSubtype {
+  return value in SUBTYPE_BOOKABLE_OVERRIDES;
+}
+
+export function buildBookableConfigForSubtype(
+  subtype: string,
+  current?: Partial<BookableConfig>
+): BookableConfig {
+  const normalizedSubtype = isBookableSubtype(subtype) ? subtype : "space";
+  const structureKey =
+    current?.availabilityStructure
+    || getDefaultAvailabilityStructureForSubtype(normalizedSubtype);
+
+  return buildAvailabilityStructureDrivenConfig(structureKey, {
+    ...SUBTYPE_BOOKABLE_OVERRIDES[normalizedSubtype],
+    ...(current || {}),
+  }) as BookableConfig;
+}
+
+export function buildBookableShadowProperties(
+  config: BookableConfig
+): Record<string, unknown> {
+  return {
+    availabilityStructure: config.availabilityStructure,
+    availabilityModel: config.availabilityModel,
+    availabilityContextKey: config.availabilityContextKey,
+    inventoryMode: config.inventoryMode,
+    requiresBookingAddress: config.requiresBookingAddress,
+    locationBehavior: config.locationBehavior,
+    resourceTopologyProfile: config.resourceTopologyProfile,
+    bookingMode: config.bookingMode,
+    minDuration: config.minDuration,
+    maxDuration: config.maxDuration,
+    durationUnit: config.durationUnit,
+    slotIncrement: config.slotIncrement,
+    bufferBefore: config.bufferBefore,
+    bufferAfter: config.bufferAfter,
+    capacity: config.capacity,
+    confirmationRequired: config.confirmationRequired,
+    pricePerUnit: config.pricePerUnit,
+    priceUnit: config.priceUnit,
+    depositRequired: config.depositRequired,
+    depositAmountCents: config.depositAmountCents,
+    depositPercent: config.depositPercent,
+    inventoryCount: config.availabilityModel === "date_range_inventory"
+      ? (config.inventoryCount ?? null)
+      : null,
+    minimumStayNights: config.availabilityModel === "date_range_inventory"
+      ? (config.minimumStayNights ?? null)
+      : null,
+    maximumStayNights: config.availabilityModel === "date_range_inventory"
+      ? (config.maximumStayNights ?? null)
+      : null,
+    checkInTime: config.availabilityModel === "date_range_inventory"
+      ? (config.checkInTime ?? null)
+      : null,
+    checkOutTime: config.availabilityModel === "date_range_inventory"
+      ? (config.checkOutTime ?? null)
+      : null,
+    baseNightlyRateCents: config.availabilityModel === "date_range_inventory"
+      ? (config.baseNightlyRateCents ?? null)
+      : null,
+    totalSeats: config.availabilityModel === "event_bound_seating"
+      ? (config.totalSeats ?? null)
+      : null,
+    maxSeatsPerBooking: config.availabilityModel === "event_bound_seating"
+      ? (config.maxSeatsPerBooking ?? null)
+      : null,
+    totalPassengerSeats: config.availabilityModel === "departure_bound"
+      ? (config.totalPassengerSeats ?? null)
+      : null,
+    vehicleType: config.availabilityModel === "departure_bound"
+      ? (config.vehicleType ?? null)
+      : null,
+    boardingMinutesBefore: config.availabilityModel === "departure_bound"
+      ? (config.boardingMinutesBefore ?? null)
+      : null,
+  };
+}
+
+export const DEFAULT_BOOKABLE_CONFIG = buildBookableConfigForSubtype("space");
+
+export const BOOKABLE_PRESETS: Record<string, BookableConfig> = {
+  room: buildBookableConfigForSubtype("room"),
+  staff: buildBookableConfigForSubtype("staff"),
+  equipment: buildBookableConfigForSubtype("equipment"),
+  space: buildBookableConfigForSubtype("space"),
+  vehicle: buildBookableConfigForSubtype("vehicle"),
+  accommodation: buildBookableConfigForSubtype("accommodation"),
+  appointment: buildBookableConfigForSubtype("appointment"),
+  class: buildBookableConfigForSubtype("class"),
+  treatment: buildBookableConfigForSubtype("treatment"),
+};
 
 interface BookableConfigSectionProps {
   config: BookableConfig;
   onChange: (config: BookableConfig) => void;
   subtype: string;
+  onSuggestedSubtypeChange?: (subtype: string) => void;
 }
 
 // Shared input styling
@@ -259,6 +307,7 @@ export function BookableConfigSection({
   config,
   onChange,
   subtype,
+  onSuggestedSubtypeChange,
 }: BookableConfigSectionProps) {
   const { t } = useNamespaceTranslations("ui.products.bookable_config");
   const tx = (
@@ -270,10 +319,38 @@ export function BookableConfigSection({
     return translated === key ? fallback : translated;
   };
   const updateConfig = useCallback((updates: Partial<BookableConfig>) => {
-    onChange({ ...config, ...updates });
+    onChange({
+      ...config,
+      ...updates,
+    });
   }, [config, onChange]);
+  const applyStructure = useCallback((structureKey: AvailabilityStructureKey) => {
+    const structure = getAvailabilityStructureDefinition(structureKey);
+    const nextConfig = buildAvailabilityStructureDrivenConfig(structureKey, {
+      ...config,
+    }) as BookableConfig;
+    onChange(nextConfig);
+    if (
+      onSuggestedSubtypeChange
+      && structure.defaultResourceSubtype !== subtype
+    ) {
+      onSuggestedSubtypeChange(structure.defaultResourceSubtype);
+    }
+  }, [config, onChange, onSuggestedSubtypeChange, subtype]);
 
-  const model = config.availabilityModel || "time_slot";
+  const structureDefinitions = listAvailabilityStructureDefinitions();
+  const structureKey = config.availabilityStructure
+    || getDefaultAvailabilityStructureForSubtype(subtype);
+  const structureDefinition = getAvailabilityStructureDefinition(structureKey);
+  const model = structureDefinition.model;
+  const companionContextLabel = structureDefinition.contextKey || "none";
+  const locationBehaviorLabelMap: Record<AvailabilityLocationBehavior, string> = {
+    none: "No location required",
+    location_optional: "Location optional",
+    location_required: "Location required",
+    property_address_required: "Property address required",
+    departure_origin_required: "Departure origin required",
+  };
 
   // Currency inputs use local string state to prevent cursor jumping
   const nightlyRate = useCentsInput(config.baseNightlyRateCents ?? 0, useCallback(
@@ -322,27 +399,93 @@ export function BookableConfigSection({
         })}
       </p>
 
-      {/* Availability Model Selector */}
+      {/* Availability Structure Selector */}
       <div>
         <label className="block text-sm font-semibold mb-2" style={{ color: "var(--shell-text)" }}>
           <Calendar size={14} className="inline mr-1" />
-          {tx("availability_model.label", "Availability Model")}
+          {tx("availability_structure.label", "Availability Structure")}
         </label>
         <select
-          value={model}
-          onChange={(e) => updateConfig({ availabilityModel: e.target.value as AvailabilityModel })}
+          value={structureKey}
+          onChange={(e) => applyStructure(e.target.value as AvailabilityStructureKey)}
           className="w-full px-3 py-2 text-sm border-2"
           style={inputStyle}
         >
-          {AVAILABILITY_MODEL_OPTIONS.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
+          {structureDefinitions.map((definition) => (
+            <option key={definition.key} value={definition.key}>
+              {definition.label}
             </option>
           ))}
         </select>
         <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
-          {AVAILABILITY_MODEL_OPTIONS.find((o) => o.value === model)?.description}
+          {structureDefinition.description}
         </p>
+      </div>
+
+      <div
+        className="grid gap-3 md:grid-cols-2"
+      >
+        <div
+          className="space-y-2 rounded border p-3"
+          style={{
+            borderColor: "var(--shell-border)",
+            background: "var(--shell-input-surface)",
+          }}
+        >
+          <div className="text-xs font-semibold" style={{ color: "var(--shell-text)" }}>
+            {tx("availability_structure.derived_title", "Derived Semantics")}
+          </div>
+          <div className="text-xs" style={{ color: "var(--shell-text)" }}>
+            {tx("availability_structure.base_model", "Base model")}: {model}
+          </div>
+          <div className="text-xs" style={{ color: "var(--shell-text)" }}>
+            {tx("availability_structure.context", "Companion context")}: {companionContextLabel}
+          </div>
+          <div className="text-xs" style={{ color: "var(--shell-text)" }}>
+            {tx("availability_structure.inventory_mode", "Inventory mode")}: {structureDefinition.inventoryMode}
+          </div>
+          <div className="text-xs" style={{ color: "var(--shell-text)" }}>
+            {tx("availability_structure.recommended_subtype", "Recommended subtype")}: {structureDefinition.defaultResourceSubtype}
+          </div>
+          <div className="text-xs" style={{ color: "var(--shell-text)" }}>
+            {tx("availability_structure.location_behavior", "Location behavior")}: {locationBehaviorLabelMap[structureDefinition.locationBehavior]}
+          </div>
+          <div className="text-xs" style={{ color: "var(--shell-text)" }}>
+            {tx("availability_structure.booking_address", "Booking address")}: {structureDefinition.requiresBookingAddress ? "required" : "not required"}
+          </div>
+          <div className="text-xs" style={{ color: "var(--shell-text)" }}>
+            {tx("availability_structure.topology", "Topology")}: {formatResourceTopologyProfile(structureDefinition.topologyProfile)}
+          </div>
+        </div>
+        <div
+          className="space-y-2 rounded border p-3"
+          style={{
+            borderColor: "var(--shell-border)",
+            background: "var(--shell-input-surface)",
+          }}
+        >
+          <div className="text-xs font-semibold" style={{ color: "var(--shell-text)" }}>
+            {tx("availability_structure.hints_title", "Setup Hints")}
+          </div>
+          {structureDefinition.configHints.map((hint) => (
+            <p
+              key={hint}
+              className="text-xs"
+              style={{ color: "var(--neutral-gray)" }}
+            >
+              {hint}
+            </p>
+          ))}
+          <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+            {tx(
+              "availability_structure.supported_subtypes",
+              "Works best with: {{subtypes}}",
+              {
+                subtypes: structureDefinition.supportedResourceSubtypes.join(", "),
+              }
+            )}
+          </p>
+        </div>
       </div>
 
       {/* ====== TIME-SLOT CONFIG ====== */}
@@ -695,11 +838,12 @@ export function BookableConfigSection({
               {tx("transport.vehicle_type", "Vehicle Type")}
             </label>
             <select
-              value={config.vehicleType ?? "ferry"}
+              value={config.vehicleType ?? "boat"}
               onChange={(e) => updateConfig({ vehicleType: e.target.value })}
               className={inputClass}
               style={inputStyle}
             >
+              <option value="boat">{tx("transport.vehicle_type_boat", "Boat")}</option>
               <option value="ferry">{tx("transport.vehicle_type_ferry", "Ferry / Boat")}</option>
               <option value="bus">{tx("transport.vehicle_type_bus", "Bus / Coach")}</option>
               <option value="train">{tx("transport.vehicle_type_train", "Train")}</option>

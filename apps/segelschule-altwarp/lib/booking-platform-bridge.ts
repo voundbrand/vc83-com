@@ -1,3 +1,5 @@
+import { localDateTimeToTimestamp } from "../../../src/lib/timezone-utils"
+
 export interface SegelschuleCoursePlatformBinding {
   courseId: string
   checkoutProductId?: string
@@ -642,7 +644,11 @@ export function resolveBridgeBookingDurationMinutes(args: {
     : DEFAULT_SINGLE_DAY_BOOKING_MINUTES
 }
 
-export function parseBookingStartTimestamp(date: string, time: string): number | null {
+export function parseBookingStartTimestamp(
+  date: string,
+  time: string,
+  timezone = "Europe/Berlin"
+): number | null {
   const dateValue = date.trim()
   const timeValue = time.trim()
   if (!dateValue || !timeValue) return null
@@ -653,7 +659,7 @@ export function parseBookingStartTimestamp(date: string, time: string): number |
     return null
   }
 
-  const timestamp = new Date(`${dateValue}T${timeValue}:00`).getTime()
+  const timestamp = localDateTimeToTimestamp(dateValue, timeValue, timezone)
   if (!Number.isFinite(timestamp)) return null
   return timestamp
 }

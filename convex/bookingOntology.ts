@@ -35,6 +35,11 @@ import {
 } from "./_generated/server";
 import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
+import {
+  getAvailabilityModelDefinition,
+  normalizeAvailabilityModel,
+  resolveAvailabilityModel,
+} from "./lib/availabilityModels";
 import { requireAuthenticatedUser } from "./rbacHelpers";
 
 // Lazy-load internal to avoid TS2589 deep type instantiation
@@ -657,36 +662,42 @@ export const createBooking = mutation({
     // Determine availability model from primary resource
     const primaryResource = await ctx.db.get(args.resourceIds[0]);
     const primaryProps = primaryResource?.customProperties as Record<string, unknown> | undefined;
-    const availabilityModel = (primaryProps?.availabilityModel as string) || "time_slot";
+    const primaryBookableConfig = primaryProps?.bookableConfig as
+      | Record<string, unknown>
+      | undefined;
+    const availabilityModel = resolveAvailabilityModel(
+      primaryProps,
+      primaryBookableConfig
+    );
 
     // Check for conflicts based on availability model
     for (const resourceId of args.resourceIds) {
-      if (availabilityModel === "event_bound_seating" || availabilityModel === "departure_bound") {
-        // Seat-based models: use model-aware conflict check
-        const result = await ctx.runQuery(getInternal().availabilityOntology.checkConflictByModel, {
+      const result = await ctx.runQuery(
+        getInternal().availabilityOntology.checkConflictByModel,
+        {
           resourceId,
           organizationId: args.organizationId,
           startDateTime: args.startDateTime,
           endDateTime: args.endDateTime,
-          seatCount: args.seatCount || args.passengerCount || 1,
-          eventId: args.eventId,
-          departureId: args.departureId,
-        });
-        if (result.hasConflict) {
-          const resource = await ctx.db.get(resourceId);
-          throw new Error(result.reason || `Conflict detected for resource: ${resource?.name || resourceId}`);
+          ...(args.participants !== undefined
+            ? { participants: args.participants }
+            : {}),
+          ...(args.seatCount !== undefined ? { seatCount: args.seatCount } : {}),
+          ...(args.passengerCount !== undefined
+            ? { passengerCount: args.passengerCount }
+            : {}),
+          ...(args.eventId !== undefined ? { eventId: args.eventId } : {}),
+          ...(args.departureId !== undefined
+            ? { departureId: args.departureId }
+            : {}),
         }
-      } else {
-        // Time-slot / date-range: use classic overlap check
-        const hasConflict = await ctx.runQuery(getInternal().availabilityOntology.checkConflict, {
-          resourceId,
-          startDateTime: args.startDateTime,
-          endDateTime: args.endDateTime,
-        });
-        if (hasConflict) {
-          const resource = await ctx.db.get(resourceId);
-          throw new Error(`Conflict detected for resource: ${resource?.name || resourceId}`);
-        }
+      );
+      if (result.hasConflict) {
+        const resource = await ctx.db.get(resourceId);
+        throw new Error(
+          result.reason ||
+            `Conflict detected for resource: ${resource?.name || resourceId}`
+        );
       }
     }
 
@@ -758,6 +769,7 @@ export const createBooking = mutation({
         bookedViaEventId: args.bookedViaEventId || null,
 
         // Model-specific references (for seat release on cancellation)
+        availabilityStructure: primaryProps?.availabilityStructure || null,
         availabilityModel: availabilityModel,
         eventId: args.eventId || null,
         seatCount: args.seatCount || null,
@@ -887,15 +899,25 @@ export const createRecurringBooking = mutation({
     // Check ALL dates for conflicts (block entire series if any conflict)
     for (const occ of occurrences) {
       for (const resourceId of args.resourceIds) {
-        const hasConflict = await ctx.runQuery(getInternal().availabilityOntology.checkConflict, {
-          resourceId,
-          startDateTime: occ.start,
-          endDateTime: occ.end,
-        });
-        if (hasConflict) {
+        const result = await ctx.runQuery(
+          getInternal().availabilityOntology.checkConflictByModel,
+          {
+            resourceId,
+            organizationId: args.organizationId,
+            startDateTime: occ.start,
+            endDateTime: occ.end,
+            ...(args.participants !== undefined
+              ? { participants: args.participants }
+              : {}),
+          }
+        );
+        if (result.hasConflict) {
           const resource = await ctx.db.get(resourceId);
           throw new Error(
-            `Cannot create series: conflict on ${formatDate(occ.start)} for resource ${resource?.name || resourceId}`
+            result.reason ||
+              `Cannot create series: conflict on ${formatDate(
+                occ.start
+              )} for resource ${resource?.name || resourceId}`
           );
         }
       }
@@ -1079,15 +1101,54 @@ export const updateBooking = mutation({
         .collect();
 
       for (const link of resourceLinks) {
-        const hasConflict = await ctx.runQuery(getInternal().availabilityOntology.checkConflict, {
-          resourceId: link.toObjectId,
-          startDateTime: newStart,
-          endDateTime: newEnd,
-          excludeBookingId: args.bookingId,
-        });
-        if (hasConflict) {
+        const linkedResource = await ctx.db.get(link.toObjectId);
+        const linkedProps = linkedResource?.customProperties as
+          | Record<string, unknown>
+          | undefined;
+        const linkedBookableConfig = linkedProps?.bookableConfig as
+          | Record<string, unknown>
+          | undefined;
+        const linkedModel = resolveAvailabilityModel(
+          linkedProps,
+          linkedBookableConfig
+        );
+        const result = await ctx.runQuery(
+          getInternal().availabilityOntology.checkConflictByModel,
+          {
+            resourceId: link.toObjectId,
+            organizationId: booking.organizationId,
+            startDateTime: newStart,
+            endDateTime: newEnd,
+            excludeBookingId: args.bookingId,
+            ...((args.participants ?? (currentProps.participants as number)) !==
+            undefined
+              ? {
+                  participants:
+                    args.participants ?? (currentProps.participants as number),
+                }
+              : {}),
+            ...(linkedModel === "event_bound_seating" &&
+            currentProps.seatCount !== undefined
+              ? { seatCount: currentProps.seatCount as number }
+              : {}),
+            ...(linkedModel === "departure_bound" &&
+            currentProps.passengerCount !== undefined
+              ? { passengerCount: currentProps.passengerCount as number }
+              : {}),
+            ...(currentProps.eventId !== undefined
+              ? { eventId: currentProps.eventId as Id<"objects"> }
+              : {}),
+            ...(currentProps.departureId !== undefined
+              ? { departureId: currentProps.departureId as Id<"objects"> }
+              : {}),
+          }
+        );
+        if (result.hasConflict) {
           const resource = await ctx.db.get(link.toObjectId);
-          throw new Error(`Conflict detected for resource: ${resource?.name || link.toObjectId}`);
+          throw new Error(
+            result.reason ||
+              `Conflict detected for resource: ${resource?.name || link.toObjectId}`
+          );
         }
       }
 
@@ -1365,6 +1426,7 @@ export const createBookingInternal = internalMutation({
     seatCount: v.optional(v.number()),
     departureId: v.optional(v.id("objects")),
     passengerCount: v.optional(v.number()),
+    ignoreOutsideAvailability: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     const resourceIds = Array.isArray(args.resourceIds) ? args.resourceIds : [];
@@ -1382,32 +1444,44 @@ export const createBookingInternal = internalMutation({
       ? await ctx.db.get(resourceIds[0])
       : null;
     const primaryProps = primaryResource?.customProperties as Record<string, unknown> | undefined;
-    const availabilityModel = (primaryProps?.availabilityModel as string) || "time_slot";
+    const primaryBookableConfig = primaryProps?.bookableConfig as
+      | Record<string, unknown>
+      | undefined;
+    const availabilityModel = resolveAvailabilityModel(
+      primaryProps,
+      primaryBookableConfig
+    );
 
     // Check conflicts based on model
     for (const resourceId of resourceIds) {
-      if (availabilityModel === "event_bound_seating" || availabilityModel === "departure_bound") {
-        const result = await ctx.runQuery(getInternal().availabilityOntology.checkConflictByModel, {
+      const result = await ctx.runQuery(
+        getInternal().availabilityOntology.checkConflictByModel,
+        {
           resourceId,
           organizationId: args.organizationId,
           startDateTime: args.startDateTime,
           endDateTime: args.endDateTime,
-          seatCount: args.seatCount || args.passengerCount || 1,
-          eventId: args.eventId,
-          departureId: args.departureId,
-        });
-        if (result.hasConflict) {
-          throw new Error(result.reason || `Conflict detected for resource ${resourceId}`);
+          ...(args.timezone ? { timezone: args.timezone } : {}),
+          ...(args.participants !== undefined
+            ? { participants: args.participants }
+            : {}),
+          ...(args.seatCount !== undefined ? { seatCount: args.seatCount } : {}),
+          ...(args.passengerCount !== undefined
+            ? { passengerCount: args.passengerCount }
+            : {}),
+          ...(args.eventId !== undefined ? { eventId: args.eventId } : {}),
+          ...(args.departureId !== undefined
+            ? { departureId: args.departureId }
+            : {}),
         }
-      } else {
-        const hasConflict = await ctx.runQuery(getInternal().availabilityOntology.checkConflict, {
-          resourceId,
-          startDateTime: args.startDateTime,
-          endDateTime: args.endDateTime,
-        });
-        if (hasConflict) {
-          throw new Error(`Conflict detected for resource ${resourceId}`);
-        }
+      );
+      const canIgnoreOutsideAvailability =
+        args.ignoreOutsideAvailability === true
+        && result.reason === "Outside configured availability";
+      if (result.hasConflict && !canIgnoreOutsideAvailability) {
+        throw new Error(
+          result.reason || `Conflict detected for resource ${resourceId}`
+        );
       }
     }
 
@@ -1455,6 +1529,7 @@ export const createBookingInternal = internalMutation({
         isAdminBooking: args.isAdminBooking || false,
         bookedViaEventId: null,
         // Model-specific references
+        availabilityStructure: primaryProps?.availabilityStructure || null,
         availabilityModel,
         eventId: args.eventId || null,
         seatCount: args.seatCount || null,
@@ -2851,9 +2926,16 @@ async function releaseSeatsOnCancellation(ctx: any, booking: any) {
   if (!resource) return;
 
   const resourceProps = resource.customProperties as Record<string, unknown> | undefined;
-  const model = (resourceProps?.availabilityModel as string) || "time_slot";
+  const bookableConfig = resourceProps?.bookableConfig as
+    | Record<string, unknown>
+    | undefined;
+  const storedModel = normalizeAvailabilityModel(bookingProps.availabilityModel);
+  const model = bookingProps.availabilityModel
+    ? storedModel
+    : resolveAvailabilityModel(resourceProps, bookableConfig);
+  const definition = getAvailabilityModelDefinition(model);
 
-  if (model === "event_bound_seating") {
+  if (definition.releaseStrategy === "event_seat_map") {
     const eventId = bookingProps.eventId as string;
     const seatCount = (bookingProps.seatCount as number) || (bookingProps.participants as number) || 1;
     if (eventId) {
@@ -2871,7 +2953,7 @@ async function releaseSeatsOnCancellation(ctx: any, booking: any) {
         });
       }
     }
-  } else if (model === "departure_bound") {
+  } else if (definition.releaseStrategy === "departure_seats") {
     const departureId = bookingProps.departureId as string;
     const passengerCount = (bookingProps.passengerCount as number) || (bookingProps.participants as number) || 1;
     if (departureId) {

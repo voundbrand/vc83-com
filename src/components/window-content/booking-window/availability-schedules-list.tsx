@@ -86,14 +86,14 @@ export function AvailabilitySchedulesList({ onEdit, onCreate }: AvailabilitySche
   const isEmpty = schedules && schedules.length === 0
 
   return (
-    <div className="flex flex-col h-full" style={{ background: "var(--shell-surface)" }}>
+    <div className="flex flex-col h-full" style={{ background: "var(--window-document-bg)" }}>
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b-2" style={{ borderColor: "var(--shell-border)" }}>
+      <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: "var(--window-document-border)" }}>
         <div>
-          <h2 className="font-pixel text-base" style={{ color: "var(--shell-text)" }}>
+          <h2 className="font-pixel text-base" style={{ color: "var(--window-document-text)" }}>
             {tWithFallback("ui.app.booking.availability.title", "Availability")}
           </h2>
-          <p className="text-xs mt-0.5" style={{ color: "var(--shell-text)", opacity: 0.6 }}>
+          <p className="text-xs mt-0.5" style={{ color: "var(--window-document-text)", opacity: 0.6 }}>
             {tWithFallback("ui.app.booking.availability.subtitle", "Configure times when you are available for bookings.")}
           </p>
         </div>
@@ -112,7 +112,7 @@ export function AvailabilitySchedulesList({ onEdit, onCreate }: AvailabilitySche
         {/* Loading */}
         {schedules === undefined && (
           <div className="flex items-center justify-center py-12">
-            <p className="font-pixel text-xs" style={{ color: "var(--shell-text)", opacity: 0.5 }}>
+            <p className="font-pixel text-xs" style={{ color: "var(--window-document-text)", opacity: 0.5 }}>
               {tWithFallback("ui.app.booking.availability.loading", "Loading schedules...")}
             </p>
           </div>
@@ -121,11 +121,11 @@ export function AvailabilitySchedulesList({ onEdit, onCreate }: AvailabilitySche
         {/* Empty state */}
         {isEmpty && (
           <div className="flex flex-col items-center justify-center py-16 gap-3">
-            <Clock size={48} style={{ color: "var(--shell-text)", opacity: 0.3 }} />
-            <p className="font-pixel text-sm" style={{ color: "var(--shell-text)" }}>
+            <Clock size={48} style={{ color: "var(--window-document-text)", opacity: 0.3 }} />
+            <p className="font-pixel text-sm" style={{ color: "var(--window-document-text)" }}>
               {tWithFallback("ui.app.booking.availability.empty_title", "No availability schedules")}
             </p>
-            <p className="text-xs text-center max-w-[280px]" style={{ color: "var(--shell-text)", opacity: 0.6 }}>
+            <p className="text-xs text-center max-w-xs" style={{ color: "var(--window-document-text)", opacity: 0.6 }}>
               {tWithFallback("ui.app.booking.availability.empty_hint", "Create your first schedule to set when you're available for bookings.")}
             </p>
             <button
@@ -145,7 +145,7 @@ export function AvailabilitySchedulesList({ onEdit, onCreate }: AvailabilitySche
             {schedules.map((schedule) => (
               <div
                 key={schedule._id}
-                className="border-2 px-3 py-2.5 flex items-center justify-between cursor-pointer transition-colors"
+                className="rounded-lg border px-3 py-2.5 flex items-center justify-between cursor-pointer transition-colors hover:bg-[var(--desktop-menu-hover)]"
                 role="button"
                 tabIndex={0}
                 aria-label={tWithFallback(
@@ -154,14 +154,8 @@ export function AvailabilitySchedulesList({ onEdit, onCreate }: AvailabilitySche
                   { name: schedule.name },
                 )}
                 style={{
-                  background: "var(--shell-surface-elevated)",
-                  borderColor: "var(--shell-border)",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = "var(--shell-surface)"
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = "var(--shell-surface-elevated)"
+                  background: "var(--window-document-bg)",
+                  borderColor: "var(--window-document-border)",
                 }}
                 onClick={() => onEdit(schedule._id)}
                 onKeyDown={(e) => {
@@ -174,15 +168,15 @@ export function AvailabilitySchedulesList({ onEdit, onCreate }: AvailabilitySche
                 {/* Left side */}
                 <div className="flex flex-col gap-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <span className="font-pixel text-sm font-bold truncate" style={{ color: "var(--shell-text)" }}>
+                    <span className="font-pixel text-sm font-bold truncate" style={{ color: "var(--window-document-text)" }}>
                       {schedule.name}
                     </span>
                     {schedule.isDefault && (
                       <span
-                        className="text-[10px] font-pixel px-1.5 py-0.5 rounded-sm shrink-0"
+                        className="text-xs font-pixel px-1.5 py-0.5 rounded shrink-0"
                         style={{
-                          background: "var(--shell-selection-bg)",
-                          color: "var(--shell-selection-text)",
+                          background: "var(--desktop-menu-hover)",
+                          color: "var(--window-document-text)",
                         }}
                       >
                         {tWithFallback("ui.app.booking.availability.badge.default", "Default")}
@@ -190,12 +184,12 @@ export function AvailabilitySchedulesList({ onEdit, onCreate }: AvailabilitySche
                     )}
                   </div>
                   {schedule.summary && (
-                    <span className="text-xs truncate" style={{ color: "var(--shell-text)", opacity: 0.5 }}>
+                    <span className="text-xs truncate" style={{ color: "var(--window-document-text)", opacity: 0.5 }}>
                       {schedule.summary}
                     </span>
                   )}
                   {schedule.timezone && (
-                    <span className="text-xs flex items-center gap-1" style={{ color: "var(--shell-text)", opacity: 0.5 }}>
+                    <span className="text-xs flex items-center gap-1" style={{ color: "var(--window-document-text)", opacity: 0.5 }}>
                       <Globe size={10} />
                       {schedule.timezone}
                     </span>
@@ -220,19 +214,19 @@ export function AvailabilitySchedulesList({ onEdit, onCreate }: AvailabilitySche
 
                   {openMenuId === schedule._id && (
                     <div
-                      className="absolute right-0 top-full mt-1 z-50 border-2 shadow-md min-w-[140px]"
+                      className="absolute right-0 top-full mt-1 z-50 border rounded-lg w-36"
                       role="menu"
                       aria-label={tWithFallback("ui.app.booking.availability.actions.menu_label", "Schedule actions")}
                       style={{
-                        background: "var(--shell-surface-elevated)",
-                        borderColor: "var(--shell-border)",
+                        background: "var(--window-document-bg)",
+                        borderColor: "var(--window-document-border)",
                       }}
                     >
                       <button
                         type="button"
                         role="menuitem"
                         className="w-full text-left px-3 py-1.5 text-xs flex items-center gap-2 hover:opacity-80"
-                        style={{ color: "var(--shell-text)" }}
+                        style={{ color: "var(--window-document-text)" }}
                         onClick={(e) => {
                           e.stopPropagation()
                           setOpenMenuId(null)
@@ -247,7 +241,7 @@ export function AvailabilitySchedulesList({ onEdit, onCreate }: AvailabilitySche
                           type="button"
                           role="menuitem"
                           className="w-full text-left px-3 py-1.5 text-xs flex items-center gap-2 hover:opacity-80"
-                          style={{ color: "var(--shell-text)" }}
+                          style={{ color: "var(--window-document-text)" }}
                           onClick={(e) => {
                             e.stopPropagation()
                             handleSetDefault(schedule._id)
@@ -261,7 +255,7 @@ export function AvailabilitySchedulesList({ onEdit, onCreate }: AvailabilitySche
                         type="button"
                         role="menuitem"
                         className="w-full text-left px-3 py-1.5 text-xs flex items-center gap-2 hover:opacity-80"
-                        style={{ color: "var(--shell-text)" }}
+                        style={{ color: "var(--window-document-text)" }}
                         onClick={(e) => {
                           e.stopPropagation()
                           setConfirmDeleteId(schedule._id)
@@ -280,23 +274,28 @@ export function AvailabilitySchedulesList({ onEdit, onCreate }: AvailabilitySche
         )}
       </div>
 
-      {/* Delete confirmation dialog */}
+      {/* Inline delete confirmation */}
       {confirmDeleteId && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/30">
+        <div
+          className="border-t p-4"
+          style={{
+            borderColor: "var(--window-document-border)",
+            background: "var(--desktop-shell-accent)",
+          }}
+        >
           <div
-            className="border-2 p-4 shadow-lg max-w-[300px] w-full"
+            className="border rounded-xl p-4 max-w-sm"
             style={{
-              background: "var(--shell-surface)",
-              borderColor: "var(--shell-border)",
+              background: "var(--window-document-bg)",
+              borderColor: "var(--window-document-border)",
             }}
-            role="dialog"
-            aria-modal="true"
+            role="alertdialog"
             aria-labelledby="availability-delete-dialog-title"
           >
-            <p id="availability-delete-dialog-title" className="font-pixel text-sm mb-1" style={{ color: "var(--shell-text)" }}>
+            <p id="availability-delete-dialog-title" className="font-pixel text-sm mb-1" style={{ color: "var(--window-document-text)" }}>
               {tWithFallback("ui.app.booking.availability.delete_dialog.title", "Delete Schedule")}
             </p>
-            <p className="text-xs mb-4" style={{ color: "var(--shell-text)", opacity: 0.7 }}>
+            <p className="text-xs mb-4" style={{ color: "var(--window-document-text)", opacity: 0.7 }}>
               {tWithFallback(
                 "ui.app.booking.availability.delete_dialog.body",
                 "Are you sure you want to delete this availability schedule? This action cannot be undone.",
@@ -312,7 +311,7 @@ export function AvailabilitySchedulesList({ onEdit, onCreate }: AvailabilitySche
               </button>
               <button
                 type="button"
-                className="desktop-interior-button text-xs px-3 py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] focus-visible:ring-inset"
+                className="desktop-interior-button desktop-interior-button-danger text-xs px-3 py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] focus-visible:ring-inset"
                 onClick={() => handleDelete(confirmDeleteId as Id<"objects">)}
               >
                 {tWithFallback("ui.app.booking.actions.delete", "Delete")}

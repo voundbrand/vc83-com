@@ -35,12 +35,16 @@ describe("segelschule availability route", () => {
   })
 
   it("returns backend availability and seat map for selected time", async () => {
+    const dayStart = 1_759_507_200_000
+    const slot0900 = 1_759_539_600_000
+    const slot1300 = 1_759_554_000_000
+
     getOrganizationIdMock.mockReturnValue("org_123")
     getConvexClientMock.mockReturnValue({})
     resolveSegelschuleRuntimeConfigMock.mockResolvedValue({
       runtimeConfig: {
         timezone: "Europe/Berlin",
-        defaultAvailableTimes: ["09:00", "13:00"],
+        defaultAvailableTimes: ["09:00", "11:00", "13:00"],
         boats: [
           { id: "fraukje", name: "Fraukje", seatCount: 4 },
           { id: "rose", name: "Rose", seatCount: 4 },
@@ -50,7 +54,7 @@ describe("segelschule availability route", () => {
             courseId: "schnupper",
             bookingResourceId: "obj_resource_taster",
             bookingDurationMinutes: 180,
-            availableTimes: ["09:00", "13:00"],
+            availableTimes: ["09:00", "11:00", "13:00"],
             isMultiDay: false,
           },
         },
@@ -71,55 +75,109 @@ describe("segelschule availability route", () => {
       ],
       strictSeatSelection: true,
     })
-    parseBookingStartTimestampMock
-      .mockReturnValueOnce(1_760_000_000_000)
-      .mockReturnValueOnce(1_760_010_000_000)
+    parseBookingStartTimestampMock.mockImplementation((date: string, time: string) => {
+      if (date !== "2026-04-10") {
+        return null
+      }
+      if (time === "00:00") {
+        return dayStart
+      }
+      if (time === "09:00") {
+        return slot0900
+      }
+      if (time === "13:00") {
+        return slot1300
+      }
+      return null
+    })
 
-    queryInternalMock
-      .mockResolvedValueOnce({
-        totalCapacity: 8,
-        bookedParticipants: 2,
-        remainingCapacity: 6,
-        unassignedParticipants: 0,
-        groups: [
+    queryInternalMock.mockImplementation(async (_convex, _ref, args) => {
+      if (
+        args.organizationId === "org_123"
+        && args.resourceId === "obj_resource_taster"
+        && !("startDate" in args)
+        && !("startDateTime" in args)
+      ) {
+        return {
+          schedules: [
+            {
+              dayOfWeek: 5,
+              startTime: "09:00",
+              endTime: "12:00",
+              isAvailable: true,
+            },
+            {
+              dayOfWeek: 5,
+              startTime: "13:00",
+              endTime: "16:00",
+              isAvailable: true,
+            },
+          ],
+          exceptions: [],
+          blocks: [],
+        }
+      }
+      if (
+        args.organizationId === "org_123"
+        && args.resourceId === "obj_resource_taster"
+        && "startDate" in args
+      ) {
+        return [
           {
-            groupId: "fraukje",
-            label: "Fraukje",
-            capacity: 4,
-            bookedSeatNumbers: [1],
-            availableSeatNumbers: [2, 3, 4],
+            startTime: "09:00",
           },
-          {
-            groupId: "rose",
-            label: "Rose",
-            capacity: 4,
-            bookedSeatNumbers: [4],
-            availableSeatNumbers: [1, 2, 3],
-          },
-        ],
-      })
-      .mockResolvedValueOnce({
-        totalCapacity: 8,
-        bookedParticipants: 8,
-        remainingCapacity: 0,
-        unassignedParticipants: 0,
-        groups: [
-          {
-            groupId: "fraukje",
-            label: "Fraukje",
-            capacity: 4,
-            bookedSeatNumbers: [1, 2, 3, 4],
-            availableSeatNumbers: [],
-          },
-          {
-            groupId: "rose",
-            label: "Rose",
-            capacity: 4,
-            bookedSeatNumbers: [1, 2, 3, 4],
-            availableSeatNumbers: [],
-          },
-        ],
-      })
+        ]
+      }
+      if (args.resourceId === "obj_resource_taster" && args.startDateTime === slot0900) {
+        return {
+          totalCapacity: 8,
+          bookedParticipants: 2,
+          remainingCapacity: 6,
+          unassignedParticipants: 0,
+          groups: [
+            {
+              groupId: "fraukje",
+              label: "Fraukje",
+              capacity: 4,
+              bookedSeatNumbers: [1],
+              availableSeatNumbers: [2, 3, 4],
+            },
+            {
+              groupId: "rose",
+              label: "Rose",
+              capacity: 4,
+              bookedSeatNumbers: [4],
+              availableSeatNumbers: [1, 2, 3],
+            },
+          ],
+        }
+      }
+      if (args.resourceId === "obj_resource_taster" && args.startDateTime === slot1300) {
+        return {
+          totalCapacity: 8,
+          bookedParticipants: 8,
+          remainingCapacity: 0,
+          unassignedParticipants: 0,
+          groups: [
+            {
+              groupId: "fraukje",
+              label: "Fraukje",
+              capacity: 4,
+              bookedSeatNumbers: [1, 2, 3, 4],
+              availableSeatNumbers: [],
+            },
+            {
+              groupId: "rose",
+              label: "Rose",
+              capacity: 4,
+              bookedSeatNumbers: [1, 2, 3, 4],
+              availableSeatNumbers: [],
+            },
+          ],
+        }
+      }
+      throw new Error(`Unexpected queryInternal args: ${JSON.stringify(args)}`)
+    })
 
     const { POST } = await import(
       "../../../apps/segelschule-altwarp/app/api/booking/availability/route"

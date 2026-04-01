@@ -8,6 +8,7 @@ import type { Id } from "../../../../convex/_generated/dataModel"
 import { useNotification } from "@/hooks/use-notification"
 import { useState } from "react"
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations"
+import { InteriorBadge } from "@/components/window-content/shared/interior-primitives"
 
 interface LocationDetailProps {
   locationId: Id<"objects">
@@ -30,15 +31,15 @@ export function LocationDetail({ locationId }: LocationDetailProps) {
 
   if (!sessionId) {
     return (
-      <div className="p-4 text-center" style={{ color: 'var(--neutral-gray)' }}>
-        <p className="font-pixel text-sm">{tWithFallback("ui.app.booking.auth.login_required_title", "Please log in")}</p>
+      <div className="p-4 text-center" style={{ color: "var(--desktop-menu-text-muted)" }}>
+        <p className="text-sm font-semibold" style={{ color: "var(--window-document-text)" }}>{tWithFallback("ui.app.booking.auth.login_required_title", "Please log in")}</p>
       </div>
     )
   }
 
   if (!location) {
     return (
-      <div className="p-4 text-center" style={{ color: 'var(--neutral-gray)' }}>
+      <div className="p-4 text-center" style={{ color: "var(--desktop-menu-text-muted)" }}>
         <p className="text-sm">{tWithFallback("ui.app.booking.location.detail.loading", "Loading location details...")}</p>
       </div>
     )
@@ -115,6 +116,19 @@ export function LocationDetail({ locationId }: LocationDetailProps) {
     }
   }
 
+  const getStatusTone = (status?: string | null): "success" | "warn" | "error" | "default" => {
+    switch (status) {
+      case "active":
+        return "success"
+      case "inactive":
+        return "warn"
+      case "archived":
+        return "error"
+      default:
+        return "default"
+    }
+  }
+
   const getSubtypeLabel = (subtype?: string | null) => {
     switch (subtype) {
       case "branch": return tWithFallback("ui.app.booking.location.subtype.branch", "Branch")
@@ -152,8 +166,8 @@ export function LocationDetail({ locationId }: LocationDetailProps) {
           <div
             className="p-3 rounded-lg"
             style={{
-              background: 'var(--shell-selection-bg)',
-              color: 'var(--shell-selection-text)'
+              background: "var(--desktop-menu-hover)",
+              color: "var(--window-document-text)",
             }}
           >
             {getSubtypeIcon(location.subtype || "venue")}
@@ -161,15 +175,13 @@ export function LocationDetail({ locationId }: LocationDetailProps) {
           <h2 className="font-pixel text-sm truncate">{location.name}</h2>
           <span className="text-xs opacity-70 capitalize shrink-0">{getSubtypeLabel(location.subtype)}</span>
         </div>
-        <span
-          className="px-3 py-1 text-xs font-medium rounded-lg capitalize"
-          style={{
-            background: getStatusColor(location.status || "active"),
-            color: 'white'
-          }}
+        <InteriorBadge
+          tone={getStatusTone(location.status)}
+          className="px-3 py-1 text-xs font-medium capitalize"
+          style={{ background: getStatusColor(location.status || "active") }}
         >
           {getStatusLabel(location.status)}
-        </span>
+        </InteriorBadge>
       </div>
 
       {/* Address */}
@@ -259,60 +271,49 @@ export function LocationDetail({ locationId }: LocationDetailProps) {
           <button
             type="button"
             onClick={() => setShowDeleteDialog(true)}
-            className={actionButtonClassName}
-            style={{ background: 'var(--error-bg)', color: 'white' }}
+            className={`${actionButtonClassName} desktop-interior-button-danger`}
           >
             <Trash2 size={14} /> {tWithFallback("ui.app.booking.location.actions.archive", "Archive")}
           </button>
         </div>
       )}
 
-      {/* Delete Dialog */}
+      {/* Inline Archive Panel */}
       {showDeleteDialog && (
         <div
-          className="fixed inset-0 flex items-center justify-center z-50 p-4"
-          style={{ background: "var(--modal-overlay-bg)" }}
-          onClick={() => setShowDeleteDialog(false)}
+          className="p-4 rounded-xl border"
+          style={{
+            background: "var(--window-document-bg)",
+            borderColor: "var(--window-document-border)",
+          }}
+          role="region"
+          aria-labelledby="location-archive-dialog-title"
         >
-          <div
-            className="p-4 rounded-xl border max-w-md w-full"
-            style={{
-              background: 'var(--window-document-bg)',
-              borderColor: 'var(--window-document-border)'
-            }}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="location-archive-dialog-title"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3 id="location-archive-dialog-title" className="font-pixel text-sm mb-3">
-              {tWithFallback("ui.app.booking.location.archive_dialog.title", "Archive Location")}
-            </h3>
-            <p className="text-sm mb-4">
-              {tWithFallback(
-                "ui.app.booking.location.archive_dialog.body",
-                "Are you sure you want to archive \"{name}\"? This location will no longer be available for new bookings.",
-                { name: location.name },
-              )}
-            </p>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={handleArchive}
-                className="desktop-interior-button px-4 py-2 text-xs flex-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] focus-visible:ring-inset"
-                style={{ background: 'var(--error-bg)', color: 'white' }}
-              >
-                {tWithFallback("ui.app.booking.location.archive_dialog.confirm", "Archive Location")}
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowDeleteDialog(false)}
-                className="desktop-interior-button px-4 py-2 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] focus-visible:ring-inset"
-                style={{ background: 'var(--shell-button-surface)' }}
-              >
-                {tWithFallback("ui.app.booking.actions.cancel", "Cancel")}
-              </button>
-            </div>
+          <h3 id="location-archive-dialog-title" className="font-pixel text-sm mb-3">
+            {tWithFallback("ui.app.booking.location.archive_dialog.title", "Archive Location")}
+          </h3>
+          <p className="text-sm mb-4">
+            {tWithFallback(
+              "ui.app.booking.location.archive_dialog.body",
+              "Are you sure you want to archive \"{name}\"? This location will no longer be available for new bookings.",
+              { name: location.name },
+            )}
+          </p>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={handleArchive}
+              className="desktop-interior-button desktop-interior-button-danger px-4 py-2 text-xs flex-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] focus-visible:ring-inset"
+            >
+              {tWithFallback("ui.app.booking.location.archive_dialog.confirm", "Archive Location")}
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowDeleteDialog(false)}
+              className="desktop-interior-button desktop-interior-button-subtle px-4 py-2 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] focus-visible:ring-inset"
+            >
+              {tWithFallback("ui.app.booking.actions.cancel", "Cancel")}
+            </button>
           </div>
         </div>
       )}

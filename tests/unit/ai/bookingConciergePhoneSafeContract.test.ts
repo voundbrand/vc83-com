@@ -4,7 +4,7 @@ import {
   buildOrgBookingConciergePhoneSafeResult,
   ORG_BOOKING_CONCIERGE_PHONE_SAFE_CONTRACT_VERSION,
 } from "../../../convex/ai/tools/bookingTool";
-import { resolveInboundIngressEnvelope } from "../../../convex/ai/agentExecution";
+import { resolveInboundIngressEnvelope } from "../../../convex/ai/kernel/agentExecution";
 
 const ORG_ID = "org_1" as Id<"organizations">;
 const AGENT_ID = "agent_1" as Id<"objects">;

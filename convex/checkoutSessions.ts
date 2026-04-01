@@ -664,6 +664,8 @@ export const completeCheckoutAndFulfill = action({
     checkoutSessionId: v.id("objects"),
     paymentIntentId: v.string(),
     paymentMethod: v.optional(v.union(v.literal("stripe"), v.literal("invoice"), v.literal("free"))),
+    skipOrderConfirmationEmail: v.optional(v.boolean()),
+    skipSalesNotificationEmail: v.optional(v.boolean()),
   },
   handler: async (ctx, args): Promise<{
     success: boolean;
@@ -682,6 +684,8 @@ export const completeCheckoutAndFulfill = action({
       checkoutSessionId: args.checkoutSessionId,
       paymentIntentId: args.paymentIntentId,
       paymentMethod: args.paymentMethod,
+      skipOrderConfirmationEmail: args.skipOrderConfirmationEmail === true,
+      skipSalesNotificationEmail: args.skipSalesNotificationEmail === true,
     });
 
     // STEP 0: Fetch checkout session
@@ -1266,53 +1270,61 @@ export const completeCheckoutAndFulfill = action({
 
     // STEP 10: SEND ORDER CONFIRMATION EMAIL
     console.log("📋 [STEP 10] Sending order confirmation email...");
-    try {
-      await (ctx as any).runAction(generatedApi.internal.ticketGeneration.sendOrderConfirmationEmail, {
-        checkoutSessionId: args.checkoutSessionId,
-        recipientEmail: customerEmail,
-        recipientName: customerName,
-        includeInvoicePDF,
-      });
-      console.log("✅ [STEP 10] Order confirmation email sent");
-    } catch (emailError) {
-      console.error("⚠️ [STEP 10] Email sending failed (non-critical):", emailError);
+    if (args.skipOrderConfirmationEmail === true) {
+      console.log("⏭️ [STEP 10] Skipping order confirmation email by caller request");
+    } else {
+      try {
+        await (ctx as any).runAction(generatedApi.internal.ticketGeneration.sendOrderConfirmationEmail, {
+          checkoutSessionId: args.checkoutSessionId,
+          recipientEmail: customerEmail,
+          recipientName: customerName,
+          includeInvoicePDF,
+        });
+        console.log("✅ [STEP 10] Order confirmation email sent");
+      } catch (emailError) {
+        console.error("⚠️ [STEP 10] Email sending failed (non-critical):", emailError);
+      }
     }
 
     // STEP 11: SEND SALES NOTIFICATION EMAIL
     console.log("📋 [STEP 11] Sending sales notification email...");
-    try {
-      // Get checkout instance to retrieve sales notification settings
-      const checkoutInstanceId = session.customProperties?.checkoutInstanceId as Id<"objects"> | undefined;
+    if (args.skipSalesNotificationEmail === true) {
+      console.log("⏭️ [STEP 11] Skipping sales notification email by caller request");
+    } else {
+      try {
+        // Get checkout instance to retrieve sales notification settings
+        const checkoutInstanceId = session.customProperties?.checkoutInstanceId as Id<"objects"> | undefined;
 
-      if (checkoutInstanceId) {
-        // ✅ Use public query - no authentication required
-        const checkoutInstance = await (ctx as any).runQuery(generatedApi.api.checkoutOntology.getPublicCheckoutInstanceById, {
-          instanceId: checkoutInstanceId,
-        });
-
-        const salesNotificationRecipientEmail =
-          checkoutInstance?.customProperties?.salesNotificationRecipientEmail as string | undefined;
-        const salesNotificationEmailTemplateId =
-          checkoutInstance?.customProperties?.salesNotificationEmailTemplateId as Id<"objects"> | undefined;
-
-        // Send sales notification if recipient is configured
-        if (salesNotificationRecipientEmail) {
-          console.log("📧 [completeCheckoutAndFulfill] Sending sales notification to:", salesNotificationRecipientEmail);
-
-          await (ctx as any).runAction(generatedApi.internal.emailDelivery.sendSalesNotificationEmail, {
-            checkoutSessionId: args.checkoutSessionId,
-            recipientEmail: salesNotificationRecipientEmail,
-            templateId: salesNotificationEmailTemplateId, // Optional: use custom template
+        if (checkoutInstanceId) {
+          // ✅ Use public query - no authentication required
+          const checkoutInstance = await (ctx as any).runQuery(generatedApi.api.checkoutOntology.getPublicCheckoutInstanceById, {
+            instanceId: checkoutInstanceId,
           });
+
+          const salesNotificationRecipientEmail =
+            checkoutInstance?.customProperties?.salesNotificationRecipientEmail as string | undefined;
+          const salesNotificationEmailTemplateId =
+            checkoutInstance?.customProperties?.salesNotificationEmailTemplateId as Id<"objects"> | undefined;
+
+          // Send sales notification if recipient is configured
+          if (salesNotificationRecipientEmail) {
+            console.log("📧 [completeCheckoutAndFulfill] Sending sales notification to:", salesNotificationRecipientEmail);
+
+            await (ctx as any).runAction(generatedApi.internal.emailDelivery.sendSalesNotificationEmail, {
+              checkoutSessionId: args.checkoutSessionId,
+              recipientEmail: salesNotificationRecipientEmail,
+              templateId: salesNotificationEmailTemplateId, // Optional: use custom template
+            });
+          } else {
+            console.log("📧 [completeCheckoutAndFulfill] No sales notification recipient configured, skipping");
+          }
         } else {
-          console.log("📧 [completeCheckoutAndFulfill] No sales notification recipient configured, skipping");
+          console.log("   No checkout instance ID, skipping sales notification");
         }
-      } else {
-        console.log("   No checkout instance ID, skipping sales notification");
+        console.log("✅ [STEP 11] Sales notification handled");
+      } catch (salesEmailError) {
+        console.error("⚠️ [STEP 11] Sales notification email failed (non-critical):", salesEmailError);
       }
-      console.log("✅ [STEP 11] Sales notification handled");
-    } catch (salesEmailError) {
-      console.error("⚠️ [STEP 11] Sales notification email failed (non-critical):", salesEmailError);
     }
 
     console.log("🎉 [completeCheckoutAndFulfill] CHECKOUT COMPLETE! Returning success...");
@@ -1471,6 +1483,8 @@ export const fulfillCheckoutAsync = internalAction({
     checkoutSessionId: v.id("objects"),
     paymentIntentId: v.string(),
     paymentMethod: v.union(v.literal("stripe"), v.literal("invoice"), v.literal("free")),
+    skipOrderConfirmationEmail: v.optional(v.boolean()),
+    skipSalesNotificationEmail: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     console.log("🔄 [fulfillCheckoutAsync] Starting async fulfillment...");
@@ -1761,36 +1775,44 @@ export const fulfillCheckoutAsync = internalAction({
         includeInvoicePDF = isManualInvoice || args.paymentMethod === 'stripe';
       }
 
-      try {
-        await (ctx as any).runAction(generatedApi.internal.ticketGeneration.sendOrderConfirmationEmail, {
-          checkoutSessionId: args.checkoutSessionId,
-          recipientEmail: customerEmail,
-          recipientName: customerName,
-          includeInvoicePDF,
-        });
-      } catch (emailError) {
-        console.error("⚠️ [fulfillCheckoutAsync] Email sending failed (non-critical):", emailError);
+      if (args.skipOrderConfirmationEmail === true) {
+        console.log("⏭️ [fulfillCheckoutAsync] Skipping order confirmation email by caller request");
+      } else {
+        try {
+          await (ctx as any).runAction(generatedApi.internal.ticketGeneration.sendOrderConfirmationEmail, {
+            checkoutSessionId: args.checkoutSessionId,
+            recipientEmail: customerEmail,
+            recipientName: customerName,
+            includeInvoicePDF,
+          });
+        } catch (emailError) {
+          console.error("⚠️ [fulfillCheckoutAsync] Email sending failed (non-critical):", emailError);
+        }
       }
 
       // Send sales notification
-      try {
-        const checkoutInstanceId = session.customProperties?.checkoutInstanceId as Id<"objects"> | undefined;
-        if (checkoutInstanceId) {
-          const checkoutInstance = await (ctx as any).runQuery(generatedApi.api.checkoutOntology.getPublicCheckoutInstanceById, {
-            instanceId: checkoutInstanceId,
-          });
-
-          const salesNotificationRecipientEmail = checkoutInstance?.customProperties?.salesNotificationRecipientEmail as string | undefined;
-          if (salesNotificationRecipientEmail) {
-            await (ctx as any).runAction(generatedApi.internal.emailDelivery.sendSalesNotificationEmail, {
-              checkoutSessionId: args.checkoutSessionId,
-              recipientEmail: salesNotificationRecipientEmail,
-              templateId: checkoutInstance?.customProperties?.salesNotificationEmailTemplateId as Id<"objects"> | undefined,
+      if (args.skipSalesNotificationEmail === true) {
+        console.log("⏭️ [fulfillCheckoutAsync] Skipping sales notification email by caller request");
+      } else {
+        try {
+          const checkoutInstanceId = session.customProperties?.checkoutInstanceId as Id<"objects"> | undefined;
+          if (checkoutInstanceId) {
+            const checkoutInstance = await (ctx as any).runQuery(generatedApi.api.checkoutOntology.getPublicCheckoutInstanceById, {
+              instanceId: checkoutInstanceId,
             });
+
+            const salesNotificationRecipientEmail = checkoutInstance?.customProperties?.salesNotificationRecipientEmail as string | undefined;
+            if (salesNotificationRecipientEmail) {
+              await (ctx as any).runAction(generatedApi.internal.emailDelivery.sendSalesNotificationEmail, {
+                checkoutSessionId: args.checkoutSessionId,
+                recipientEmail: salesNotificationRecipientEmail,
+                templateId: checkoutInstance?.customProperties?.salesNotificationEmailTemplateId as Id<"objects"> | undefined,
+              });
+            }
           }
+        } catch (salesEmailError) {
+          console.error("⚠️ [fulfillCheckoutAsync] Sales notification failed (non-critical):", salesEmailError);
         }
-      } catch (salesEmailError) {
-        console.error("⚠️ [fulfillCheckoutAsync] Sales notification failed (non-critical):", salesEmailError);
       }
 
       // STEP 5: Complete

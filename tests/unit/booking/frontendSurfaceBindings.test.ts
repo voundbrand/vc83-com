@@ -124,4 +124,31 @@ describe("frontend surface bindings", () => {
       })
     )
   })
+
+  it("normalizes app/surface identity tokens to lowercase on upsert", async () => {
+    const organizationId = "org_1" as any
+    const userId = "user_1" as any
+    const db = buildDbWithRecords([])
+
+    await (upsertBookingSurfaceBindingInternal as any)._handler(
+      { db },
+      {
+        organizationId,
+        userId,
+        appSlug: " Segelschule-Altwarp ",
+        surfaceType: " Booking ",
+        surfaceKey: " Default ",
+        runtimeConfig: {
+          timezone: "Europe/Berlin",
+          inventoryGroups: [],
+          courses: [],
+        },
+      }
+    )
+
+    const insertPayload = (db.insert as any).mock.calls[0][1]
+    expect(insertPayload.customProperties.appSlug).toBe("segelschule-altwarp")
+    expect(insertPayload.customProperties.surfaceType).toBe("booking")
+    expect(insertPayload.customProperties.surfaceKey).toBe("default")
+  })
 })

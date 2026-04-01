@@ -39,6 +39,29 @@ interface SeatAvailabilitySnapshot {
   }>
 }
 
+interface ResourceAvailabilitySnapshot {
+  schedules: Array<{
+    dayOfWeek?: unknown
+    startTime?: unknown
+    endTime?: unknown
+    isAvailable?: unknown
+    timezone?: unknown
+  }>
+  exceptions: Array<{
+    date?: unknown
+    isAvailable?: unknown
+    customHours?: unknown
+  }>
+  blocks: Array<{
+    startDate?: unknown
+    endDate?: unknown
+  }>
+}
+
+interface AvailableSlotSnapshot {
+  startTime?: unknown
+}
+
 function isValidDate(value: unknown): value is string {
   return typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value.trim())
 }
@@ -101,6 +124,132 @@ function mapSelectedBoatAvailability(args: {
   })
 }
 
+function normalizeTimeValue(value: unknown): string | null {
+  return isValidTime(value) ? value.trim() : null
+}
+
+function timeToMinutes(value: string): number | null {
+  const match = /^(\d{2}):(\d{2})$/.exec(value)
+  if (!match) {
+    return null
+  }
+  return Number(match[1]) * 60 + Number(match[2])
+}
+
+function formatDateKey(value: unknown): string | null {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return null
+  }
+  return new Date(value).toISOString().slice(0, 10)
+}
+
+function blockIncludesDate(block: { startDate?: unknown; endDate?: unknown }, date: string): boolean {
+  const startDate = formatDateKey(block.startDate)
+  const endDate = formatDateKey(block.endDate)
+  if (!startDate || !endDate) {
+    return false
+  }
+  return date >= startDate && date <= endDate
+}
+
+function rangeCanFitDuration(args: {
+  startTime: string
+  endTime: string
+  durationMinutes: number
+}): boolean {
+  const startMinutes = timeToMinutes(args.startTime)
+  const endMinutes = timeToMinutes(args.endTime)
+  if (startMinutes === null || endMinutes === null) {
+    return false
+  }
+  return endMinutes - startMinutes >= args.durationMinutes
+}
+
+function uniqueSortedTimes(values: string[]): string[] {
+  return Array.from(new Set(values)).sort((left, right) => left.localeCompare(right))
+}
+
+function hasResourceAvailability(snapshot: ResourceAvailabilitySnapshot | null): boolean {
+  return Boolean(
+    snapshot
+    && (
+      snapshot.schedules.length > 0
+      || snapshot.exceptions.length > 0
+      || snapshot.blocks.length > 0
+    )
+  )
+}
+
+function buildCandidateTimes(args: {
+  date: string
+  durationMinutes: number
+  fallbackTimes: string[]
+  availability: ResourceAvailabilitySnapshot | null
+}): string[] {
+  if (!hasResourceAvailability(args.availability)) {
+    return args.fallbackTimes
+  }
+
+  for (const block of args.availability!.blocks) {
+    if (blockIncludesDate(block, args.date)) {
+      return []
+    }
+  }
+
+  const matchingException = args.availability!.exceptions.find(
+    (exception) => formatDateKey(exception.date) === args.date
+  )
+  if (matchingException?.isAvailable === false) {
+    return []
+  }
+
+  const exceptionHours =
+    matchingException?.customHours && typeof matchingException.customHours === "object"
+      ? (matchingException.customHours as Record<string, unknown>)
+      : null
+  const exceptionStart = normalizeTimeValue(exceptionHours?.startTime)
+  const exceptionEnd = normalizeTimeValue(exceptionHours?.endTime)
+  if (
+    exceptionStart
+    && exceptionEnd
+    && rangeCanFitDuration({
+      startTime: exceptionStart,
+      endTime: exceptionEnd,
+      durationMinutes: args.durationMinutes,
+    })
+  ) {
+    return [exceptionStart]
+  }
+
+  const dayStart = parseBookingStartTimestamp(args.date, "00:00", args.timezone)
+  if (!dayStart) {
+    return []
+  }
+
+  const dayOfWeek = new Date(dayStart).getUTCDay()
+  const scheduleTimes = args.availability!.schedules
+    .filter((schedule) => schedule.dayOfWeek === dayOfWeek && schedule.isAvailable !== false)
+    .map((schedule) => {
+      const startTime = normalizeTimeValue(schedule.startTime)
+      const endTime = normalizeTimeValue(schedule.endTime)
+      if (
+        !startTime
+        || !endTime
+        || !rangeCanFitDuration({
+          startTime,
+          endTime,
+          durationMinutes: args.durationMinutes,
+        })
+      ) {
+        return null
+      }
+      return startTime
+    })
+    .filter((time): time is string => Boolean(time))
+
+  return uniqueSortedTimes(scheduleTimes)
+}
+
 export async function POST(request: Request) {
   try {
     const body = (await request.json()) as Record<string, unknown>
@@ -143,18 +292,64 @@ export async function POST(request: Request) {
     }
 
     const durationMinutes = selectedCourse.bookingDurationMinutes
-    const availableTimes =
+    const fallbackTimes =
       selectedCourse.availableTimes.length > 0
         ? selectedCourse.availableTimes
         : runtime.defaultAvailableTimes
+    const resourceAvailability = (await queryInternal(
+      convex,
+      generatedInternalApi.availabilityOntology.getResourceAvailabilityInternal,
+      {
+        organizationId: organizationId as Id<"organizations">,
+        resourceId: selectedCourse.bookingResourceId as Id<"objects">,
+      }
+    )) as ResourceAvailabilitySnapshot
+    const candidateTimes = buildCandidateTimes({
+      date: parsedPayload.data.date,
+      durationMinutes,
+      fallbackTimes,
+      availability: resourceAvailability,
+    })
     const seatInventory = buildSeatInventoryFromBoats({
       boats: runtime.boats,
       strictSeatSelection: true,
     })
+    let availableStartTimes = new Set<string>()
+
+    if (hasResourceAvailability(resourceAvailability) && candidateTimes.length > 0) {
+      const dayStart = parseBookingStartTimestamp(
+        parsedPayload.data.date,
+        "00:00",
+        runtime.timezone
+      )
+      if (dayStart) {
+        const availableSlots = (await queryInternal(
+          convex,
+          generatedInternalApi.availabilityOntology.getAvailableSlotsInternal,
+          {
+            organizationId: organizationId as Id<"organizations">,
+            resourceId: selectedCourse.bookingResourceId as Id<"objects">,
+            startDate: dayStart,
+            endDate: dayStart + 24 * 60 * 60 * 1000 - 1,
+            duration: durationMinutes,
+            timezone: runtime.timezone,
+          }
+        )) as AvailableSlotSnapshot[]
+        availableStartTimes = new Set(
+          availableSlots
+            .map((slot) => normalizeTimeValue(slot.startTime))
+            .filter((time): time is string => Boolean(time))
+        )
+      }
+    }
 
     const slotResults = await Promise.all(
-      availableTimes.map(async (time) => {
-        const startDateTime = parseBookingStartTimestamp(parsedPayload.data.date, time)
+      candidateTimes.map(async (time) => {
+        const startDateTime = parseBookingStartTimestamp(
+          parsedPayload.data.date,
+          time,
+          runtime.timezone
+        )
         if (!startDateTime) {
           return {
             time,
@@ -165,6 +360,8 @@ export async function POST(request: Request) {
           }
         }
 
+        const slotAllowedBySchedule =
+          !hasResourceAvailability(resourceAvailability) || availableStartTimes.has(time)
         const snapshot = (await queryInternal(
           convex,
           generatedInternalApi.api.v1.resourceBookingsInternal.getSeatAvailabilityInternal,
@@ -179,9 +376,9 @@ export async function POST(request: Request) {
 
         return {
           time,
-          isAvailable: snapshot.remainingCapacity > 0,
+          isAvailable: slotAllowedBySchedule && snapshot.remainingCapacity > 0,
           totalSeats: snapshot.totalCapacity,
-          availableSeats: snapshot.remainingCapacity,
+          availableSeats: slotAllowedBySchedule ? snapshot.remainingCapacity : 0,
           snapshot,
         }
       })

@@ -158,6 +158,127 @@ function getGoogleCalendarScopeReadiness(scopes: string[] | undefined) {
   };
 }
 
+async function upsertCalendarLinkSettingsRecord(
+  ctx: any,
+  args: {
+    organizationId: Id<"organizations">;
+    connectionId: Id<"oauthConnections">;
+    resourceId?: Id<"objects">;
+    blockingCalendarIds?: string[];
+    pushCalendarId?: string;
+  }
+) {
+  const connection = await ctx.db.get(args.connectionId);
+  if (!connection) {
+    throw new Error("Google calendar connection not found");
+  }
+  if (
+    connection.organizationId !== args.organizationId ||
+    connection.provider !== "google"
+  ) {
+    throw new Error("Invalid Google calendar connection");
+  }
+
+  const nextBlockingCalendarIds =
+    args.blockingCalendarIds !== undefined
+      ? (() => {
+          const normalizedIds = normalizeBlockingCalendarIdsForConnection(
+            connection,
+            args.blockingCalendarIds
+          );
+          return normalizedIds.length > 0
+            ? normalizedIds
+            : getDefaultBlockingCalendarIds(connection);
+        })()
+      : undefined;
+  const nextPushCalendarId =
+    args.pushCalendarId !== undefined
+      ? normalizePushCalendarIdForConnection(connection, args.pushCalendarId)
+      : undefined;
+
+  let resourceId = args.resourceId;
+  if (!resourceId) {
+    const existing = await ctx.db
+      .query("objects")
+      .withIndex("by_type", (q: any) => q.eq("type", "calendar_settings"))
+      .filter((q: any) => q.eq(q.field("organizationId"), args.organizationId))
+      .first();
+
+    if (existing) {
+      resourceId = existing._id;
+    } else {
+      resourceId = await ctx.db.insert("objects", {
+        type: "calendar_settings",
+        subtype: "org_default",
+        name: "Calendar Settings",
+        organizationId: args.organizationId,
+        status: "active",
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      });
+    }
+  }
+
+  const links = await ctx.db
+    .query("objectLinks")
+    .withIndex("by_org_link_type", (q: any) =>
+      q
+        .eq("organizationId", args.organizationId)
+        .eq("linkType", "calendar_linked_to")
+    )
+    .collect();
+
+  const link = links.find((candidate: any) => {
+    const cp = (candidate.properties || {}) as Record<string, unknown>;
+    return (
+      cp.connectionId === args.connectionId &&
+      candidate.toObjectId === resourceId
+    );
+  });
+
+  if (link) {
+    const existingProps = (link.properties || {}) as Record<string, unknown>;
+    await ctx.db.patch(link._id, {
+      properties: {
+        ...existingProps,
+        ...(nextBlockingCalendarIds !== undefined
+          ? { blockingCalendarIds: nextBlockingCalendarIds }
+          : {}),
+        ...(nextPushCalendarId !== undefined
+          ? { pushCalendarId: nextPushCalendarId }
+          : {}),
+      },
+    });
+    return {
+      success: true as const,
+      resourceId,
+      linkId: link._id,
+      created: false,
+    };
+  }
+
+  const linkId = await ctx.db.insert("objectLinks", {
+    linkType: "calendar_linked_to",
+    fromObjectId: resourceId,
+    toObjectId: resourceId,
+    organizationId: args.organizationId,
+    properties: {
+      connectionId: args.connectionId,
+      blockingCalendarIds:
+        nextBlockingCalendarIds || getDefaultBlockingCalendarIds(connection),
+      pushCalendarId: nextPushCalendarId || null,
+    },
+    createdAt: Date.now(),
+  });
+
+  return {
+    success: true as const,
+    resourceId,
+    linkId,
+    created: true,
+  };
+}
+
 // ============================================================================
 // QUERIES
 // ============================================================================
@@ -397,107 +518,14 @@ export const updateCalendarLinkSettings = mutation({
     const session = await ctx.db.get(args.sessionId as Id<"sessions">);
     if (!session || session.expiresAt < Date.now())
       throw new Error("Invalid session");
-
-    const connection = await ctx.db.get(args.connectionId);
-    if (!connection) {
-      throw new Error("Google calendar connection not found");
-    }
-    if (
-      connection.organizationId !== args.organizationId ||
-      connection.provider !== "google"
-    ) {
-      throw new Error("Invalid Google calendar connection");
-    }
-
-    const nextBlockingCalendarIds =
-      args.blockingCalendarIds !== undefined
-        ? (() => {
-            const normalizedIds = normalizeBlockingCalendarIdsForConnection(
-              connection,
-              args.blockingCalendarIds
-            );
-            return normalizedIds.length > 0
-              ? normalizedIds
-              : getDefaultBlockingCalendarIds(connection);
-          })()
-        : undefined;
-    const nextPushCalendarId =
-      args.pushCalendarId !== undefined
-        ? normalizePushCalendarIdForConnection(connection, args.pushCalendarId)
-        : undefined;
-
-    // If no resourceId provided, find or create an org-level sentinel object
-    let resourceId = args.resourceId;
-    if (!resourceId) {
-      const existing = await ctx.db
-        .query("objects")
-        .withIndex("by_type", (q) => q.eq("type", "calendar_settings"))
-        .filter((q) => q.eq(q.field("organizationId"), args.organizationId))
-        .first();
-
-      if (existing) {
-        resourceId = existing._id;
-      } else {
-        resourceId = await ctx.db.insert("objects", {
-          type: "calendar_settings",
-          subtype: "org_default",
-          name: "Calendar Settings",
-          organizationId: args.organizationId,
-          status: "active",
-          createdAt: Date.now(),
-          updatedAt: Date.now(),
-        });
-      }
-    }
-
-    const links = await ctx.db
-      .query("objectLinks")
-      .withIndex("by_org_link_type", (q) =>
-        q
-          .eq("organizationId", args.organizationId)
-          .eq("linkType", "calendar_linked_to")
-      )
-      .collect();
-
-    const link = links.find((l) => {
-      const cp = (l.properties || {}) as Record<string, unknown>;
-      return (
-        cp.connectionId === args.connectionId &&
-        l.toObjectId === resourceId
-      );
+    const result = await upsertCalendarLinkSettingsRecord(ctx, {
+      organizationId: args.organizationId,
+      connectionId: args.connectionId,
+      resourceId: args.resourceId,
+      blockingCalendarIds: args.blockingCalendarIds,
+      pushCalendarId: args.pushCalendarId,
     });
-
-    if (link) {
-      const existingProps = (link.properties || {}) as Record<string, unknown>;
-      await ctx.db.patch(link._id, {
-        properties: {
-          ...existingProps,
-          ...(nextBlockingCalendarIds !== undefined
-            ? { blockingCalendarIds: nextBlockingCalendarIds }
-            : {}),
-          ...(nextPushCalendarId !== undefined
-            ? { pushCalendarId: nextPushCalendarId }
-            : {}),
-        },
-      });
-    } else {
-      // Create new link if none exists
-      await ctx.db.insert("objectLinks", {
-        linkType: "calendar_linked_to",
-        fromObjectId: resourceId,
-        toObjectId: resourceId,
-        organizationId: args.organizationId,
-        properties: {
-          connectionId: args.connectionId,
-          blockingCalendarIds:
-            nextBlockingCalendarIds || getDefaultBlockingCalendarIds(connection),
-          pushCalendarId: nextPushCalendarId || null,
-        },
-        createdAt: Date.now(),
-      });
-    }
-
-    return { success: true };
+    return { success: result.success, resourceId: result.resourceId, linkId: result.linkId };
   },
 });
 
@@ -563,6 +591,19 @@ export const storeBookingsCalendarId = internalMutation({
       },
       updatedAt: Date.now(),
     });
+  },
+});
+
+export const upsertCalendarLinkSettingsInternal = internalMutation({
+  args: {
+    organizationId: v.id("organizations"),
+    connectionId: v.id("oauthConnections"),
+    resourceId: v.optional(v.id("objects")),
+    blockingCalendarIds: v.optional(v.array(v.string())),
+    pushCalendarId: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    return await upsertCalendarLinkSettingsRecord(ctx, args);
   },
 });
 

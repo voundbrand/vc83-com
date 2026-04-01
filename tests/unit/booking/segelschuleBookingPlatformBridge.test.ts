@@ -4,6 +4,7 @@ import {
   getSegelschuleSurfaceBindingIdentity,
   getSegelschuleBookingRuntimeConfig,
   normalizeSeatSelections,
+  parseBookingStartTimestamp,
   resolveSegelschuleRuntimeConfig,
   resolveCourseBookingDurationMinutes,
 } from "../../../apps/segelschule-altwarp/lib/booking-platform-bridge"
@@ -119,6 +120,12 @@ describe("segelschule booking platform bridge", () => {
     ])
     expect(normalized.totalSeats).toBe(4)
     expect(normalized.errors).toContain("Seat 9 is invalid for Fraukje")
+  })
+
+  it("parses booking timestamps in the configured organization timezone", () => {
+    expect(
+      parseBookingStartTimestamp("2026-04-08", "09:00", "Europe/Berlin")
+    ).toBe(Date.parse("2026-04-08T07:00:00.000Z"))
   })
 
   it("resolves runtime config from backend surface binding when available", async () => {

@@ -4,7 +4,7 @@ import { useState } from "react"
 import { useMutation } from "convex/react"
 import { api } from "../../../../convex/_generated/api"
 import { useAuth, useCurrentOrganization } from "@/hooks/use-auth"
-import { X, MapPin, Building2, Monitor, Globe } from "lucide-react"
+import { ArrowLeft, MapPin, Building2, Monitor, Globe } from "lucide-react"
 import type { Id } from "../../../../convex/_generated/dataModel"
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations"
 
@@ -15,7 +15,10 @@ interface LocationFormModalProps {
 
 type LocationSubtype = "branch" | "venue" | "virtual"
 
-export function LocationFormModal({ onClose, onSuccess }: LocationFormModalProps) {
+export function LocationFormModal({
+  onClose,
+  onSuccess,
+}: LocationFormModalProps) {
   const { sessionId } = useAuth()
   const currentOrganization = useCurrentOrganization()
   const currentOrganizationId = currentOrganization?.id as Id<"organizations">
@@ -89,40 +92,37 @@ export function LocationFormModal({ onClose, onSuccess }: LocationFormModalProps
   }
 
   return (
-    <div
-      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
-      onClick={onClose}
-    >
+    <div className="h-full overflow-y-auto p-4 sm:p-6" style={{ background: "var(--window-document-bg)" }}>
       <div
-        className="rounded border-2 max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto"
+        className="mx-auto w-full max-w-2xl rounded-xl border"
         style={{
-          background: 'var(--shell-surface)',
-          borderColor: 'var(--shell-border)'
+          background: "var(--window-document-bg)",
+          borderColor: "var(--window-document-border)",
         }}
-        onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
-        <div
-          className="flex items-center justify-between p-3 border-b-2"
-          style={{
-            background: 'var(--shell-selection-bg)',
-            borderColor: 'var(--shell-border)'
-          }}
+      {/* Header */}
+      <div
+        className="flex items-center justify-between p-3 border-b"
+        style={{
+          background: "var(--desktop-shell-accent)",
+          borderColor: "var(--window-document-border)",
+        }}
+      >
+        <span className="text-sm font-semibold flex items-center gap-2" style={{ color: "var(--window-document-text)" }}>
+          <MapPin size={16} />
+          {tWithFallback("ui.app.booking.location.form.title", "New Location")}
+        </span>
+        <button
+          onClick={onClose}
+          className="desktop-interior-button desktop-interior-button-ghost h-8 w-8 p-0"
+          aria-label={tWithFallback("ui.app.booking.nav.back", "Back")}
         >
-          <span className="font-pixel text-sm text-white flex items-center gap-2">
-            <MapPin size={16} />
-            {tWithFallback("ui.app.booking.location.form.title", "New Location")}
-          </span>
-          <button
-            onClick={onClose}
-            className="p-1 hover:opacity-70"
-          >
-            <X size={16} className="text-white" />
-          </button>
-        </div>
+          <ArrowLeft size={16} />
+        </button>
+      </div>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="p-4 space-y-4">
+      {/* Form */}
+      <form onSubmit={handleSubmit} className="p-4 space-y-4">
           {/* Name */}
           <div>
             <label className="text-xs font-medium block mb-1">
@@ -133,12 +133,7 @@ export function LocationFormModal({ onClose, onSuccess }: LocationFormModalProps
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder={tWithFallback("ui.app.booking.location.form.name_placeholder", "Main Office, Downtown Studio, etc.")}
-              className="w-full px-2 py-1.5 border-2 text-sm"
-              style={{
-                borderColor: 'var(--shell-border)',
-                background: 'var(--shell-input-surface)',
-                color: 'var(--shell-input-text)'
-              }}
+              className="desktop-interior-input w-full px-2 py-1.5 text-sm"
               required
             />
           </div>
@@ -155,12 +150,8 @@ export function LocationFormModal({ onClose, onSuccess }: LocationFormModalProps
                   type="button"
                   onClick={() => setSubtype(type)}
                   className={`desktop-interior-button flex-1 py-2 flex items-center justify-center gap-2 text-xs ${
-                    subtype === type ? "shadow-inner" : ""
+                    subtype === type ? "desktop-interior-button-primary" : "desktop-interior-button-subtle"
                   }`}
-                  style={{
-                    background: subtype === type ? 'var(--shell-selection-bg)' : 'var(--shell-button-surface)',
-                    color: subtype === type ? 'var(--shell-selection-text)' : 'var(--shell-text)'
-                  }}
                 >
                   {getSubtypeIcon(type)}
                   {type === "branch"
@@ -186,12 +177,7 @@ export function LocationFormModal({ onClose, onSuccess }: LocationFormModalProps
                   type="text"
                   value={street}
                   onChange={(e) => setStreet(e.target.value)}
-                  className="w-full px-2 py-1.5 border-2 text-sm"
-                  style={{
-                    borderColor: 'var(--shell-border)',
-                    background: 'var(--shell-input-surface)',
-                    color: 'var(--shell-input-text)'
-                  }}
+                  className="desktop-interior-input w-full px-2 py-1.5 text-sm"
                 />
               </div>
               <div className="grid grid-cols-2 gap-3">
@@ -201,12 +187,7 @@ export function LocationFormModal({ onClose, onSuccess }: LocationFormModalProps
                     type="text"
                     value={city}
                     onChange={(e) => setCity(e.target.value)}
-                    className="w-full px-2 py-1.5 border-2 text-sm"
-                    style={{
-                      borderColor: 'var(--shell-border)',
-                      background: 'var(--shell-input-surface)',
-                      color: 'var(--shell-input-text)'
-                    }}
+                    className="desktop-interior-input w-full px-2 py-1.5 text-sm"
                   />
                 </div>
                 <div>
@@ -215,12 +196,7 @@ export function LocationFormModal({ onClose, onSuccess }: LocationFormModalProps
                     type="text"
                     value={state}
                     onChange={(e) => setState(e.target.value)}
-                    className="w-full px-2 py-1.5 border-2 text-sm"
-                    style={{
-                      borderColor: 'var(--shell-border)',
-                      background: 'var(--shell-input-surface)',
-                      color: 'var(--shell-input-text)'
-                    }}
+                    className="desktop-interior-input w-full px-2 py-1.5 text-sm"
                   />
                 </div>
               </div>
@@ -231,12 +207,7 @@ export function LocationFormModal({ onClose, onSuccess }: LocationFormModalProps
                     type="text"
                     value={postalCode}
                     onChange={(e) => setPostalCode(e.target.value)}
-                    className="w-full px-2 py-1.5 border-2 text-sm"
-                    style={{
-                      borderColor: 'var(--shell-border)',
-                      background: 'var(--shell-input-surface)',
-                      color: 'var(--shell-input-text)'
-                    }}
+                    className="desktop-interior-input w-full px-2 py-1.5 text-sm"
                   />
                 </div>
                 <div>
@@ -245,12 +216,7 @@ export function LocationFormModal({ onClose, onSuccess }: LocationFormModalProps
                     type="text"
                     value={country}
                     onChange={(e) => setCountry(e.target.value)}
-                    className="w-full px-2 py-1.5 border-2 text-sm"
-                    style={{
-                      borderColor: 'var(--shell-border)',
-                      background: 'var(--shell-input-surface)',
-                      color: 'var(--shell-input-text)'
-                    }}
+                    className="desktop-interior-input w-full px-2 py-1.5 text-sm"
                   />
                 </div>
               </div>
@@ -266,12 +232,7 @@ export function LocationFormModal({ onClose, onSuccess }: LocationFormModalProps
             <select
               value={timezone}
               onChange={(e) => setTimezone(e.target.value)}
-              className="w-full px-2 py-1.5 border-2 text-sm"
-              style={{
-                borderColor: 'var(--shell-border)',
-                background: 'var(--shell-input-surface)',
-                color: 'var(--shell-input-text)'
-              }}
+              className="desktop-interior-select w-full px-2 py-1.5 text-sm"
             >
               <option value="America/Los_Angeles">Pacific Time (PT)</option>
               <option value="America/Denver">Mountain Time (MT)</option>
@@ -297,12 +258,7 @@ export function LocationFormModal({ onClose, onSuccess }: LocationFormModalProps
                 type="email"
                 value={contactEmail}
                 onChange={(e) => setContactEmail(e.target.value)}
-                className="w-full px-2 py-1.5 border-2 text-sm"
-                style={{
-                  borderColor: 'var(--shell-border)',
-                  background: 'var(--shell-input-surface)',
-                  color: 'var(--shell-input-text)'
-                }}
+                className="desktop-interior-input w-full px-2 py-1.5 text-sm"
               />
             </div>
             <div>
@@ -313,49 +269,38 @@ export function LocationFormModal({ onClose, onSuccess }: LocationFormModalProps
                 type="tel"
                 value={contactPhone}
                 onChange={(e) => setContactPhone(e.target.value)}
-                className="w-full px-2 py-1.5 border-2 text-sm"
-                style={{
-                  borderColor: 'var(--shell-border)',
-                  background: 'var(--shell-input-surface)',
-                  color: 'var(--shell-input-text)'
-                }}
+                className="desktop-interior-input w-full px-2 py-1.5 text-sm"
               />
             </div>
           </div>
 
           {/* Error */}
           {error && (
-            <p className="text-xs p-2 rounded" style={{ background: 'var(--error-bg)', color: 'white' }}>
+            <p className="text-xs p-2 rounded border" style={{ background: "var(--tone-danger-soft)", borderColor: "var(--tone-danger)", color: "var(--tone-danger)" }}>
               {error}
             </p>
           )}
 
-          {/* Actions */}
-          <div className="flex gap-2 pt-2">
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="desktop-interior-button flex-1 py-2 text-sm"
-              style={{
-                background: 'var(--shell-selection-bg)',
-                color: 'var(--shell-selection-text)',
-                opacity: isSubmitting ? 0.5 : 1
-              }}
-            >
-              {isSubmitting
-                ? tWithFallback("ui.app.booking.actions.creating", "Creating...")
-                : tWithFallback("ui.app.booking.location.form.create", "Create Location")}
-            </button>
-            <button
-              type="button"
-              onClick={onClose}
-              className="desktop-interior-button px-4 py-2 text-sm"
-              style={{ background: 'var(--shell-button-surface)' }}
-            >
-              {tWithFallback("ui.app.booking.actions.cancel", "Cancel")}
-            </button>
-          </div>
-        </form>
+        {/* Actions */}
+        <div className="flex gap-2 pt-2">
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="desktop-interior-button desktop-interior-button-primary flex-1 py-2 text-sm"
+          >
+            {isSubmitting
+              ? tWithFallback("ui.app.booking.actions.creating", "Creating...")
+              : tWithFallback("ui.app.booking.location.form.create", "Create Location")}
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            className="desktop-interior-button desktop-interior-button-subtle px-4 py-2 text-sm"
+          >
+            {tWithFallback("ui.app.booking.nav.back", "Back")}
+          </button>
+        </div>
+      </form>
       </div>
     </div>
   )

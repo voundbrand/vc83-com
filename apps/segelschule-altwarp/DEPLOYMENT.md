@@ -161,6 +161,26 @@ Optional / conditional:
 - `ORG_API_KEY`
   - Currently unused by this app and not required for deployment.
 
+## Calendar readiness diagnostics (go-live)
+
+- Confirmed booking creation now records additive `calendarDiagnostics` in booking bridge responses.
+- `writeReady=true` means at least one linked calendar connection is active, sync-enabled, and has calendar write scope.
+- `writeReady=false` does not hard-fail booking; it returns warning/issue codes so ops can fix calendar readiness before launch.
+- Issue codes you should treat as launch blockers:
+  - `calendar_links_missing`
+  - `calendar_links_not_write_ready`
+  - `calendar_connection_inactive`
+  - `calendar_sync_disabled`
+  - `calendar_write_scope_missing`
+  - `calendar_google_push_calendar_missing`
+  - `calendar_readiness_lookup_failed`
+
+## Local E2E assumptions
+
+- Mother backend: `http://localhost:3000`
+- Segelschule app: `http://localhost:3002`
+- Ticket lookup checks should target segelschule app host (`/ticket`, `/api/ticket`) while bridge backend checks target mother backend APIs.
+
 Booking catalog example:
 
 ```json

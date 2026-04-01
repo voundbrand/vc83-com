@@ -238,6 +238,28 @@ export const executeLcNativeNode = action({
       };
     }
 
+    if (args.nodeType === "lc_booking_notifications") {
+      const result = await (ctx as any).runAction(
+        generatedApi.internal.bookingWorkflowAutomation.executeBookingNotificationNode,
+        {
+          organizationId: args.organizationId,
+          nodeConfig: args.nodeConfig,
+          inputData: args.inputData,
+        },
+      );
+
+      return {
+        success: result?.success === true,
+        outputData: result?.data as Record<string, unknown> | undefined,
+        error:
+          typeof result?.error === "string"
+            ? result.error
+            : undefined,
+        activeOutputs: result?.success === true ? ["output"] : undefined,
+        durationMs: Date.now() - startTime,
+      };
+    }
+
     // Resolve the behavior type from node config
     const action = (args.nodeConfig as Record<string, unknown>)?.action as string;
     if (!action) {

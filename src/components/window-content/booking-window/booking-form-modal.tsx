@@ -2,11 +2,20 @@
 
 import { useState, useMemo, useEffect } from "react"
 import { useMutation, useQuery } from "convex/react"
-import { api } from "../../../../convex/_generated/api"
 import { useAuth, useCurrentOrganization } from "@/hooks/use-auth"
-import { X, Calendar, User, Clock, DollarSign, Info } from "lucide-react"
+import { ArrowLeft, Calendar, User, Clock, DollarSign, Info } from "lucide-react"
 import type { Id } from "../../../../convex/_generated/dataModel"
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations"
+
+// Workaround for Convex deep type instantiation issue
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let _api: any
+try {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  _api = require("../../../../convex/_generated/api").api
+} catch {
+  _api = null
+}
 
 // Bookable subtypes that can be booked
 const BOOKABLE_SUBTYPES = [
@@ -39,7 +48,10 @@ interface BookingFormModalProps {
 
 type BookingSubtype = "appointment" | "reservation" | "rental" | "class_enrollment"
 
-export function BookingFormModal({ onClose, onSuccess }: BookingFormModalProps) {
+export function BookingFormModal({
+  onClose,
+  onSuccess,
+}: BookingFormModalProps) {
   const { sessionId } = useAuth()
   const currentOrganization = useCurrentOrganization()
   const currentOrganizationId = currentOrganization?.id as Id<"organizations">
@@ -60,11 +72,11 @@ export function BookingFormModal({ onClose, onSuccess }: BookingFormModalProps) 
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState("")
 
-  const createBooking = useMutation(api.bookingOntology.createBooking)
+  const createBooking = useMutation(_api?.bookingOntology?.createBooking)
 
   // Get bookable resources
   const products = useQuery(
-    api.productOntology.getProducts,
+    _api?.productOntology?.getProducts,
     sessionId && currentOrganizationId
       ? { sessionId, organizationId: currentOrganizationId }
       : "skip"
@@ -72,7 +84,7 @@ export function BookingFormModal({ onClose, onSuccess }: BookingFormModalProps) 
 
   // Get locations
   const locations = useQuery(
-    api.locationOntology.getLocations,
+    _api?.locationOntology?.getLocations,
     sessionId && currentOrganizationId
       ? { sessionId, organizationId: currentOrganizationId }
       : "skip"
@@ -169,40 +181,37 @@ export function BookingFormModal({ onClose, onSuccess }: BookingFormModalProps) 
   }
 
   return (
-    <div
-      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
-      onClick={onClose}
-    >
+    <div className="h-full overflow-y-auto p-4 sm:p-6" style={{ background: "var(--window-document-bg)" }}>
       <div
-        className="rounded border-2 max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto"
+        className="mx-auto w-full max-w-2xl rounded-xl border"
         style={{
-          background: 'var(--shell-surface)',
-          borderColor: 'var(--shell-border)'
+          background: "var(--window-document-bg)",
+          borderColor: "var(--window-document-border)",
         }}
-        onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
-        <div
-          className="flex items-center justify-between p-3 border-b-2"
-          style={{
-            background: 'var(--shell-selection-bg)',
-            borderColor: 'var(--shell-border)'
-          }}
+      {/* Header */}
+      <div
+        className="flex items-center justify-between p-3 border-b"
+        style={{
+          background: "var(--desktop-shell-accent)",
+          borderColor: "var(--window-document-border)",
+        }}
+      >
+        <span className="text-sm font-semibold flex items-center gap-2" style={{ color: "var(--window-document-text)" }}>
+          <Calendar size={16} />
+          {tWithFallback("ui.app.booking.form.title", "New Booking")}
+        </span>
+        <button
+          onClick={onClose}
+          className="desktop-interior-button desktop-interior-button-ghost h-8 w-8 p-0"
+          aria-label={tWithFallback("ui.app.booking.nav.back", "Back")}
         >
-          <span className="font-pixel text-sm text-white flex items-center gap-2">
-            <Calendar size={16} />
-            {tWithFallback("ui.app.booking.form.title", "New Booking")}
-          </span>
-          <button
-            onClick={onClose}
-            className="p-1 hover:opacity-70"
-          >
-            <X size={16} className="text-white" />
-          </button>
-        </div>
+          <ArrowLeft size={16} />
+        </button>
+      </div>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="p-4 space-y-4">
+      {/* Form */}
+      <form onSubmit={handleSubmit} className="p-4 space-y-4">
           {/* Booking Type */}
           <div>
             <label className="text-xs font-medium block mb-1">
@@ -211,12 +220,7 @@ export function BookingFormModal({ onClose, onSuccess }: BookingFormModalProps) 
             <select
               value={subtype}
               onChange={(e) => setSubtype(e.target.value as BookingSubtype)}
-              className="w-full px-2 py-1.5 border-2 text-sm"
-              style={{
-                borderColor: 'var(--shell-border)',
-                background: 'var(--shell-input-surface)',
-                color: 'var(--shell-input-text)'
-              }}
+              className="desktop-interior-select w-full px-2 py-1.5 text-sm"
             >
               <option value="appointment">{tWithFallback("ui.app.booking.subtype.appointment", "Appointment")}</option>
               <option value="reservation">{tWithFallback("ui.app.booking.subtype.reservation", "Reservation")}</option>
@@ -238,12 +242,7 @@ export function BookingFormModal({ onClose, onSuccess }: BookingFormModalProps) 
                   type="text"
                   value={customerName}
                   onChange={(e) => setCustomerName(e.target.value)}
-                  className="w-full px-2 py-1.5 border-2 text-sm"
-                  style={{
-                    borderColor: 'var(--shell-border)',
-                    background: 'var(--shell-input-surface)',
-                    color: 'var(--shell-input-text)'
-                  }}
+                  className="desktop-interior-input w-full px-2 py-1.5 text-sm"
                   required
                 />
               </div>
@@ -253,12 +252,7 @@ export function BookingFormModal({ onClose, onSuccess }: BookingFormModalProps) 
                   type="email"
                   value={customerEmail}
                   onChange={(e) => setCustomerEmail(e.target.value)}
-                  className="w-full px-2 py-1.5 border-2 text-sm"
-                  style={{
-                    borderColor: 'var(--shell-border)',
-                    background: 'var(--shell-input-surface)',
-                    color: 'var(--shell-input-text)'
-                  }}
+                  className="desktop-interior-input w-full px-2 py-1.5 text-sm"
                   required
                 />
               </div>
@@ -268,12 +262,7 @@ export function BookingFormModal({ onClose, onSuccess }: BookingFormModalProps) 
                   type="tel"
                   value={customerPhone}
                   onChange={(e) => setCustomerPhone(e.target.value)}
-                  className="w-full px-2 py-1.5 border-2 text-sm"
-                  style={{
-                    borderColor: 'var(--shell-border)',
-                    background: 'var(--shell-input-surface)',
-                    color: 'var(--shell-input-text)'
-                  }}
+                  className="desktop-interior-input w-full px-2 py-1.5 text-sm"
                 />
               </div>
             </div>
@@ -292,12 +281,7 @@ export function BookingFormModal({ onClose, onSuccess }: BookingFormModalProps) 
                   type="date"
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
-                  className="w-full px-2 py-1.5 border-2 text-sm"
-                  style={{
-                    borderColor: 'var(--shell-border)',
-                    background: 'var(--shell-input-surface)',
-                    color: 'var(--shell-input-text)'
-                  }}
+                  className="desktop-interior-input w-full px-2 py-1.5 text-sm"
                   required
                 />
               </div>
@@ -307,12 +291,7 @@ export function BookingFormModal({ onClose, onSuccess }: BookingFormModalProps) 
                   type="time"
                   value={startTime}
                   onChange={(e) => setStartTime(e.target.value)}
-                  className="w-full px-2 py-1.5 border-2 text-sm"
-                  style={{
-                    borderColor: 'var(--shell-border)',
-                    background: 'var(--shell-input-surface)',
-                    color: 'var(--shell-input-text)'
-                  }}
+                  className="desktop-interior-input w-full px-2 py-1.5 text-sm"
                   required
                 />
               </div>
@@ -324,12 +303,7 @@ export function BookingFormModal({ onClose, onSuccess }: BookingFormModalProps) 
                   onChange={(e) => setDuration(parseInt(e.target.value) || 60)}
                   min={15}
                   step={15}
-                  className="w-full px-2 py-1.5 border-2 text-sm"
-                  style={{
-                    borderColor: 'var(--shell-border)',
-                    background: 'var(--shell-input-surface)',
-                    color: 'var(--shell-input-text)'
-                  }}
+                  className="desktop-interior-input w-full px-2 py-1.5 text-sm"
                 />
               </div>
             </div>
@@ -341,12 +315,7 @@ export function BookingFormModal({ onClose, onSuccess }: BookingFormModalProps) 
             <select
               value={selectedResourceId}
               onChange={(e) => setSelectedResourceId(e.target.value as Id<"objects"> | "")}
-              className="w-full px-2 py-1.5 border-2 text-sm"
-              style={{
-                borderColor: 'var(--shell-border)',
-                background: 'var(--shell-input-surface)',
-                color: 'var(--shell-input-text)'
-              }}
+              className="desktop-interior-select w-full px-2 py-1.5 text-sm"
               required
             >
               <option value="">{tWithFallback("ui.app.booking.form.select_resource", "Select a resource...")}</option>
@@ -361,10 +330,10 @@ export function BookingFormModal({ onClose, onSuccess }: BookingFormModalProps) 
           {/* Resource Info Panel - Shows when resource is selected */}
           {selectedResource && resourceConfig && (
             <div
-              className="p-3 rounded border-2 space-y-2"
+              className="p-3 rounded-lg border space-y-2"
               style={{
-                borderColor: 'var(--shell-border)',
-                background: 'var(--shell-surface-elevated)'
+                borderColor: "var(--window-document-border)",
+                background: "var(--desktop-shell-accent)",
               }}
             >
               <div className="flex items-center gap-2 text-sm font-medium">
@@ -435,15 +404,10 @@ export function BookingFormModal({ onClose, onSuccess }: BookingFormModalProps) 
             <select
               value={selectedLocationId}
               onChange={(e) => setSelectedLocationId(e.target.value as Id<"objects"> | "")}
-              className="w-full px-2 py-1.5 border-2 text-sm"
-              style={{
-                borderColor: 'var(--shell-border)',
-                background: 'var(--shell-input-surface)',
-                color: 'var(--shell-input-text)'
-              }}
+              className="desktop-interior-select w-full px-2 py-1.5 text-sm"
             >
               <option value="">{tWithFallback("ui.app.booking.form.no_location", "No location")}</option>
-              {activeLocations.map((location) => (
+              {activeLocations.map((location: { _id: string; name?: string | null }) => (
                 <option key={location._id} value={location._id}>
                   {location.name}
                 </option>
@@ -461,12 +425,7 @@ export function BookingFormModal({ onClose, onSuccess }: BookingFormModalProps) 
               value={participants}
               onChange={(e) => setParticipants(parseInt(e.target.value) || 1)}
               min={1}
-              className="w-full px-2 py-1.5 border-2 text-sm"
-              style={{
-                borderColor: 'var(--shell-border)',
-                background: 'var(--shell-input-surface)',
-                color: 'var(--shell-input-text)'
-              }}
+              className="desktop-interior-input w-full px-2 py-1.5 text-sm"
             />
           </div>
 
@@ -477,12 +436,7 @@ export function BookingFormModal({ onClose, onSuccess }: BookingFormModalProps) 
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               rows={2}
-              className="w-full px-2 py-1.5 border-2 text-sm resize-none"
-              style={{
-                borderColor: 'var(--shell-border)',
-                background: 'var(--shell-input-surface)',
-                color: 'var(--shell-input-text)'
-              }}
+              className="desktop-interior-textarea w-full px-2 py-1.5 text-sm resize-none"
             />
           </div>
 
@@ -499,37 +453,31 @@ export function BookingFormModal({ onClose, onSuccess }: BookingFormModalProps) 
 
           {/* Error */}
           {error && (
-            <p className="text-xs p-2 rounded" style={{ background: 'var(--error-bg)', color: 'white' }}>
+            <p className="text-xs p-2 rounded border" style={{ background: "var(--tone-danger-soft)", borderColor: "var(--tone-danger)", color: "var(--tone-danger)" }}>
               {error}
             </p>
           )}
 
-          {/* Actions */}
-          <div className="flex gap-2 pt-2">
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="desktop-interior-button flex-1 py-2 text-sm"
-              style={{
-                background: 'var(--shell-selection-bg)',
-                color: 'var(--shell-selection-text)',
-                opacity: isSubmitting ? 0.5 : 1
-              }}
-            >
-              {isSubmitting
-                ? tWithFallback("ui.app.booking.actions.creating", "Creating...")
-                : tWithFallback("ui.app.booking.form.create_booking", "Create Booking")}
-            </button>
-            <button
-              type="button"
-              onClick={onClose}
-              className="desktop-interior-button px-4 py-2 text-sm"
-              style={{ background: 'var(--shell-button-surface)' }}
-            >
-              {tWithFallback("ui.app.booking.actions.cancel", "Cancel")}
-            </button>
-          </div>
-        </form>
+        {/* Actions */}
+        <div className="flex gap-2 pt-2">
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="desktop-interior-button desktop-interior-button-primary flex-1 py-2 text-sm"
+          >
+            {isSubmitting
+              ? tWithFallback("ui.app.booking.actions.creating", "Creating...")
+              : tWithFallback("ui.app.booking.form.create_booking", "Create Booking")}
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            className="desktop-interior-button desktop-interior-button-subtle px-4 py-2 text-sm"
+          >
+            {tWithFallback("ui.app.booking.nav.back", "Back")}
+          </button>
+        </div>
+      </form>
       </div>
     </div>
   )

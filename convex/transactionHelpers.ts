@@ -141,12 +141,22 @@ export async function createTransactionsForPurchase(
     { organizationId: params.organizationId }
   ) as { name?: string; businessName?: string } | null;
 
-  // Load organization contact settings (using internal query to avoid deep type instantiation)
-  const contactSettings = await (ctx as any).runQuery(
-    generatedApi.internal.organizationOntology.getOrganizationSettingsInternal,
-    { organizationId: params.organizationId, subtype: "contact" }
-  ) as unknown as OrganizationSettingsObject | null;
-  const contactProps = contactSettings?.customProperties || {};
+  // Load organization contact from the ontology source of truth.
+  // Keep the legacy settings fallback for older orgs that still stored contact data there.
+  const [contactRecord, contactSettings] = await Promise.all([
+    (ctx as any).runQuery(
+      generatedApi.api.organizationOntology.getOrganizationContact,
+      { organizationId: params.organizationId }
+    ) as Promise<OrganizationSettingsObject | null>,
+    (ctx as any).runQuery(
+      generatedApi.internal.organizationOntology.getOrganizationSettingsInternal,
+      { organizationId: params.organizationId, subtype: "contact" }
+    ) as Promise<OrganizationSettingsObject | null>,
+  ]);
+  const contactProps = {
+    ...(contactSettings?.customProperties || {}),
+    ...(contactRecord?.customProperties || {}),
+  } as Record<string, unknown>;
 
   // Load organization invoicing settings (for VAT number)
   const invoicingSettings = await (ctx as any).runQuery(
@@ -165,13 +175,26 @@ export async function createTransactionsForPurchase(
   const seller = {
     organizationId: params.organizationId,
     name: organization?.name || organization?.businessName || "Unknown Organization",
-    address: addressProps.line1 as string | undefined,
+    address:
+      (addressProps.line1 as string | undefined)
+      || (addressProps.addressLine1 as string | undefined)
+      || (addressProps.street as string | undefined),
     city: addressProps.city as string | undefined,
     state: addressProps.state as string | undefined,
-    postalCode: addressProps.postalCode as string | undefined,
+    postalCode:
+      (addressProps.postalCode as string | undefined)
+      || (addressProps.zip as string | undefined),
     country: addressProps.country as string | undefined,
-    phone: contactProps.phone as string | undefined,
-    email: contactProps.email as string | undefined,
+    phone:
+      (contactProps.contactPhone as string | undefined)
+      || (contactProps.primaryPhone as string | undefined)
+      || (contactProps.phone as string | undefined)
+      || (contactProps.supportPhone as string | undefined),
+    email:
+      (contactProps.contactEmail as string | undefined)
+      || (contactProps.primaryEmail as string | undefined)
+      || (contactProps.email as string | undefined)
+      || (contactProps.billingEmail as string | undefined),
     website: contactProps.website as string | undefined,
     vatNumber: invoicingProps.vatNumber as string | undefined,
     taxId: invoicingProps.taxId as string | undefined,
