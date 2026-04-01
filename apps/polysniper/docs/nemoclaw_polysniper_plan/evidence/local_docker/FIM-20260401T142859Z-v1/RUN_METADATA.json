@@ -1,0 +1,12 @@
+{
+  "runId": "FIM-20260401T142859Z-v1",
+  "generatedAt": "2026-04-01T14:28:59.082Z",
+  "script": "apps/polysniper/server/tools/run-failure-injection-matrix.mjs",
+  "caseNames": [
+    "blocked_jurisdiction",
+    "close_only",
+    "unknown_geoblock",
+    "missing_approval",
+    "kill_switch_active"
+  ]
+}

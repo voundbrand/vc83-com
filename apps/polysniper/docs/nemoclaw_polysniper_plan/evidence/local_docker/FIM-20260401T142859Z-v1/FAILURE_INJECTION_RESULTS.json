@@ -1,0 +1,117 @@
+{
+  "summary": {
+    "runId": "FIM-20260401T142859Z-v1",
+    "generatedAt": "2026-04-01T14:28:59.082Z",
+    "totalCases": 5,
+    "passedCases": 5,
+    "failedCases": 0,
+    "allPass": true
+  },
+  "cases": [
+    {
+      "name": "blocked_jurisdiction",
+      "denied": true,
+      "expectedDenied": true,
+      "pass": true,
+      "policyDecisionId": "pdec_d9b1e52a912952ac",
+      "rejectReasons": [
+        "venue_eligibility_blocked"
+      ],
+      "context": {
+        "mode": "live_limited",
+        "executionProfileId": "eligible_profile",
+        "executionProfileStatus": "ACTIVE",
+        "venueEligibility": "blocked",
+        "killSwitchActive": false,
+        "approvalRequired": true,
+        "approvalGranted": true,
+        "intentsGloballyEnabled": true
+      },
+      "intentValid": true
+    },
+    {
+      "name": "close_only",
+      "denied": true,
+      "expectedDenied": true,
+      "pass": true,
+      "policyDecisionId": "pdec_4f6fc90cb3c59c31",
+      "rejectReasons": [
+        "venue_eligibility_close_only"
+      ],
+      "context": {
+        "mode": "live_limited",
+        "executionProfileId": "eligible_profile",
+        "executionProfileStatus": "ACTIVE",
+        "venueEligibility": "close_only",
+        "killSwitchActive": false,
+        "approvalRequired": true,
+        "approvalGranted": true,
+        "intentsGloballyEnabled": true
+      },
+      "intentValid": true
+    },
+    {
+      "name": "unknown_geoblock",
+      "denied": true,
+      "expectedDenied": true,
+      "pass": true,
+      "policyDecisionId": "pdec_9f6832c751a0f592",
+      "rejectReasons": [
+        "venue_eligibility_unknown"
+      ],
+      "context": {
+        "mode": "live_limited",
+        "executionProfileId": "eligible_profile",
+        "executionProfileStatus": "ACTIVE",
+        "venueEligibility": "unknown",
+        "killSwitchActive": false,
+        "approvalRequired": true,
+        "approvalGranted": true,
+        "intentsGloballyEnabled": true
+      },
+      "intentValid": true
+    },
+    {
+      "name": "missing_approval",
+      "denied": true,
+      "expectedDenied": true,
+      "pass": true,
+      "policyDecisionId": "pdec_d54d973a1d81c9df",
+      "rejectReasons": [
+        "operator_approval_missing"
+      ],
+      "context": {
+        "mode": "live_limited",
+        "executionProfileId": "eligible_profile",
+        "executionProfileStatus": "ACTIVE",
+        "venueEligibility": "eligible",
+        "killSwitchActive": false,
+        "approvalRequired": true,
+        "approvalGranted": false,
+        "intentsGloballyEnabled": true
+      },
+      "intentValid": true
+    },
+    {
+      "name": "kill_switch_active",
+      "denied": true,
+      "expectedDenied": true,
+      "pass": true,
+      "policyDecisionId": "pdec_cc1636655f170f5b",
+      "rejectReasons": [
+        "kill_switch_active"
+      ],
+      "context": {
+        "mode": "live_limited",
+        "executionProfileId": "eligible_profile",
+        "executionProfileStatus": "ACTIVE",
+        "venueEligibility": "eligible",
+        "killSwitchActive": true,
+        "approvalRequired": true,
+        "approvalGranted": true,
+        "intentsGloballyEnabled": true
+      },
+      "intentValid": true
+    }
+  ]
+}

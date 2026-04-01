@@ -1,0 +1,336 @@
+{
+  "summary": {
+    "runId": "LDR-20260401T143838Z-v1",
+    "generatedAt": "2026-04-01T14:38:38.210Z",
+    "totalScenarios": 30,
+    "expectedMinimum": 30,
+    "passedScenarios": 30,
+    "failedScenarios": 0,
+    "allPass": true,
+    "openPositionsAfterRun": 0,
+    "mode": "paper_sim"
+  },
+  "results": [
+    {
+      "id": "allow-1",
+      "expectedAction": "PLACE_ORDER",
+      "httpStatus": 200,
+      "action": "PLACE_ORDER",
+      "safetyGateAllowOrder": true,
+      "adapterStatus": "paper_simulated",
+      "syntheticStatus": "paper_filled",
+      "failedReasons": []
+    },
+    {
+      "id": "allow-2",
+      "expectedAction": "PLACE_ORDER",
+      "httpStatus": 200,
+      "action": "PLACE_ORDER",
+      "safetyGateAllowOrder": true,
+      "adapterStatus": "paper_simulated",
+      "syntheticStatus": "paper_filled",
+      "failedReasons": []
+    },
+    {
+      "id": "allow-3",
+      "expectedAction": "PLACE_ORDER",
+      "httpStatus": 200,
+      "action": "PLACE_ORDER",
+      "safetyGateAllowOrder": true,
+      "adapterStatus": "paper_simulated",
+      "syntheticStatus": "paper_filled",
+      "failedReasons": []
+    },
+    {
+      "id": "allow-4",
+      "expectedAction": "PLACE_ORDER",
+      "httpStatus": 200,
+      "action": "PLACE_ORDER",
+      "safetyGateAllowOrder": true,
+      "adapterStatus": "paper_simulated",
+      "syntheticStatus": "paper_filled",
+      "failedReasons": []
+    },
+    {
+      "id": "allow-5",
+      "expectedAction": "PLACE_ORDER",
+      "httpStatus": 200,
+      "action": "PLACE_ORDER",
+      "safetyGateAllowOrder": true,
+      "adapterStatus": "paper_simulated",
+      "syntheticStatus": "paper_filled",
+      "failedReasons": []
+    },
+    {
+      "id": "allow-6",
+      "expectedAction": "PLACE_ORDER",
+      "httpStatus": 200,
+      "action": "PLACE_ORDER",
+      "safetyGateAllowOrder": true,
+      "adapterStatus": "paper_simulated",
+      "syntheticStatus": "paper_filled",
+      "failedReasons": []
+    },
+    {
+      "id": "allow-7",
+      "expectedAction": "PLACE_ORDER",
+      "httpStatus": 200,
+      "action": "PLACE_ORDER",
+      "safetyGateAllowOrder": true,
+      "adapterStatus": "paper_simulated",
+      "syntheticStatus": "paper_filled",
+      "failedReasons": []
+    },
+    {
+      "id": "allow-8",
+      "expectedAction": "PLACE_ORDER",
+      "httpStatus": 200,
+      "action": "PLACE_ORDER",
+      "safetyGateAllowOrder": true,
+      "adapterStatus": "paper_simulated",
+      "syntheticStatus": "paper_filled",
+      "failedReasons": []
+    },
+    {
+      "id": "allow-9",
+      "expectedAction": "PLACE_ORDER",
+      "httpStatus": 200,
+      "action": "PLACE_ORDER",
+      "safetyGateAllowOrder": true,
+      "adapterStatus": "paper_simulated",
+      "syntheticStatus": "paper_filled",
+      "failedReasons": []
+    },
+    {
+      "id": "allow-10",
+      "expectedAction": "PLACE_ORDER",
+      "httpStatus": 200,
+      "action": "PLACE_ORDER",
+      "safetyGateAllowOrder": true,
+      "adapterStatus": "paper_simulated",
+      "syntheticStatus": "paper_filled",
+      "failedReasons": []
+    },
+    {
+      "id": "allow-11",
+      "expectedAction": "PLACE_ORDER",
+      "httpStatus": 200,
+      "action": "PLACE_ORDER",
+      "safetyGateAllowOrder": true,
+      "adapterStatus": "paper_simulated",
+      "syntheticStatus": "paper_filled",
+      "failedReasons": []
+    },
+    {
+      "id": "allow-12",
+      "expectedAction": "PLACE_ORDER",
+      "httpStatus": 200,
+      "action": "PLACE_ORDER",
+      "safetyGateAllowOrder": true,
+      "adapterStatus": "paper_simulated",
+      "syntheticStatus": "paper_filled",
+      "failedReasons": []
+    },
+    {
+      "id": "allow-13",
+      "expectedAction": "PLACE_ORDER",
+      "httpStatus": 200,
+      "action": "PLACE_ORDER",
+      "safetyGateAllowOrder": true,
+      "adapterStatus": "paper_simulated",
+      "syntheticStatus": "paper_filled",
+      "failedReasons": []
+    },
+    {
+      "id": "allow-14",
+      "expectedAction": "PLACE_ORDER",
+      "httpStatus": 200,
+      "action": "PLACE_ORDER",
+      "safetyGateAllowOrder": true,
+      "adapterStatus": "paper_simulated",
+      "syntheticStatus": "paper_filled",
+      "failedReasons": []
+    },
+    {
+      "id": "allow-15",
+      "expectedAction": "PLACE_ORDER",
+      "httpStatus": 200,
+      "action": "PLACE_ORDER",
+      "safetyGateAllowOrder": true,
+      "adapterStatus": "paper_simulated",
+      "syntheticStatus": "paper_filled",
+      "failedReasons": []
+    },
+    {
+      "id": "allow-16",
+      "expectedAction": "PLACE_ORDER",
+      "httpStatus": 200,
+      "action": "PLACE_ORDER",
+      "safetyGateAllowOrder": true,
+      "adapterStatus": "paper_simulated",
+      "syntheticStatus": "paper_filled",
+      "failedReasons": []
+    },
+    {
+      "id": "allow-17",
+      "expectedAction": "PLACE_ORDER",
+      "httpStatus": 200,
+      "action": "PLACE_ORDER",
+      "safetyGateAllowOrder": true,
+      "adapterStatus": "paper_simulated",
+      "syntheticStatus": "paper_filled",
+      "failedReasons": []
+    },
+    {
+      "id": "allow-18",
+      "expectedAction": "PLACE_ORDER",
+      "httpStatus": 200,
+      "action": "PLACE_ORDER",
+      "safetyGateAllowOrder": true,
+      "adapterStatus": "paper_simulated",
+      "syntheticStatus": "paper_filled",
+      "failedReasons": []
+    },
+    {
+      "id": "allow-19",
+      "expectedAction": "PLACE_ORDER",
+      "httpStatus": 200,
+      "action": "PLACE_ORDER",
+      "safetyGateAllowOrder": true,
+      "adapterStatus": "paper_simulated",
+      "syntheticStatus": "paper_filled",
+      "failedReasons": []
+    },
+    {
+      "id": "allow-20",
+      "expectedAction": "PLACE_ORDER",
+      "httpStatus": 200,
+      "action": "PLACE_ORDER",
+      "safetyGateAllowOrder": true,
+      "adapterStatus": "paper_simulated",
+      "syntheticStatus": "paper_filled",
+      "failedReasons": []
+    },
+    {
+      "id": "cap-deny-1",
+      "expectedAction": "HOLD",
+      "httpStatus": 200,
+      "action": "HOLD",
+      "safetyGateAllowOrder": false,
+      "adapterStatus": "not_executed",
+      "syntheticStatus": "not_executed",
+      "failedReasons": [
+        "requested_above_max_trade:20"
+      ]
+    },
+    {
+      "id": "cap-deny-2",
+      "expectedAction": "HOLD",
+      "httpStatus": 200,
+      "action": "HOLD",
+      "safetyGateAllowOrder": false,
+      "adapterStatus": "not_executed",
+      "syntheticStatus": "not_executed",
+      "failedReasons": [
+        "requested_above_max_trade:20"
+      ]
+    },
+    {
+      "id": "cap-deny-3",
+      "expectedAction": "HOLD",
+      "httpStatus": 200,
+      "action": "HOLD",
+      "safetyGateAllowOrder": false,
+      "adapterStatus": "not_executed",
+      "syntheticStatus": "not_executed",
+      "failedReasons": [
+        "requested_above_max_trade:20"
+      ]
+    },
+    {
+      "id": "cap-deny-4",
+      "expectedAction": "HOLD",
+      "httpStatus": 200,
+      "action": "HOLD",
+      "safetyGateAllowOrder": false,
+      "adapterStatus": "not_executed",
+      "syntheticStatus": "not_executed",
+      "failedReasons": [
+        "requested_above_max_trade:20"
+      ]
+    },
+    {
+      "id": "cap-deny-5",
+      "expectedAction": "HOLD",
+      "httpStatus": 200,
+      "action": "HOLD",
+      "safetyGateAllowOrder": false,
+      "adapterStatus": "not_executed",
+      "syntheticStatus": "not_executed",
+      "failedReasons": [
+        "requested_above_max_trade:20"
+      ]
+    },
+    {
+      "id": "provider-deny-1",
+      "expectedAction": "HOLD",
+      "httpStatus": 200,
+      "action": "HOLD",
+      "safetyGateAllowOrder": false,
+      "adapterStatus": "not_executed",
+      "syntheticStatus": "not_executed",
+      "failedReasons": [
+        "provider_unhealthy"
+      ]
+    },
+    {
+      "id": "provider-deny-2",
+      "expectedAction": "HOLD",
+      "httpStatus": 200,
+      "action": "HOLD",
+      "safetyGateAllowOrder": false,
+      "adapterStatus": "not_executed",
+      "syntheticStatus": "not_executed",
+      "failedReasons": [
+        "provider_unhealthy"
+      ]
+    },
+    {
+      "id": "provider-deny-3",
+      "expectedAction": "HOLD",
+      "httpStatus": 200,
+      "action": "HOLD",
+      "safetyGateAllowOrder": false,
+      "adapterStatus": "not_executed",
+      "syntheticStatus": "not_executed",
+      "failedReasons": [
+        "provider_unhealthy"
+      ]
+    },
+    {
+      "id": "provider-deny-4",
+      "expectedAction": "HOLD",
+      "httpStatus": 200,
+      "action": "HOLD",
+      "safetyGateAllowOrder": false,
+      "adapterStatus": "not_executed",
+      "syntheticStatus": "not_executed",
+      "failedReasons": [
+        "provider_unhealthy"
+      ]
+    },
+    {
+      "id": "provider-deny-5",
+      "expectedAction": "HOLD",
+      "httpStatus": 200,
+      "action": "HOLD",
+      "safetyGateAllowOrder": false,
+      "adapterStatus": "not_executed",
+      "syntheticStatus": "not_executed",
+      "failedReasons": [
+        "provider_unhealthy"
+      ]
+    }
+  ],
+  "failed": []
+}

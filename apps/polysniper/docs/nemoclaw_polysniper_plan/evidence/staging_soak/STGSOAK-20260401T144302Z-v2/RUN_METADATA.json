@@ -1,0 +1,8 @@
+{
+  "runId": "STGSOAK-20260401T144302Z-v2",
+  "generatedAt": "2026-04-01T14:43:02.514Z",
+  "nominalTarget": 100,
+  "faultTarget": 15,
+  "mode": "staging_synth",
+  "script": "apps/polysniper/server/tools/run-staging-soak-evidence.mjs"
+}

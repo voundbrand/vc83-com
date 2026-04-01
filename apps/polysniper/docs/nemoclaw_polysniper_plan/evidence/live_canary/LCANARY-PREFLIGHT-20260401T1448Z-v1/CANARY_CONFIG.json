@@ -1,0 +1,28 @@
+{
+  "bundleId": "LCANARY-PREFLIGHT-20260401T1448Z-v1",
+  "generatedAt": "2026-04-01T14:48:00Z",
+  "runtimeMode": "live_limited",
+  "strategyVersion": "canary_v1_single_strategy",
+  "riskProfile": {
+    "maxTradeNotionalUsd": 5,
+    "maxDailyNotionalUsd": 20,
+    "maxOpenRiskUsd": 15,
+    "maxOpenPositions": 2
+  },
+  "executionProfilePolicy": {
+    "requiredStatus": "ACTIVE",
+    "requiredEligibility": "eligible",
+    "agentIntentsRequireApproval": true
+  },
+  "killSwitchPolicy": {
+    "manualApiRequired": true,
+    "envToggleDominates": true,
+    "sentinelFlagDominates": true
+  },
+  "canaryScope": {
+    "singleTenant": true,
+    "singleOperator": true,
+    "singleVenue": "polymarket",
+    "singleStrategyOnly": true
+  }
+}

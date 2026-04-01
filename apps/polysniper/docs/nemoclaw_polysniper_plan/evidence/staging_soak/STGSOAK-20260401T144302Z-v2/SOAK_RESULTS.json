@@ -1,0 +1,714 @@
+{
+  "summary": {
+    "runId": "STGSOAK-20260401T144302Z-v2",
+    "generatedAt": "2026-04-01T14:43:02.514Z",
+    "nominalCycles": 100,
+    "faultInjections": 15,
+    "nominalFailures": 0,
+    "faultFailures": 0,
+    "allPass": true
+  },
+  "nominal": [
+    {
+      "id": "nominal-1",
+      "httpStatus": 200,
+      "decisionAction": "PLACE_ORDER",
+      "adapterStatus": "staging_synth_simulated",
+      "failSafeClassification": null
+    },
+    {
+      "id": "nominal-2",
+      "httpStatus": 200,
+      "decisionAction": "PLACE_ORDER",
+      "adapterStatus": "staging_synth_simulated",
+      "failSafeClassification": null
+    },
+    {
+      "id": "nominal-3",
+      "httpStatus": 200,
+      "decisionAction": "PLACE_ORDER",
+      "adapterStatus": "staging_synth_simulated",
+      "failSafeClassification": null
+    },
+    {
+      "id": "nominal-4",
+      "httpStatus": 200,
+      "decisionAction": "PLACE_ORDER",
+      "adapterStatus": "staging_synth_simulated",
+      "failSafeClassification": null
+    },
+    {
+      "id": "nominal-5",
+      "httpStatus": 200,
+      "decisionAction": "PLACE_ORDER",
+      "adapterStatus": "staging_synth_simulated",
+      "failSafeClassification": null
+    },
+    {
+      "id": "nominal-6",
+      "httpStatus": 200,
+      "decisionAction": "PLACE_ORDER",
+      "adapterStatus": "staging_synth_simulated",
+      "failSafeClassification": null
+    },
+    {
+      "id": "nominal-7",
+      "httpStatus": 200,
+      "decisionAction": "PLACE_ORDER",
+      "adapterStatus": "staging_synth_simulated",
+      "failSafeClassification": null
+    },
+    {
+      "id": "nominal-8",
+      "httpStatus": 200,
+      "decisionAction": "PLACE_ORDER",
+      "adapterStatus": "staging_synth_simulated",
+      "failSafeClassification": null
+    },
+    {
+      "id": "nominal-9",
+      "httpStatus": 200,
+      "decisionAction": "PLACE_ORDER",
+      "adapterStatus": "staging_synth_simulated",
+      "failSafeClassification": null
+    },
+    {
+      "id": "nominal-10",
+      "httpStatus": 200,
+      "decisionAction": "PLACE_ORDER",
+      "adapterStatus": "staging_synth_simulated",
+      "failSafeClassification": null
+    },
+    {
+      "id": "nominal-11",
+      "httpStatus": 200,
+      "decisionAction": "PLACE_ORDER",
+      "adapterStatus": "staging_synth_simulated",
+      "failSafeClassification": null
+    },
+    {
+      "id": "nominal-12",
+      "httpStatus": 200,
+      "decisionAction": "PLACE_ORDER",
+      "adapterStatus": "staging_synth_simulated",
+      "failSafeClassification": null
+    },
+    {
+      "id": "nominal-13",
+      "httpStatus": 200,
+      "decisionAction": "PLACE_ORDER",
+      "adapterStatus": "staging_synth_simulated",
+      "failSafeClassification": null
+    },
+    {
+      "id": "nominal-14",
+      "httpStatus": 200,
+      "decisionAction": "PLACE_ORDER",
+      "adapterStatus": "staging_synth_simulated",
+      "failSafeClassification": null
+    },
+    {
+      "id": "nominal-15",
+      "httpStatus": 200,
+      "decisionAction": "PLACE_ORDER",
+      "adapterStatus": "staging_synth_simulated",
+      "failSafeClassification": null
+    },
+    {
+      "id": "nominal-16",
+      "httpStatus": 200,
+      "decisionAction": "PLACE_ORDER",
+      "adapterStatus": "staging_synth_simulated",
+      "failSafeClassification": null
+    },
+    {
+      "id": "nominal-17",
+      "httpStatus": 200,
+      "decisionAction": "PLACE_ORDER",
+      "adapterStatus": "staging_synth_simulated",
+      "failSafeClassification": null
+    },
+    {
+      "id": "nominal-18",
+      "httpStatus": 200,
+      "decisionAction": "PLACE_ORDER",
+      "adapterStatus": "staging_synth_simulated",
+      "failSafeClassification": null
+    },
+    {
+      "id": "nominal-19",
+      "httpStatus": 200,
+      "decisionAction": "PLACE_ORDER",
+      "adapterStatus": "staging_synth_simulated",
+      "failSafeClassification": null
+    },
+    {
+      "id": "nominal-20",
+      "httpStatus": 200,
+      "decisionAction": "PLACE_ORDER",
+      "adapterStatus": "staging_synth_simulated",
+      "failSafeClassification": null
+    },
+    {
+      "id": "nominal-21",
+      "httpStatus": 200,
+      "decisionAction": "PLACE_ORDER",
+      "adapterStatus": "staging_synth_simulated",
+      "failSafeClassification": null
+    },
+    {
+      "id": "nominal-22",
+      "httpStatus": 200,
+      "decisionAction": "PLACE_ORDER",
+      "adapterStatus": "staging_synth_simulated",
+      "failSafeClassification": null
+    },
+    {
+      "id": "nominal-23",
+      "httpStatus": 200,
+      "decisionAction": "PLACE_ORDER",
+      "adapterStatus": "staging_synth_simulated",
+      "failSafeClassification": null
+    },
+    {
+      "id": "nominal-24",
+      "httpStatus": 200,
+      "decisionAction": "PLACE_ORDER",
+      "adapterStatus": "staging_synth_simulated",
+      "failSafeClassification": null
+    },
+    {
+      "id": "nominal-25",
+      "httpStatus": 200,
+      "decisionAction": "PLACE_ORDER",
+      "adapterStatus": "staging_synth_simulated",
+      "failSafeClassification": null
+    },
+    {
+      "id": "nominal-26",
+      "httpStatus": 200,
+      "decisionAction": "PLACE_ORDER",
+      "adapterStatus": "staging_synth_simulated",
+      "failSafeClassification": null
+    },
+    {
+      "id": "nominal-27",
+      "httpStatus": 200,
+      "decisionAction": "PLACE_ORDER",
+      "adapterStatus": "staging_synth_simulated",
+      "failSafeClassification": null
+    },
+    {
+      "id": "nominal-28",
+      "httpStatus": 200,
+      "decisionAction": "PLACE_ORDER",
+      "adapterStatus": "staging_synth_simulated",
+      "failSafeClassification": null
+    },
+    {
+      "id": "nominal-29",
+      "httpStatus": 200,
+      "decisionAction": "PLACE_ORDER",
+      "adapterStatus": "staging_synth_simulated",
+      "failSafeClassification": null
+    },
+    {
+      "id": "nominal-30",
+      "httpStatus": 200,
+      "decisionAction": "PLACE_ORDER",
+      "adapterStatus": "staging_synth_simulated",
+      "failSafeClassification": null
+    },
+    {
+      "id": "nominal-31",
+      "httpStatus": 200,
+      "decisionAction": "PLACE_ORDER",
+      "adapterStatus": "staging_synth_simulated",
+      "failSafeClassification": null
+    },
+    {
+      "id": "nominal-32",
+      "httpStatus": 200,
+      "decisionAction": "PLACE_ORDER",
+      "adapterStatus": "staging_synth_simulated",
+      "failSafeClassification": null
+    },
+    {
+      "id": "nominal-33",
+      "httpStatus": 200,
+      "decisionAction": "PLACE_ORDER",
+      "adapterStatus": "staging_synth_simulated",
+      "failSafeClassification": null
+    },
+    {
+      "id": "nominal-34",
+      "httpStatus": 200,
+      "decisionAction": "PLACE_ORDER",
+      "adapterStatus": "staging_synth_simulated",
+      "failSafeClassification": null
+    },
+    {
+      "id": "nominal-35",
+      "httpStatus": 200,
+      "decisionAction": "PLACE_ORDER",
+      "adapterStatus": "staging_synth_simulated",
+      "failSafeClassification": null
+    },
+    {
+      "id": "nominal-36",
+      "httpStatus": 200,
+      "decisionAction": "PLACE_ORDER",
+      "adapterStatus": "staging_synth_simulated",
+      "failSafeClassification": null
+    },
+    {
+      "id": "nominal-37",
+      "httpStatus": 200,
+      "decisionAction": "PLACE_ORDER",
+      "adapterStatus": "staging_synth_simulated",
+      "failSafeClassification": null
+    },
+    {
+      "id": "nominal-38",
+      "httpStatus": 200,
+      "decisionAction": "PLACE_ORDER",
+      "adapterStatus": "staging_synth_simulated",
+      "failSafeClassification": null
+    },
+    {
+      "id": "nominal-39",
+      "httpStatus": 200,
+      "decisionAction": "PLACE_ORDER",
+      "adapterStatus": "staging_synth_simulated",
+      "failSafeClassification": null
+    },
+    {
+      "id": "nominal-40",
+      "httpStatus": 200,
+      "decisionAction": "PLACE_ORDER",
+      "adapterStatus": "staging_synth_simulated",
+      "failSafeClassification": null
+    },
+    {
+      "id": "nominal-41",
+      "httpStatus": 200,
+      "decisionAction": "PLACE_ORDER",
+      "adapterStatus": "staging_synth_simulated",
+      "failSafeClassification": null
+    },
+    {
+      "id": "nominal-42",
+      "httpStatus": 200,
+      "decisionAction": "PLACE_ORDER",
+      "adapterStatus": "staging_synth_simulated",
+      "failSafeClassification": null
+    },
+    {
+      "id": "nominal-43",
+      "httpStatus": 200,
+      "decisionAction": "PLACE_ORDER",
+      "adapterStatus": "staging_synth_simulated",
+      "failSafeClassification": null
+    },
+    {
+      "id": "nominal-44",
+      "httpStatus": 200,
+      "decisionAction": "PLACE_ORDER",
+      "adapterStatus": "staging_synth_simulated",
+      "failSafeClassification": null
+    },
+    {
+      "id": "nominal-45",
+      "httpStatus": 200,
+      "decisionAction": "PLACE_ORDER",
+      "adapterStatus": "staging_synth_simulated",
+      "failSafeClassification": null
+    },
+    {
+      "id": "nominal-46",
+      "httpStatus": 200,
+      "decisionAction": "PLACE_ORDER",
+      "adapterStatus": "staging_synth_simulated",
+      "failSafeClassification": null
+    },
+    {
+      "id": "nominal-47",
+      "httpStatus": 200,
+      "decisionAction": "PLACE_ORDER",
+      "adapterStatus": "staging_synth_simulated",
+      "failSafeClassification": null
+    },
+    {
+      "id": "nominal-48",
+      "httpStatus": 200,
+      "decisionAction": "PLACE_ORDER",
+      "adapterStatus": "staging_synth_simulated",
+      "failSafeClassification": null
+    },
+    {
+      "id": "nominal-49",
+      "httpStatus": 200,
+      "decisionAction": "PLACE_ORDER",
+      "adapterStatus": "staging_synth_simulated",
+      "failSafeClassification": null
+    },
+    {
+      "id": "nominal-50",
+      "httpStatus": 200,
+      "decisionAction": "PLACE_ORDER",
+      "adapterStatus": "staging_synth_simulated",
+      "failSafeClassification": null
+    },
+    {
+      "id": "nominal-51",
+      "httpStatus": 200,
+      "decisionAction": "PLACE_ORDER",
+      "adapterStatus": "staging_synth_simulated",
+      "failSafeClassification": null
+    },
+    {
+      "id": "nominal-52",
+      "httpStatus": 200,
+      "decisionAction": "PLACE_ORDER",
+      "adapterStatus": "staging_synth_simulated",
+      "failSafeClassification": null
+    },
+    {
+      "id": "nominal-53",
+      "httpStatus": 200,
+      "decisionAction": "PLACE_ORDER",
+      "adapterStatus": "staging_synth_simulated",
+      "failSafeClassification": null
+    },
+    {
+      "id": "nominal-54",
+      "httpStatus": 200,
+      "decisionAction": "PLACE_ORDER",
+      "adapterStatus": "staging_synth_simulated",
+      "failSafeClassification": null
+    },
+    {
+      "id": "nominal-55",
+      "httpStatus": 200,
+      "decisionAction": "PLACE_ORDER",
+      "adapterStatus": "staging_synth_simulated",
+      "failSafeClassification": null
+    },
+    {
+      "id": "nominal-56",
+      "httpStatus": 200,
+      "decisionAction": "PLACE_ORDER",
+      "adapterStatus": "staging_synth_simulated",
+      "failSafeClassification": null
+    },
+    {
+      "id": "nominal-57",
+      "httpStatus": 200,
+      "decisionAction": "PLACE_ORDER",
+      "adapterStatus": "staging_synth_simulated",
+      "failSafeClassification": null
+    },
+    {
+      "id": "nominal-58",
+      "httpStatus": 200,
+      "decisionAction": "PLACE_ORDER",
+      "adapterStatus": "staging_synth_simulated",
+      "failSafeClassification": null
+    },
+    {
+      "id": "nominal-59",
+      "httpStatus": 200,
+      "decisionAction": "PLACE_ORDER",
+      "adapterStatus": "staging_synth_simulated",
+      "failSafeClassification": null
+    },
+    {
+      "id": "nominal-60",
+      "httpStatus": 200,
+      "decisionAction": "PLACE_ORDER",
+      "adapterStatus": "staging_synth_simulated",
+      "failSafeClassification": null
+    },
+    {
+      "id": "nominal-61",
+      "httpStatus": 200,
+      "decisionAction": "PLACE_ORDER",
+      "adapterStatus": "staging_synth_simulated",
+      "failSafeClassification": null
+    },
+    {
+      "id": "nominal-62",
+      "httpStatus": 200,
+      "decisionAction": "PLACE_ORDER",
+      "adapterStatus": "staging_synth_simulated",
+      "failSafeClassification": null
+    },
+    {
+      "id": "nominal-63",
+      "httpStatus": 200,
+      "decisionAction": "PLACE_ORDER",
+      "adapterStatus": "staging_synth_simulated",
+      "failSafeClassification": null
+    },
+    {
+      "id": "nominal-64",
+      "httpStatus": 200,
+      "decisionAction": "PLACE_ORDER",
+      "adapterStatus": "staging_synth_simulated",
+      "failSafeClassification": null
+    },
+    {
+      "id": "nominal-65",
+      "httpStatus": 200,
+      "decisionAction": "PLACE_ORDER",
+      "adapterStatus": "staging_synth_simulated",
+      "failSafeClassification": null
+    },
+    {
+      "id": "nominal-66",
+      "httpStatus": 200,
+      "decisionAction": "PLACE_ORDER",
+      "adapterStatus": "staging_synth_simulated",
+      "failSafeClassification": null
+    },
+    {
+      "id": "nominal-67",
+      "httpStatus": 200,
+      "decisionAction": "PLACE_ORDER",
+      "adapterStatus": "staging_synth_simulated",
+      "failSafeClassification": null
+    },
+    {
+      "id": "nominal-68",
+      "httpStatus": 200,
+      "decisionAction": "PLACE_ORDER",
+      "adapterStatus": "staging_synth_simulated",
+      "failSafeClassification": null
+    },
+    {
+      "id": "nominal-69",
+      "httpStatus": 200,
+      "decisionAction": "PLACE_ORDER",
+      "adapterStatus": "staging_synth_simulated",
+      "failSafeClassification": null
+    },
+    {
+      "id": "nominal-70",
+      "httpStatus": 200,
+      "decisionAction": "PLACE_ORDER",
+      "adapterStatus": "staging_synth_simulated",
+      "failSafeClassification": null
+    },
+    {
+      "id": "nominal-71",
+      "httpStatus": 200,
+      "decisionAction": "PLACE_ORDER",
+      "adapterStatus": "staging_synth_simulated",
+      "failSafeClassification": null
+    },
+    {
+      "id": "nominal-72",
+      "httpStatus": 200,
+      "decisionAction": "PLACE_ORDER",
+      "adapterStatus": "staging_synth_simulated",
+      "failSafeClassification": null
+    },
+    {
+      "id": "nominal-73",
+      "httpStatus": 200,
+      "decisionAction": "PLACE_ORDER",
+      "adapterStatus": "staging_synth_simulated",
+      "failSafeClassification": null
+    },
+    {
+      "id": "nominal-74",
+      "httpStatus": 200,
+      "decisionAction": "PLACE_ORDER",
+      "adapterStatus": "staging_synth_simulated",
+      "failSafeClassification": null
+    },
+    {
+      "id": "nominal-75",
+      "httpStatus": 200,
+      "decisionAction": "PLACE_ORDER",
+      "adapterStatus": "staging_synth_simulated",
+      "failSafeClassification": null
+    },
+    {
+      "id": "nominal-76",
+      "httpStatus": 200,
+      "decisionAction": "PLACE_ORDER",
+      "adapterStatus": "staging_synth_simulated",
+      "failSafeClassification": null
+    },
+    {
+      "id": "nominal-77",
+      "httpStatus": 200,
+      "decisionAction": "PLACE_ORDER",
+      "adapterStatus": "staging_synth_simulated",
+      "failSafeClassification": null
+    },
+    {
+      "id": "nominal-78",
+      "httpStatus": 200,
+      "decisionAction": "PLACE_ORDER",
+      "adapterStatus": "staging_synth_simulated",
+      "failSafeClassification": null
+    },
+    {
+      "id": "nominal-79",
+      "httpStatus": 200,
+      "decisionAction": "PLACE_ORDER",
+      "adapterStatus": "staging_synth_simulated",
+      "failSafeClassification": null
+    },
+    {
+      "id": "nominal-80",
+      "httpStatus": 200,
+      "decisionAction": "PLACE_ORDER",
+      "adapterStatus": "staging_synth_simulated",
+      "failSafeClassification": null
+    },
+    {
+      "id": "nominal-81",
+      "httpStatus": 200,
+      "decisionAction": "PLACE_ORDER",
+      "adapterStatus": "staging_synth_simulated",
+      "failSafeClassification": null
+    },
+    {
+      "id": "nominal-82",
+      "httpStatus": 200,
+      "decisionAction": "PLACE_ORDER",
+      "adapterStatus": "staging_synth_simulated",
+      "failSafeClassification": null
+    },
+    {
+      "id": "nominal-83",
+      "httpStatus": 200,
+      "decisionAction": "PLACE_ORDER",
+      "adapterStatus": "staging_synth_simulated",
+      "failSafeClassification": null
+    },
+    {
+      "id": "nominal-84",
+      "httpStatus": 200,
+      "decisionAction": "PLACE_ORDER",
+      "adapterStatus": "staging_synth_simulated",
+      "failSafeClassification": null
+    },
+    {
+      "id": "nominal-85",
+      "httpStatus": 200,
+      "decisionAction": "PLACE_ORDER",
+      "adapterStatus": "staging_synth_simulated",
+      "failSafeClassification": null
+    },
+    {
+      "id": "nominal-86",
+      "httpStatus": 200,
+      "decisionAction": "PLACE_ORDER",
+      "adapterStatus": "staging_synth_simulated",
+      "failSafeClassification": null
+    },
+    {
+      "id": "nominal-87",
+      "httpStatus": 200,
+      "decisionAction": "PLACE_ORDER",
+      "adapterStatus": "staging_synth_simulated",
+      "failSafeClassification": null
+    },
+    {
+      "id": "nominal-88",
+      "httpStatus": 200,
+      "decisionAction": "PLACE_ORDER",
+      "adapterStatus": "staging_synth_simulated",
+      "failSafeClassification": null
+    },
+    {
+      "id": "nominal-89",
+      "httpStatus": 200,
+      "decisionAction": "PLACE_ORDER",
+      "adapterStatus": "staging_synth_simulated",
+      "failSafeClassification": null
+    },
+    {
+      "id": "nominal-90",
+      "httpStatus": 200,
+      "decisionAction": "PLACE_ORDER",
+      "adapterStatus": "staging_synth_simulated",
+      "failSafeClassification": null
+    },
+    {
+      "id": "nominal-91",
+      "httpStatus": 200,
+      "decisionAction": "PLACE_ORDER",
+      "adapterStatus": "staging_synth_simulated",
+      "failSafeClassification": null
+    },
+    {
+      "id": "nominal-92",
+      "httpStatus": 200,
+      "decisionAction": "PLACE_ORDER",
+      "adapterStatus": "staging_synth_simulated",
+      "failSafeClassification": null
+    },
+    {
+      "id": "nominal-93",
+      "httpStatus": 200,
+      "decisionAction": "PLACE_ORDER",
+      "adapterStatus": "staging_synth_simulated",
+      "failSafeClassification": null
+    },
+    {
+      "id": "nominal-94",
+      "httpStatus": 200,
+      "decisionAction": "PLACE_ORDER",
+      "adapterStatus": "staging_synth_simulated",
+      "failSafeClassification": null
+    },
+    {
+      "id": "nominal-95",
+      "httpStatus": 200,
+      "decisionAction": "PLACE_ORDER",
+      "adapterStatus": "staging_synth_simulated",
+      "failSafeClassification": null
+    },
+    {
+      "id": "nominal-96",
+      "httpStatus": 200,
+      "decisionAction": "PLACE_ORDER",
+      "adapterStatus": "staging_synth_simulated",
+      "failSafeClassification": null
+    },
+    {
+      "id": "nominal-97",
+      "httpStatus": 200,
+      "decisionAction": "PLACE_ORDER",
+      "adapterStatus": "staging_synth_simulated",
+      "failSafeClassification": null
+    },
+    {
+      "id": "nominal-98",
+      "httpStatus": 200,
+      "decisionAction": "PLACE_ORDER",
+      "adapterStatus": "staging_synth_simulated",
+      "failSafeClassification": null
+    },
+    {
+      "id": "nominal-99",
+      "httpStatus": 200,
+      "decisionAction": "PLACE_ORDER",
+      "adapterStatus": "staging_synth_simulated",
+      "failSafeClassification": null
+    },
+    {
+      "id": "nominal-100",
+      "httpStatus": 200,
+      "decisionAction": "PLACE_ORDER",
+      "adapterStatus": "staging_synth_simulated",
+      "failSafeClassification": null
+    }
+  ],
+  "nominalFailures": []
+}

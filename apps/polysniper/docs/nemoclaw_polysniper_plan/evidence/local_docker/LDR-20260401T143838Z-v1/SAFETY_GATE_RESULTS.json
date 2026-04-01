@@ -1,0 +1,7 @@
+{
+  "totalFailedReasons": 10,
+  "failedReasonHistogram": {
+    "requested_above_max_trade:20": 5,
+    "provider_unhealthy": 5
+  }
+}

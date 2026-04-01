@@ -1,0 +1,110 @@
+{
+  "faults": [
+    {
+      "id": "gamma-fault-1",
+      "type": "gamma",
+      "httpStatus": 200,
+      "adapterStatus": "staging_synth_simulated",
+      "failSafeClassification": "gamma_unavailable"
+    },
+    {
+      "id": "gamma-fault-2",
+      "type": "gamma",
+      "httpStatus": 200,
+      "adapterStatus": "staging_synth_simulated",
+      "failSafeClassification": "gamma_unavailable"
+    },
+    {
+      "id": "gamma-fault-3",
+      "type": "gamma",
+      "httpStatus": 200,
+      "adapterStatus": "staging_synth_simulated",
+      "failSafeClassification": "gamma_unavailable"
+    },
+    {
+      "id": "gamma-fault-4",
+      "type": "gamma",
+      "httpStatus": 200,
+      "adapterStatus": "staging_synth_simulated",
+      "failSafeClassification": "gamma_unavailable"
+    },
+    {
+      "id": "gamma-fault-5",
+      "type": "gamma",
+      "httpStatus": 200,
+      "adapterStatus": "not_executed",
+      "failSafeClassification": "risk_hold"
+    },
+    {
+      "id": "book-fault-1",
+      "type": "clob",
+      "httpStatus": 200,
+      "adapterStatus": "not_executed",
+      "failSafeClassification": "risk_hold"
+    },
+    {
+      "id": "book-fault-2",
+      "type": "clob",
+      "httpStatus": 200,
+      "adapterStatus": "not_executed",
+      "failSafeClassification": "risk_hold"
+    },
+    {
+      "id": "book-fault-3",
+      "type": "clob",
+      "httpStatus": 200,
+      "adapterStatus": "not_executed",
+      "failSafeClassification": "risk_hold"
+    },
+    {
+      "id": "book-fault-4",
+      "type": "clob",
+      "httpStatus": 200,
+      "adapterStatus": "not_executed",
+      "failSafeClassification": "risk_hold"
+    },
+    {
+      "id": "book-fault-5",
+      "type": "clob",
+      "httpStatus": 200,
+      "adapterStatus": "not_executed",
+      "failSafeClassification": "risk_hold"
+    },
+    {
+      "id": "provider-fault-1",
+      "type": "provider",
+      "httpStatus": 200,
+      "adapterStatus": "not_executed",
+      "failSafeClassification": "provider_unhealthy"
+    },
+    {
+      "id": "provider-fault-2",
+      "type": "provider",
+      "httpStatus": 200,
+      "adapterStatus": "not_executed",
+      "failSafeClassification": "provider_unhealthy"
+    },
+    {
+      "id": "provider-fault-3",
+      "type": "provider",
+      "httpStatus": 200,
+      "adapterStatus": "not_executed",
+      "failSafeClassification": "provider_unhealthy"
+    },
+    {
+      "id": "provider-fault-4",
+      "type": "provider",
+      "httpStatus": 200,
+      "adapterStatus": "not_executed",
+      "failSafeClassification": "provider_unhealthy"
+    },
+    {
+      "id": "provider-fault-5",
+      "type": "provider",
+      "httpStatus": 200,
+      "adapterStatus": "not_executed",
+      "failSafeClassification": "provider_unhealthy"
+    }
+  ],
+  "faultFailures": []
+}
