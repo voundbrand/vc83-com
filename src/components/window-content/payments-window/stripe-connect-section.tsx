@@ -23,7 +23,7 @@ import {
   FileText,
 } from "lucide-react";
 import { StripeInvoiceSection } from "./stripe-invoice-section";
-import { usePostHog } from "posthog-js/react";
+import { usePostHog } from "@/components/providers/posthog-provider";
 
 interface StripeConnectSectionProps {
   organizationId: Id<"organizations">;

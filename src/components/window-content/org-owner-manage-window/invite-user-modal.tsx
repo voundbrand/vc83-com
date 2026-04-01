@@ -6,7 +6,7 @@ import { useAction, useQuery } from "convex/react";
 import { useAuth } from "@/hooks/use-auth";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { formatRoleName } from "@/utils/roleFormatter";
-import { usePostHog } from "posthog-js/react";
+import { usePostHog } from "@/components/providers/posthog-provider";
 import { getConvexErrorMessage } from "@/lib/convex-error-message";
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const apiAny: any = require("../../../../convex/_generated/api").api;

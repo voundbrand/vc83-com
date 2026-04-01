@@ -26,7 +26,7 @@ import { ConfirmationStep } from "./steps/confirmation-step";
 import { InvoiceEnforcementStep } from "./steps/invoice-enforcement-step";
 import { evaluatePaymentRules, type PaymentRulesResult } from "../../../convex/paymentRulesEngine";
 import styles from "./styles/multi-step.module.css";
-import { usePostHog } from "posthog-js/react";
+import { usePostHog } from "@/components/providers/posthog-provider";
 import { useTranslation } from "@/contexts/translation-context";
 import { Check } from "lucide-react";
 

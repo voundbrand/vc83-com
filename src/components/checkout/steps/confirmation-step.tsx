@@ -20,7 +20,7 @@ import { Id } from "../../../../convex/_generated/dataModel";
 import { getAddonsFromResults } from "@/lib/behaviors/adapters/checkout-integration";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import styles from "../styles/multi-step.module.css";
-import { usePostHog } from "posthog-js/react";
+import { usePostHog } from "@/components/providers/posthog-provider";
 
 interface ConfirmationStepProps {
   checkoutData: CheckoutStepData;

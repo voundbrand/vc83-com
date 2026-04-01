@@ -12,7 +12,7 @@ import {
   useStripe,
   useElements,
 } from "@stripe/react-stripe-js";
-import { usePostHog } from "posthog-js/react";
+import { usePostHog } from "@/components/providers/posthog-provider";
 
 export function CheckoutForm() {
   const stripe = useStripe();

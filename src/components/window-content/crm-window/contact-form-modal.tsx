@@ -6,7 +6,7 @@ import { api } from "../../../../convex/_generated/api";
 import { useAuth, useCurrentOrganization } from "@/hooks/use-auth";
 import { X, Save, Loader2, ChevronDown, ChevronUp, Trash2, Plus, TrendingUp } from "lucide-react";
 import type { Id } from "../../../../convex/_generated/dataModel";
-import { usePostHog } from "posthog-js/react";
+import { usePostHog } from "@/components/providers/posthog-provider";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 
 // Types for pipeline-related data from Convex queries

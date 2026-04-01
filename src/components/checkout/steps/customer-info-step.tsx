@@ -22,7 +22,7 @@ import { User, Mail, Phone, MessageSquare, ArrowLeft, Building2, FileText, MapPi
 import styles from "../styles/multi-step.module.css";
 import { Id } from "../../../../convex/_generated/dataModel";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
-import { usePostHog } from "posthog-js/react";
+import { usePostHog } from "@/components/providers/posthog-provider";
 
 interface CustomerInfo {
   email: string;

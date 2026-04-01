@@ -37,6 +37,14 @@ function normalizeOptionalString(value: unknown): string | null {
   return normalized.length > 0 ? normalized : null;
 }
 
+function normalizeIdentityToken(value: unknown): string | null {
+  const normalized = normalizeOptionalString(value);
+  if (!normalized) {
+    return null;
+  }
+  return normalized.toLowerCase();
+}
+
 function normalizeOptionalNumber(value: unknown): number | null {
   if (typeof value === "number" && Number.isFinite(value)) {
     return value;
@@ -78,15 +86,15 @@ function normalizeIdentityFromCustomProperties(
     return null;
   }
 
-  const appSlug = normalizeOptionalString(cp.appSlug);
+  const appSlug = normalizeIdentityToken(cp.appSlug);
   if (!appSlug) {
     return null;
   }
 
   const surfaceType =
-    normalizeOptionalString(cp.surfaceType) || DEFAULT_SURFACE_TYPE;
+    normalizeIdentityToken(cp.surfaceType) || DEFAULT_SURFACE_TYPE;
   const surfaceKey =
-    normalizeOptionalString(cp.surfaceKey) || DEFAULT_SURFACE_KEY;
+    normalizeIdentityToken(cp.surfaceKey) || DEFAULT_SURFACE_KEY;
   const enabled = normalizeOptionalBoolean(cp.enabled) !== false;
   const priority = Math.round(normalizeOptionalNumber(cp.priority) || 0);
 
@@ -211,14 +219,14 @@ export const resolveBookingSurfaceBindingInternal = internalQuery({
     allowDisabled: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
-    const appSlug = normalizeOptionalString(args.appSlug);
+    const appSlug = normalizeIdentityToken(args.appSlug);
     if (!appSlug) {
       return null;
     }
     const surfaceType =
-      normalizeOptionalString(args.surfaceType) || DEFAULT_SURFACE_TYPE;
+      normalizeIdentityToken(args.surfaceType) || DEFAULT_SURFACE_TYPE;
     const surfaceKey =
-      normalizeOptionalString(args.surfaceKey) || DEFAULT_SURFACE_KEY;
+      normalizeIdentityToken(args.surfaceKey) || DEFAULT_SURFACE_KEY;
     const allowDisabled = args.allowDisabled === true;
 
     const records = await listSurfaceBindingObjects({
@@ -262,8 +270,8 @@ export const listBookingSurfaceBindingsInternal = internalQuery({
     surfaceType: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const requestedAppSlug = normalizeOptionalString(args.appSlug);
-    const requestedSurfaceType = normalizeOptionalString(args.surfaceType);
+    const requestedAppSlug = normalizeIdentityToken(args.appSlug);
+    const requestedSurfaceType = normalizeIdentityToken(args.surfaceType);
 
     const records = await listSurfaceBindingObjects({
       ctx: { db: ctx.db },
@@ -318,8 +326,8 @@ export const listBookingSurfaceBindings = query({
   },
   handler: async (ctx, args) => {
     const auth = await requireAuthenticatedUser(ctx, args.sessionId);
-    const requestedAppSlug = normalizeOptionalString(args.appSlug);
-    const requestedSurfaceType = normalizeOptionalString(args.surfaceType);
+    const requestedAppSlug = normalizeIdentityToken(args.appSlug);
+    const requestedSurfaceType = normalizeIdentityToken(args.surfaceType);
 
     const records = await listSurfaceBindingObjects({
       ctx: { db: ctx.db },
@@ -381,14 +389,14 @@ export const upsertBookingSurfaceBindingInternal = internalMutation({
     legacyBindings: v.optional(v.any()),
   },
   handler: async (ctx, args) => {
-    const appSlug = normalizeOptionalString(args.appSlug);
+    const appSlug = normalizeIdentityToken(args.appSlug);
     if (!appSlug) {
       throw new Error("appSlug is required");
     }
     const surfaceType =
-      normalizeOptionalString(args.surfaceType) || DEFAULT_SURFACE_TYPE;
+      normalizeIdentityToken(args.surfaceType) || DEFAULT_SURFACE_TYPE;
     const surfaceKey =
-      normalizeOptionalString(args.surfaceKey) || DEFAULT_SURFACE_KEY;
+      normalizeIdentityToken(args.surfaceKey) || DEFAULT_SURFACE_KEY;
     const enabled = args.enabled !== false;
     const priority = Math.round(normalizeOptionalNumber(args.priority) || 0);
     const now = Date.now();

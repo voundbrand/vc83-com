@@ -482,6 +482,10 @@ interface BookingSetupKickoffPayload {
   catalogInput?: Record<string, unknown>
   diagnostics?: Array<Record<string, unknown>>
   warnings?: string[]
+  requiredSequence?: string[]
+  nextAction?: string
+  interviewQuestions?: Array<Record<string, unknown>>
+  interviewHints?: string[]
   operatorPrompt?: string
 }
 
@@ -694,10 +698,10 @@ function buildBookingSetupKickoff(args: {
   sourceOrganizationId?: string
 }): string {
   const payload = parseBookingSetupKickoffPayload(args.openContext)
-  const appSlug = cleanKickoffString(payload?.appSlug, "my-app")
-  const surfaceType = cleanKickoffString(payload?.surfaceType, "booking")
-  const surfaceKey = cleanKickoffString(payload?.surfaceKey, "default")
-  const setupTemplate = cleanKickoffString(payload?.setupTemplate, "custom")
+  const appSlug = cleanKickoffIdentityToken(payload?.appSlug, "my-app")
+  const surfaceType = cleanKickoffIdentityToken(payload?.surfaceType, "booking")
+  const surfaceKey = cleanKickoffIdentityToken(payload?.surfaceKey, "default")
+  const setupTemplate = normalizeBookingSetupTemplate(payload?.setupTemplate)
   const sourceSessionLine = args.sourceSessionId
     ? `source_session_id=${args.sourceSessionId}`
     : "source_session_id=unknown"
@@ -705,7 +709,18 @@ function buildBookingSetupKickoff(args: {
     ? `source_organization_id=${args.sourceOrganizationId}`
     : "source_organization_id=unknown"
   const knownAppSlugs = Array.isArray(payload?.availableAppSlugs)
-    ? payload.availableAppSlugs.filter((slug) => typeof slug === "string" && slug.trim()).join(", ")
+    ? Array.from(
+      new Set(
+        payload.availableAppSlugs
+          .filter(
+            (slug): slug is string =>
+              typeof slug === "string" && slug.trim().length > 0
+          )
+          .map((slug) => slug.trim().toLowerCase())
+      )
+    )
+      .sort((left, right) => left.localeCompare(right))
+      .join(", ")
     : ""
   const catalogJson = payload?.catalogInput
     ? JSON.stringify(payload.catalogInput, null, 2)
@@ -715,6 +730,26 @@ function buildBookingSetupKickoff(args: {
     : "[]"
   const warningsJson = payload?.warnings
     ? JSON.stringify(payload.warnings, null, 2)
+    : "[]"
+  const requiredSequence = Array.isArray(payload?.requiredSequence)
+    ? payload.requiredSequence
+      .filter((step) => typeof step === "string")
+      .map((step) => step.trim())
+      .filter((step) => step.length > 0)
+    : []
+  const requiredSequenceLine =
+    requiredSequence.length > 0
+      ? requiredSequence.join(" -> ")
+      : "booking_setup.interview.v1 -> booking_setup.execute.v1 -> booking_setup.list_bindings.v1"
+  const nextAction = cleanKickoffString(
+    payload?.nextAction,
+    "Call bootstrap_booking_surface(mode=interview) before execute mode."
+  )
+  const interviewQuestionsJson = payload?.interviewQuestions
+    ? JSON.stringify(payload.interviewQuestions, null, 2)
+    : "[]"
+  const interviewHintsJson = payload?.interviewHints
+    ? JSON.stringify(payload.interviewHints, null, 2)
     : "[]"
   const operatorPrompt = cleanKickoffString(
     payload?.operatorPrompt,
@@ -730,11 +765,17 @@ function buildBookingSetupKickoff(args: {
     sourceSessionLine,
     sourceOrgLine,
     knownAppSlugs ? `known_app_slugs=${knownAppSlugs}` : "known_app_slugs=unknown",
+    "required_sequence=booking_setup.interview.v1 -> booking_setup.execute.v1 -> booking_setup.list_bindings.v1",
+    `required_sequence_steps=${requiredSequenceLine}`,
+    `next_action_hint=${nextAction}`,
+    `writeback_contract=${BOOKING_SETUP_WRITEBACK_CONTRACT_VERSION}`,
+    "execute_gate=only_after_booking_writeback_and_required_answers",
     "response_contract:",
-    "1) Ask only for missing booking data and missing mappings.",
-    "2) Run booking workflow tools end-to-end for this organization.",
-    "3) Return PASS/FAIL with unresolved warnings and exact next action if blocked.",
-    "4) When you want to update wizard UI fields, include a fenced `booking_writeback_v1` JSON block exactly matching this contract version.",
+    "1) Start with configure_booking_workflow(action=bootstrap_booking_surface, mode=interview).",
+    "2) Ask only for unanswered required interview fields (inventory groups, profiles, pricing, checkout strategy).",
+    "3) Emit one fenced booking_writeback_v1 block with merged wizard fields before execute mode.",
+    "4) Run configure_booking_workflow(action=bootstrap_booking_surface, mode=execute, bootstrapInput=<interview answers>).",
+    "5) Run configure_booking_workflow(action=list_booking_surface_bindings) and return PASS/FAIL with unresolved warnings and exact next action if blocked.",
     "",
     "writeback_block_example:",
     "```booking_writeback_v1",
@@ -762,6 +803,12 @@ function buildBookingSetupKickoff(args: {
     "",
     "wizard_warnings_json:",
     warningsJson,
+    "",
+    "wizard_interview_questions_json:",
+    interviewQuestionsJson,
+    "",
+    "wizard_interview_hints_json:",
+    interviewHintsJson,
   ].join("\n")
 }
 
@@ -1063,6 +1110,17 @@ function cleanKickoffString(value: unknown, fallback: string): string {
   }
   const normalized = value.trim()
   return normalized.length > 0 ? normalized : fallback
+}
+
+function cleanKickoffIdentityToken(value: unknown, fallback: string): string {
+  return cleanKickoffString(value, fallback).toLowerCase()
+}
+
+function normalizeBookingSetupTemplate(value: unknown): "custom" | "sailing_school_two_boats" {
+  const normalized = cleanKickoffString(value, "custom").toLowerCase()
+  return normalized === "sailing_school_two_boats"
+    ? "sailing_school_two_boats"
+    : "custom"
 }
 
 function buildCmsRewriteKickoff(args: {
