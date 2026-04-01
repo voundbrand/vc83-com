@@ -1,0 +1,35 @@
+{
+  // Keep host/runtime in local mode first; expose through SSH tunnel or reverse proxy.
+  gateway: {
+    mode: "local",
+    bind: "loopback",
+  },
+
+  agents: {
+    defaults: {
+      userTimezone: "Europe/Berlin",
+      model: {
+        primary: "openrouter/openai/gpt-oss-20b",
+        fallbacks: ["openrouter/meta-llama/llama-3.3-70b-instruct"],
+      },
+      // Keep non-main sessions sandboxed.
+      sandbox: {
+        mode: "non-main",
+        scope: "agent",
+        workspaceAccess: "none",
+      },
+    },
+  },
+
+  // Override OpenRouter base URL to EU endpoint for MVP compliance track.
+  models: {
+    mode: "merge",
+    providers: {
+      openrouter: {
+        baseUrl: "https://eu.openrouter.ai/api/v1",
+        apiKey: "${OPENROUTER_API_KEY}",
+        api: "openai-completions",
+      },
+    },
+  },
+}

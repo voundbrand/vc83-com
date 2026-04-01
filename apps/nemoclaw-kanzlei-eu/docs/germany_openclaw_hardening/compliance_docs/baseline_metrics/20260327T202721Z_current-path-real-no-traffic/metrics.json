@@ -1,0 +1,45 @@
+{
+  "generatedAtUtc": "2026-03-27T20:27:21.849Z",
+  "label": "current-path-real-no-traffic",
+  "inputFile": "/Users/foundbrand_001/Development/vc83-com/apps/nemoclaw-kanzlei-eu/docs/germany_openclaw_hardening/compliance_docs/baseline_metrics/20260327T202721Z_current-path-real-no-traffic/calls.jsonl",
+  "requestedLast": 400,
+  "recordsScanned": 0,
+  "parseErrors": 0,
+  "uniqueCalls": 0,
+  "completedCalls": 0,
+  "activeCalls": 0,
+  "analysisWindow": {
+    "startMs": 1774643241849,
+    "startIso": "2026-03-27T20:27:21.849Z",
+    "endMs": 1774643241849,
+    "endIso": "2026-03-27T20:27:21.849Z",
+    "durationMs": 0,
+    "durationMinutes": 0
+  },
+  "latency": {
+    "turn": {
+      "count": 0,
+      "minMs": null,
+      "maxMs": null,
+      "avgMs": null,
+      "p50Ms": null,
+      "p95Ms": null,
+      "p99Ms": null
+    },
+    "listenWait": {
+      "count": 0,
+      "minMs": null,
+      "maxMs": null,
+      "avgMs": null,
+      "p50Ms": null,
+      "p95Ms": null,
+      "p99Ms": null
+    }
+  },
+  "throughput": {
+    "totalTurnsObserved": 0,
+    "callsPerMinute": null,
+    "completedCallsPerMinute": null,
+    "turnsPerMinute": null
+  }
+}

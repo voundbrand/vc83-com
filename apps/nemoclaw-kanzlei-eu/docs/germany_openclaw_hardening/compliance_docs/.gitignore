@@ -1,0 +1,13 @@
+# Keep sensitive compliance evidence out of git history
+*.pdf
+*.png
+*.jpg
+*.jpeg
+*.docx
+*.xlsx
+*.zip
+
+# Keep structure and text manifests only
+!README.md
+!evidence_register.md
+!hetzner/.gitkeep

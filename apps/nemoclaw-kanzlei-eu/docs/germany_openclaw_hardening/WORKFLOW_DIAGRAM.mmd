@@ -1,0 +1,12 @@
+graph TD
+  A[Mother Repo RnD] --> B[NemoClaw Fork Product Code]
+  B --> C[staging branch]
+  C --> D[Existing Hetzner Server Staging]
+
+  D --> E[Agent Rollout and Tests]
+  E --> F{Tech and Legal Gates Pass}
+
+  F -- No --> C
+  F -- Yes --> G[Tag Release]
+  G --> H[Separate Prod Server Single Tenant]
+  H --> I[Customer Go Live]
