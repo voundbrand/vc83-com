@@ -1,0 +1,18 @@
+# GDPR Art 6/7 — Lawfulness of processing / Conditions for consent
+rules:
+  - id: gdpr.consent.data_processing
+    description: "Art 6(1) — Valid legal basis required for personal data processing"
+    severity: block
+    condition:
+      type: requires_consent
+      consent_type: data_processing
+      legal_basis:
+        - art6_1a   # Consent
+        - art6_1b   # Contract performance
+        - art6_1c   # Legal obligation
+        - art6_1d   # Vital interests
+        - art6_1e   # Public interest
+        - art6_1f   # Legitimate interest
+    action:
+      type: deny
+      message: "No valid legal basis for personal data processing (GDPR Art 6)"

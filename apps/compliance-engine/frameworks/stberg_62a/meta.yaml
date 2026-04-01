@@ -1,0 +1,28 @@
+id: stberg_62a
+name: "StBerG §62a — Tax Advisor Subprocessor Rules"
+version: "1.0.0"
+description: "Steuerberatungsgesetz §62a — specific subprocessor and confidentiality rules for tax advisors"
+jurisdiction: DE
+effective_date: "2017-11-09"
+
+deployment_requirements:
+  hosting:
+    single_tenant: required
+    data_location: [DE]
+    encryption_at_rest: required
+  inference:
+    eu_only: required
+    no_training: required
+    zero_data_retention: required
+  providers:
+    dpa_required: true
+    dpa_62a_clause: required
+    subprocessor_list_required: true
+    subprocessor_notification: required
+    tom_documentation: required
+  legal:
+    privacy_policy: required
+    professional_secrecy_notice: required
+  operational:
+    incident_response_plan: required
+    data_deletion_capability: required

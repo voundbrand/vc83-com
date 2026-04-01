@@ -1,0 +1,22 @@
+id: twilio
+name: Twilio Inc.
+provider_type: telephony
+data_location: US
+jurisdiction: US
+dpa_available: true
+dpa_self_service: true
+dpa_url: https://www.twilio.com/legal/data-protection-addendum
+transfer_mechanism: scc_required
+known_certifications:
+  - ISO27001
+  - SOC2
+  - SOC3
+tom_available: true
+subprocessor_list_url: https://www.twilio.com/legal/sub-processors
+subprocessor_notification: true
+eu_data_residency_available: true
+notes: >
+  US-based communications platform (voice, SMS, WhatsApp).
+  DPA available via website. EU data residency available for select services.
+  Transfer mechanism: Standard Contractual Clauses (SCCs) with Binding Corporate Rules.
+  For §203 deployments: verify call recording retention and EU-only processing.

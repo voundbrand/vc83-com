@@ -1,0 +1,24 @@
+# GDPR Art 9 — Processing of special categories of personal data
+rules:
+  - id: gdpr.special.health_data
+    description: "Art 9(1) — Health data processing requires explicit consent or Art 9(2) exception"
+    severity: block
+    condition:
+      type: all_of
+      conditions:
+        - type: field_matches
+          field: data_categories
+          values:
+            - health
+            - medical
+            - genetic
+            - biometric
+        - type: requires_consent
+          consent_type: special_category_processing
+          legal_basis:
+            - art9_2a   # Explicit consent
+            - art9_2h   # Healthcare purposes
+            - art9_2i   # Public health
+    action:
+      type: deny
+      message: "Special category data (health/medical) requires explicit consent or Art 9(2) exception"

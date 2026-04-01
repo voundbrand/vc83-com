@@ -1,0 +1,50 @@
+{
+  "name": "compliance-engine",
+  "version": "0.1.0",
+  "description": "DSGVO/GDPR compliance sidecar plugin for OpenClaw AI agents",
+  "author": "vc83",
+  "entry": "index.ts",
+  "capabilities": {
+    "tools": [
+      "consent_check",
+      "audit_log",
+      "data_export",
+      "data_delete",
+      "pii_scan",
+      "compliance_assess",
+      "compliance_onboard_provider",
+      "compliance_evidence_gap",
+      "compliance_knowledge_lookup",
+      "compliance_readiness_report",
+      "compliance_generate_checklist",
+      "compliance_generate_doc"
+    ],
+    "hooks": [
+      "before_agent_start",
+      "agent_end"
+    ],
+    "commands": [
+      "compliance"
+    ],
+    "services": [
+      "compliance_health"
+    ]
+  },
+  "configuration": {
+    "sidecar_url": {
+      "type": "string",
+      "default": "http://127.0.0.1:3335",
+      "description": "URL of the compliance engine sidecar"
+    },
+    "fail_closed": {
+      "type": "boolean",
+      "default": true,
+      "description": "Block agent start if sidecar is unreachable"
+    },
+    "auto_audit": {
+      "type": "boolean",
+      "default": true,
+      "description": "Automatically log all tool calls to audit trail"
+    }
+  }
+}

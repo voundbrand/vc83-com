@@ -1,0 +1,55 @@
+id: hetzner
+name: Hetzner Online GmbH
+provider_type: hosting
+data_location: DE
+jurisdiction: EU
+dpa_available: true
+dpa_self_service: true
+dpa_url: https://accounts.hetzner.com/avv
+transfer_mechanism: none_required
+known_certifications:
+  - ISO27001
+  - SOC2
+tom_available: true
+tom_url: https://www.hetzner.com/AV-Vertrag/TOM.pdf
+subprocessor_list_url: https://www.hetzner.com/unternehmen/unterauftragnehmer
+subprocessor_notification: true
+notes: >
+  German hosting provider. DPA (AVV) available via self-service customer portal.
+  TÜV-audited data centers in Germany and Finland.
+  All data centers are EU-based. No third-country transfers.
+  Subprocessor list published on website with notification policy.
+phase_0_dossier:
+  decision: CONDITIONAL_GO
+  decision_basis: >
+    EU-hosting posture is strong for phase-0, but release must remain fail-closed
+    until retention and incident-notification evidence artifacts are attached.
+  legal_evidence_fields:
+    dpa_avv:
+      status: self_service_available
+      source: https://accounts.hetzner.com/avv
+      operator_action: Download signed AVV and attach to evidence vault.
+    subprocessor_register:
+      status: available
+      source: https://www.hetzner.com/unternehmen/unterauftragnehmer
+      operator_action: Export weekly snapshot for release evidence pack.
+    tom_controls:
+      status: available
+      source: https://www.hetzner.com/AV-Vertrag/TOM.pdf
+      operator_action: Attach current TOM PDF version to provider dossier.
+    data_residency_controls:
+      status: available
+      source: https://accounts.hetzner.com/avv
+      operator_action: Record selected EU/DC region in deployment evidence.
+    transfer_mechanism:
+      status: none_required
+      source: https://accounts.hetzner.com/avv
+      operator_action: Keep transfer mechanism field as `none_required` while EU-only remains true.
+    retention_controls:
+      status: unknown_blocking
+      source: null
+      operator_action: Document retention/deletion window and legal basis in signed contract addendum.
+    incident_notification_path:
+      status: unknown_blocking
+      source: null
+      operator_action: Capture incident escalation contact and breach timeline in provider runbook.

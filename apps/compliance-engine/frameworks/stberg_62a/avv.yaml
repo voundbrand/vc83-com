@@ -1,0 +1,11 @@
+# StBerG §62a — AVV (Auftragsverarbeitungsvereinbarung) requirements
+rules:
+  - id: stberg62a.avv.active_provider
+    description: "§62a — Only active, approved providers may process tax advisor client data"
+    severity: block
+    condition:
+      type: provider_requires
+      requirement: active
+    action:
+      type: deny
+      message: "Provider is not active — cannot process tax advisor client data"

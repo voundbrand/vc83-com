@@ -1,0 +1,21 @@
+id: openai
+name: OpenAI OpCo LLC
+provider_type: ai_inference
+data_location: US
+jurisdiction: US
+dpa_available: true
+dpa_self_service: true
+dpa_url: https://openai.com/policies/data-processing-addendum
+transfer_mechanism: scc_required
+known_certifications:
+  - SOC2
+tom_available: true
+subprocessor_list_url: https://openai.com/policies/subprocessors
+subprocessor_notification: true
+zero_data_retention_available: true
+eu_data_residency_available: true
+notes: >
+  US-based AI model provider (GPT). DPA available via website.
+  API requests are not used for training (API tier).
+  Zero data retention available. EU data residency available for enterprise.
+  Transfer mechanism: Standard Contractual Clauses (SCCs) required.

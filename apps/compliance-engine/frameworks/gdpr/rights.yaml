@@ -1,0 +1,11 @@
+# GDPR Art 15-22 — Data subject rights
+rules:
+  - id: gdpr.rights.subject_registered
+    description: "Art 15 — Data subject must be identifiable for rights exercise"
+    severity: warn
+    condition:
+      type: requires_field
+      field: subject_id
+    action:
+      type: warn
+      message: "No data subject identifier — cannot exercise data subject rights (Art 15-22)"

@@ -1,0 +1,21 @@
+# StBerG §62a — Subprocessor requirements for tax advisors
+rules:
+  - id: stberg62a.subprocessor.dpa_required
+    description: "§62a StBerG — All subprocessors must have a signed AVV/DPA"
+    severity: block
+    condition:
+      type: provider_requires
+      requirement: dpa_signed
+    action:
+      type: deny
+      message: "Tax advisor subprocessor requires signed AVV per StBerG §62a"
+
+  - id: stberg62a.subprocessor.eu_preference
+    description: "§62a — Preference for EU/EEA-located subprocessors"
+    severity: warn
+    condition:
+      type: provider_requires
+      requirement: eu_located
+    action:
+      type: warn
+      message: "Non-EU subprocessor for tax advisor data requires additional safeguards"

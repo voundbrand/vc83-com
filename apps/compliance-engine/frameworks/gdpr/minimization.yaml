@@ -1,0 +1,21 @@
+# GDPR Art 5(1)(c) — Data minimization
+rules:
+  - id: gdpr.minimization.purpose_stated
+    description: "Art 5(1)(b) — Processing purpose must be specified"
+    severity: warn
+    condition:
+      type: requires_field
+      field: purpose
+    action:
+      type: warn
+      message: "Processing purpose not specified — required under Art 5(1)(b)"
+
+  - id: gdpr.minimization.data_categories
+    description: "Art 5(1)(c) — Data categories should be documented"
+    severity: info
+    condition:
+      type: requires_field
+      field: data_categories
+    action:
+      type: log
+      message: "Data categories not documented — recommended under Art 5(1)(c)"

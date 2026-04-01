@@ -1,0 +1,27 @@
+# EU AI Act — Risk classification
+rules:
+  - id: ai_act.risk.classification_required
+    description: "Art 6 — AI system must have a documented risk classification"
+    severity: warn
+    condition:
+      type: requires_field
+      field: ai_risk_class
+    action:
+      type: warn
+      message: "AI system risk classification not documented (EU AI Act Art 6)"
+
+  - id: ai_act.risk.high_risk_assessment
+    description: "Art 9 — High-risk AI systems require conformity assessment"
+    severity: block
+    condition:
+      type: all_of
+      conditions:
+        - type: field_matches
+          field: ai_risk_class
+          values:
+            - high
+        - type: requires_field
+          field: conformity_assessment
+    action:
+      type: deny
+      message: "High-risk AI system requires conformity assessment before deployment (Art 9)"

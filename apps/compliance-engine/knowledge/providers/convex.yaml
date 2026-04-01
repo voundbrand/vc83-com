@@ -1,0 +1,20 @@
+id: convex
+name: Convex Inc.
+provider_type: database
+data_location: US
+jurisdiction: US
+dpa_available: true
+dpa_self_service: false
+dpa_url: https://www.convex.dev/legal
+transfer_mechanism: scc_required
+known_certifications:
+  - SOC2
+tom_available: false
+subprocessor_list_url: null
+subprocessor_notification: false
+notes: >
+  US-based serverless database platform. Enterprise DPA available on request.
+  Data stored in US by default. No EU data residency option currently.
+  Transfer mechanism: Standard Contractual Clauses (SCCs) required.
+  For §203 deployments: evaluate whether client data can be stored
+  in Convex or needs EU-only alternative.

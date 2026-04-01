@@ -1,0 +1,37 @@
+id: stgb_203
+name: "§203 StGB — Professional Secrecy"
+version: "1.0.0"
+description: "German Criminal Code §203 — rules for Berufsgeheimnisträger (lawyers, tax advisors, doctors, pharmacists, notaries)"
+jurisdiction: DE
+effective_date: "2017-11-09"
+
+deployment_requirements:
+  hosting:
+    single_tenant: required
+    data_location: [DE]
+    encryption_at_rest: required
+    encryption_in_transit: required
+    backup_encryption: required
+    backup_location: [DE]
+  inference:
+    eu_only: required
+    no_training: required
+    zero_data_retention: required
+  providers:
+    dpa_required: true
+    dpa_203_clause: required
+    gehilfe_disclosure: required
+    subprocessor_list_required: true
+    subprocessor_notification: required
+    tom_documentation: required
+    tom_audit: required
+  legal:
+    privacy_policy: required
+    consent_mechanism: required
+    professional_secrecy_notice: required
+  operational:
+    incident_response_plan: required
+    incident_contact_matrix: required
+    data_deletion_capability: required
+    restore_drill: required
+    permission_boundary_validation: required

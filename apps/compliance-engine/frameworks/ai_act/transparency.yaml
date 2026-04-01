@@ -1,0 +1,21 @@
+# EU AI Act — Transparency obligations
+rules:
+  - id: ai_act.transparency.ai_disclosure
+    description: "Art 52 — Users must be informed they are interacting with an AI system"
+    severity: warn
+    condition:
+      type: requires_field
+      field: ai_disclosure
+    action:
+      type: warn
+      message: "AI system interaction disclosure not documented (Art 52)"
+
+  - id: ai_act.transparency.human_oversight
+    description: "Art 14 — High-risk AI systems require human oversight mechanisms"
+    severity: warn
+    condition:
+      type: requires_field
+      field: human_oversight
+    action:
+      type: warn
+      message: "Human oversight documentation missing for AI system (Art 14)"

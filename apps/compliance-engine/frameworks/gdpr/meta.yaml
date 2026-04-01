@@ -1,0 +1,29 @@
+id: gdpr
+name: "GDPR / DSGVO"
+version: "1.0.0"
+description: "General Data Protection Regulation (EU) 2016/679 — core rules for AI agent data processing"
+jurisdiction: EU
+effective_date: "2018-05-25"
+
+deployment_requirements:
+  hosting:
+    encryption_at_rest: required
+    encryption_in_transit: required
+    backup_encryption: required
+  providers:
+    dpa_required: true
+    subprocessor_list_required: true
+    tom_documentation: required
+  legal:
+    privacy_policy: required
+    consent_mechanism: required
+    dsr_process: required
+    breach_notification_process: required
+  data:
+    retention_policy: required
+    deletion_capability: required
+    export_capability: required
+  operational:
+    incident_response_plan: required
+    data_protection_officer: recommended
+    ropa: required

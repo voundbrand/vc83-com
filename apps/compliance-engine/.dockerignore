@@ -1,0 +1,10 @@
+node_modules
+dist
+.git
+tests
+docs
+plugin
+*.test.ts
+.env
+.env.local
+data

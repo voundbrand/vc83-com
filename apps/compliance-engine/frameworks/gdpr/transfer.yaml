@@ -1,0 +1,21 @@
+# GDPR Art 44-49 — Third-country transfers
+rules:
+  - id: gdpr.transfer.provider_dpa
+    description: "Art 28 — Subprocessor must have signed DPA (AVV)"
+    severity: block
+    condition:
+      type: provider_requires
+      requirement: dpa_signed
+    action:
+      type: deny
+      message: "Provider does not have a signed DPA/AVV (GDPR Art 28)"
+
+  - id: gdpr.transfer.eu_location
+    description: "Art 44 — Data should remain within EU/EEA or adequacy-decision country"
+    severity: warn
+    condition:
+      type: provider_requires
+      requirement: eu_located
+    action:
+      type: warn
+      message: "Provider is not in EU/EEA — transfer mechanism required (Art 44-49)"

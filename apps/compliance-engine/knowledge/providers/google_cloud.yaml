@@ -1,0 +1,30 @@
+id: google_cloud
+name: Google Cloud (Google LLC)
+provider_type: cloud_platform
+data_location: US
+jurisdiction: US
+dpa_available: true
+dpa_self_service: true
+dpa_url: https://cloud.google.com/terms/data-processing-addendum
+transfer_mechanism: scc_required
+known_certifications:
+  - ISO27001
+  - ISO27017
+  - ISO27018
+  - SOC2
+  - SOC3
+  - C5
+tom_available: true
+subprocessor_list_url: https://cloud.google.com/terms/subprocessors
+subprocessor_notification: true
+eu_data_residency_available: true
+eu_data_residency_config:
+  regions:
+    - europe-west1
+    - europe-west3
+    - europe-west4
+notes: >
+  US-based cloud platform with EU regions (Frankfurt, Belgium, Netherlands).
+  DPA auto-accepted in Cloud Console. EU data residency via region selection.
+  C5 attestation available for German regulated industries.
+  Transfer mechanism: SCCs included in DPA.

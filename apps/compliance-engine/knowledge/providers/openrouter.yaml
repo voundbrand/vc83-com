@@ -1,0 +1,57 @@
+id: openrouter
+name: OpenRouter Inc.
+provider_type: ai_inference
+data_location: US
+jurisdiction: US
+dpa_available: true
+dpa_self_service: false
+dpa_url: https://openrouter.ai/legal
+transfer_mechanism: scc_required
+known_certifications: []
+tom_available: false
+subprocessor_list_url: null
+subprocessor_notification: false
+eu_routing_available: true
+eu_routing_config:
+  endpoint: https://eu.openrouter.ai/api/v1
+  flags:
+    allow_fallbacks: false
+    data_collection: deny
+    zero_data_retention: true
+notes: >
+  US-based AI inference router. Supports EU-only routing mode when configured.
+  EU endpoint access requires enterprise routing enablement.
+  Enterprise DPA available on request (not self-service).
+  Configure allow_fallbacks=false to prevent fallback to non-EU models.
+  Set data_collection=deny and zero_data_retention=true for GDPR compliance.
+  Transfer mechanism: Standard Contractual Clauses (SCCs) required for EU data.
+phase_0_dossier:
+  decision: CONDITIONAL_NO_GO
+  decision_basis: >
+    US inference routing remains blocked for phase-0 release until transfer,
+    subprocessor, TOM, and incident-evidence gaps are closed.
+  legal_evidence_fields:
+    dpa_avv:
+      status: available_on_request
+      source: https://openrouter.ai/legal
+      operator_action: Obtain signed DPA/AVV via enterprise legal process.
+    transfer_mechanism:
+      status: required_scc
+      source: https://openrouter.ai/legal
+      operator_action: Record SCC execution evidence before GO.
+    subprocessor_register:
+      status: missing_blocking
+      source: null
+      operator_action: Request current subprocessor list and notification terms.
+    retention_controls:
+      status: conditional
+      source: https://eu.openrouter.ai/api/v1
+      operator_action: Evidence `data_collection=deny`, `allow_fallbacks=false`, and `zero_data_retention=true`.
+    data_residency_controls:
+      status: conditional
+      source: https://eu.openrouter.ai/api/v1
+      operator_action: Evidence enterprise EU endpoint routing and fallback lockout.
+    incident_notification_path:
+      status: unknown_blocking
+      source: https://openrouter.ai/legal
+      operator_action: Capture incident notification contact and SLA terms.

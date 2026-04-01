@@ -1,0 +1,21 @@
+id: ai_act
+name: "EU AI Act"
+version: "1.0.0"
+description: "Regulation (EU) 2024/1689 — AI system risk classification, transparency, and conformity requirements"
+jurisdiction: EU
+effective_date: "2026-08-02"
+
+deployment_requirements:
+  transparency:
+    ai_disclosure: required
+    human_oversight: required
+    decision_logging: required
+  risk_management:
+    risk_classification: required
+    bias_monitoring: recommended
+  documentation:
+    technical_documentation: required
+    conformity_assessment: conditional
+  operational:
+    human_in_the_loop: conditional
+    incident_reporting: required

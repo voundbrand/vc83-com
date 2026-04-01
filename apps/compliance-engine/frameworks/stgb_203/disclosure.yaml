@@ -1,0 +1,21 @@
+# §203 StGB — Disclosure rules
+rules:
+  - id: stgb203.disclosure.client_consent
+    description: "§203(1) — Client consent required before sharing information with third parties"
+    severity: block
+    condition:
+      type: requires_consent
+      consent_type: professional_disclosure
+    action:
+      type: deny
+      message: "Client consent required before professional information may be shared (§203 StGB)"
+
+  - id: stgb203.disclosure.purpose_limitation
+    description: "§203 — Data processing must be limited to the professional mandate"
+    severity: warn
+    condition:
+      type: requires_field
+      field: mandate_scope
+    action:
+      type: warn
+      message: "Processing should be documented as within professional mandate scope"

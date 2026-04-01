@@ -1,0 +1,29 @@
+# §203 StGB — Professional secrecy obligations
+# Violations carry up to 1 year imprisonment
+rules:
+  - id: stgb203.secrecy.no_unauthorized_disclosure
+    description: "§203(1) — Client information must not be disclosed without authorization"
+    severity: block
+    condition:
+      type: all_of
+      conditions:
+        - type: requires_field
+          field: disclosure_authorized
+        - type: field_matches
+          field: disclosure_authorized
+          values:
+            - "true"
+            - "yes"
+    action:
+      type: deny
+      message: "Unauthorized disclosure of client information is a criminal offense under §203 StGB"
+
+  - id: stgb203.secrecy.subprocessor_dpa
+    description: "§203(3) — Subprocessors require explicit DPA referencing §203 obligations"
+    severity: block
+    condition:
+      type: provider_requires
+      requirement: dpa_signed
+    action:
+      type: deny
+      message: "§203(3) requires a DPA specifically referencing professional secrecy obligations"

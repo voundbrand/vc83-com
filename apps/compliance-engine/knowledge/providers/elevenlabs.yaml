@@ -1,0 +1,53 @@
+id: elevenlabs
+name: ElevenLabs Inc.
+provider_type: voice_ai
+data_location: US
+jurisdiction: US
+dpa_available: true
+dpa_self_service: false
+dpa_url: https://elevenlabs.io/dpa
+transfer_mechanism: scc_required
+known_certifications:
+  - SOC2
+tom_available: true
+tom_url: https://compliance.elevenlabs.io/
+subprocessor_list_url: https://compliance.elevenlabs.io/
+subprocessor_notification: true
+eu_routing_available: true
+eu_data_residency_available: true
+zero_data_retention_available: true
+training_opt_out_available: true
+notes: >
+  US-based voice AI provider. Enterprise DPA available on request.
+  Data residency is available via isolated EU environments on enterprise plans.
+  DPA states storage can be in selected residency, while some processing may occur
+  outside the selected location unless Zero Retention Mode + API constraints are
+  used and optional out-of-region integrations (for example custom LLMs or post-call
+  webhooks) are disabled. Transfer mechanism: Standard Contractual Clauses (SCCs).
+  Subprocessor list + TOM references are published via ElevenLabs trust center.
+phase_0_dossier:
+  decision: CONDITIONAL_GO
+  decision_basis: >
+    US provider posture can be acceptable only with SCC-backed contracting,
+    EU-residency controls, and zero-retention control evidence.
+  legal_evidence_fields:
+    dpa_avv:
+      status: available_on_request
+      source: https://elevenlabs.io/dpa
+      operator_action: Obtain signed DPA/AVV and store in evidence vault.
+    subprocessor_register:
+      status: available
+      source: https://compliance.elevenlabs.io/
+      operator_action: Snapshot current subprocessor list per release week.
+    retention_controls:
+      status: conditional
+      source: https://compliance.elevenlabs.io/
+      operator_action: Evidence zero-retention mode and disabled out-of-region integrations.
+    data_residency_controls:
+      status: conditional
+      source: https://compliance.elevenlabs.io/
+      operator_action: Evidence EU residency configuration in deployment record.
+    incident_notification_path:
+      status: unknown_blocking
+      source: https://elevenlabs.io/dpa
+      operator_action: Capture contractual incident contact path and breach SLA before GO.

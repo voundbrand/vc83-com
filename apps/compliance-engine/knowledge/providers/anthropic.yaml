@@ -1,0 +1,21 @@
+id: anthropic
+name: Anthropic PBC
+provider_type: ai_inference
+data_location: US
+jurisdiction: US
+dpa_available: true
+dpa_self_service: true
+dpa_url: https://www.anthropic.com/legal/dpa
+transfer_mechanism: scc_required
+known_certifications:
+  - SOC2
+tom_available: true
+subprocessor_list_url: https://www.anthropic.com/legal/subprocessors
+subprocessor_notification: true
+zero_data_retention_available: true
+notes: >
+  US-based AI model provider (Claude). DPA available via website.
+  API requests are not used for training by default.
+  Zero data retention available on API tier.
+  Transfer mechanism: Standard Contractual Clauses (SCCs) required for EU data.
+  Subprocessor list published with notification policy.
