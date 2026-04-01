@@ -1,0 +1,22 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "intake_structuring_worker Output",
+  "allOf": [
+    { "$ref": "./case_packet.schema.json" },
+    {
+      "type": "object",
+      "required": ["worker_meta"],
+      "properties": {
+        "worker_meta": {
+          "type": "object",
+          "required": ["worker_name", "worker_version", "contract_version"],
+          "properties": {
+            "worker_name": { "const": "intake_structuring_worker" },
+            "worker_version": { "type": "string", "minLength": 1 },
+            "contract_version": { "const": "1.0.0" }
+          }
+        }
+      }
+    }
+  ]
+}

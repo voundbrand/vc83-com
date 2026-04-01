@@ -1,0 +1,32 @@
+{
+  "name": "clara-v3-disclosure-and-intake",
+  "description": "Clara V3 should open with disclosure and stay in primary law-firm intake mode without specialist transfer.",
+  "entryAgent": "clara_v3",
+  "userTurns": [
+    {
+      "label": "Initial labor-law problem statement",
+      "text": "Guten Tag, ich habe ein Anliegen im Arbeitsrecht."
+    },
+    {
+      "label": "Deadline pressure hint",
+      "text": "Ich wurde gestern gekuendigt und habe Sorge wegen Fristen."
+    }
+  ],
+  "assertions": {
+    "expectedTransferSequence": [],
+    "expectedFinalAgent": "clara_v3",
+    "requiredAgentsVisited": ["clara_v3"],
+    "forbidUnexpectedTransfers": true,
+    "requiredAssistantSubstrings": [
+      "digitale kanzleiassistenz",
+      "arbeitsrecht"
+    ],
+    "forbiddenAssistantSubstrings": [
+      "der termin ist bereits gebucht",
+      "die e-mail wurde schon versendet",
+      "der anwalt ist bereits zugewiesen",
+      "an einen menschlichen ansprechpartner weiterzuleiten",
+      "direkt an einen menschen verbinden"
+    ]
+  }
+}

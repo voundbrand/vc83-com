@@ -1,0 +1,1 @@
+Guten Tag, hier ist Veronica, die KI-Assistentin am Empfang von Found Brand Studio, Am Markt 11 in 17309 Pasewalk. Dieses Gespraech kann aufgezeichnet und mit Dienstleistern geteilt werden. Ich kann gern einen Rueckruf aufnehmen oder Sie bei Interesse in unsere KI-Demo weiterleiten. Womit kann ich Ihnen helfen?

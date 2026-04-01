@@ -3,7 +3,7 @@ import type {
   ElevenLabsAgentPrompt,
   ElevenLabsCreatedKnowledgeBaseDocument,
   ElevenLabsKnowledgeBaseDocumentRef,
-} from "../../../apps/one-of-one-landing/scripts/elevenlabs/lib/elevenlabs-api";
+} from "../../../scripts/ai/elevenlabs/lib/elevenlabs-api";
 
 type JsonRecord = Record<string, unknown>;
 

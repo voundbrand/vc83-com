@@ -1,0 +1,254 @@
+{
+  "edges": {
+    "edge_01kknz9e0sf6ebaztq3atvq673": {
+      "source": "start_node",
+      "target": "node_01kknz9e0rf6ebazt8dfsydh7h",
+      "forward_condition": {
+        "label": null,
+        "type": "unconditional"
+      },
+      "backward_condition": null
+    },
+    "edge_01kknzd6nyf6ebazv17y16x5b0": {
+      "source": "node_01kknz9e0rf6ebazt8dfsydh7h",
+      "target": "node_01kknzd6nwf6ebaztx6yeypz6v",
+      "forward_condition": {
+        "label": "Nora",
+        "type": "llm",
+        "condition": "Route here only if the caller explicitly asks for Nora by name or explicitly asks to see the analytics specialist demo. Do not route here for normal law-firm intake."
+      },
+      "backward_condition": null
+    },
+    "edge_01kknzkx3ff6ebazvqahrthj0z": {
+      "source": "node_01kknz9e0rf6ebazt8dfsydh7h",
+      "target": "node_01kknzkx3df6ebazve9bt51n6q",
+      "forward_condition": {
+        "label": "Kai",
+        "type": "llm",
+        "condition": "Route here only if the caller explicitly asks for Kai by name or explicitly asks to see the operations specialist demo. Do not route here for normal law-firm intake."
+      },
+      "backward_condition": null
+    },
+    "edge_01kknzmj0qf6ebazw4xcf9jjb5": {
+      "source": "node_01kknz9e0rf6ebazt8dfsydh7h",
+      "target": "node_01kknzmj0pf6ebazvvcyeb73v1",
+      "forward_condition": {
+        "label": "Lina",
+        "type": "llm",
+        "condition": "Route here only if the caller explicitly asks for Lina by name or explicitly asks to see the follow-up specialist demo. Do not route here for normal law-firm intake."
+      },
+      "backward_condition": null
+    },
+    "edge_01kknzn7e0f6ebazwjhmrfybaf": {
+      "source": "node_01kknz9e0rf6ebazt8dfsydh7h",
+      "target": "node_01kknzn7dzf6ebazwfxj2gbayh",
+      "forward_condition": {
+        "label": "Jonas",
+        "type": "llm",
+        "condition": "Route here only if the caller explicitly asks for Jonas by name or explicitly asks to see the qualification specialist demo. Do not route here for normal law-firm intake."
+      },
+      "backward_condition": null
+    },
+    "edge_01kknzp4knf6ebazx7nq706j4a": {
+      "source": "node_01kknz9e0rf6ebazt8dfsydh7h",
+      "target": "node_01kknzp4kkf6ebazwvfn499d6p",
+      "forward_condition": {
+        "label": "Maren",
+        "type": "llm",
+        "condition": "Route here only if the caller explicitly asks for Maren by name or explicitly asks to see the scheduling specialist demo. Do not route here for normal law-firm intake."
+      },
+      "backward_condition": null
+    },
+    "edge_01kknzpqxrf6ebazxqdxgwfp2h": {
+      "source": "node_01kknz9e0rf6ebazt8dfsydh7h",
+      "target": "node_01kknzpqxpf6ebazxfhbm4qpef",
+      "forward_condition": {
+        "label": "Tobias",
+        "type": "llm",
+        "condition": "Route here only if the caller explicitly asks for Tobias by name or explicitly asks to see the documentation specialist demo. Do not route here for normal law-firm intake."
+      },
+      "backward_condition": null
+    },
+    "edge_01kkqxgmekf6ebazzn5089wzjw": {
+      "source": "node_01kknz9e0rf6ebazt8dfsydh7h",
+      "target": "node_01kkqxgmeef6ebazz8gw7wcqq0",
+      "forward_condition": {
+        "label": "callback / follow-up",
+        "type": "llm",
+        "condition": "Route here if the caller wants callback/follow-up instead of staying on the live intake flow, or says they do not want to continue live right now."
+      },
+      "backward_condition": null
+    },
+    "edge_01kkqz64j9f6ebb00jmpt3252s": {
+      "source": "node_01kkqxgmeef6ebazz8gw7wcqq0",
+      "target": "node_01kkqz64j7f6ebb00fewxq8yzq",
+      "forward_condition": {
+        "label": "ready to end",
+        "type": "llm",
+        "condition": "Route here once Clara has either captured the callback details or the caller declined to leave details and the conversation is ready to end."
+      },
+      "backward_condition": null
+    }
+  },
+  "nodes": {
+    "start_node": {
+      "type": "start",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "edge_order": [
+        "edge_01kknz9e0sf6ebaztq3atvq673"
+      ]
+    },
+    "node_01kknz9e0rf6ebazt8dfsydh7h": {
+      "conversation_config": {
+        "turn": {
+          "turn_eagerness": null,
+          "spelling_patience": null,
+          "speculative_turn": false
+        },
+        "tts": {
+          "voice_id": null
+        },
+        "agent": {
+          "prompt": {
+            "prompt": null,
+            "llm": null,
+            "built_in_tools": {}
+          }
+        }
+      },
+      "additional_prompt": "You are Clara, the digital law-firm assistant for Schroeder & Partner Rechtsanwaelte.\n\nIn this node, you should run legal-intake first, not specialist routing first.\n\nPrimary behavior:\n1. If this is a new call, give short AI + recording disclosure, then greet.\n2. Identify practice area quickly (Arbeitsrecht, Familienrecht, Mietrecht, Strafrecht).\n3. Capture urgency and core intake facts.\n4. Capture consultation-request details (name, callback number, preferred time, optional email).\n5. Keep legal-safe language: no legal advice.\n\nEscalation behavior:\n- If caller asks for a human/lawyer/founder/team member, use human transfer.\n- If criminal emergency is active and caller needs immediate attorney contact, use human transfer.\n\nSpecialist demo routing:\n- Route to specialist nodes only on explicit named specialist requests.\n- Do not auto-route by generic keywords during normal law-firm intake.\n\nTruthfulness:\n- Do not claim booking/email/sms/calendar updates already happened unless explicitly confirmed.\n- Safe wording: intake is being captured and consultation request is being prepared.\n\nIf caller just wants callback/follow-up and no live intake now, route to callback/follow-up node.\n\nLanguage formatting:\n- Match caller language (DE/EN) and use only Latin script characters.",
+      "additional_knowledge_base": [],
+      "additional_tool_ids": [],
+      "type": "override_agent",
+      "position": {
+        "x": -0.5285911149923379,
+        "y": 139.96650555313005
+      },
+      "edge_order": [
+        "edge_01kknzkx3ff6ebazvqahrthj0z",
+        "edge_01kknzmj0qf6ebazw4xcf9jjb5",
+        "edge_01kknzpqxrf6ebazxqdxgwfp2h",
+        "edge_01kknzp4knf6ebazx7nq706j4a",
+        "edge_01kknzn7e0f6ebazwjhmrfybaf",
+        "edge_01kknzd6nyf6ebazv17y16x5b0",
+        "edge_01kkqxgmekf6ebazzn5089wzjw"
+      ],
+      "label": "Clara Legal Intake & Routing"
+    },
+    "node_01kknzd6nwf6ebaztx6yeypz6v": {
+      "type": "standalone_agent",
+      "position": {
+        "x": -448.6993951356101,
+        "y": 267.6737596418957
+      },
+      "edge_order": [],
+      "agent_id": "agent_8301kknv8hc9e0pvdgyy7ve8h07t",
+      "delay_ms": 0,
+      "transfer_message": null,
+      "enable_transferred_agent_first_message": true
+    },
+    "node_01kknzkx3df6ebazve9bt51n6q": {
+      "type": "standalone_agent",
+      "position": {
+        "x": -371.92332553348285,
+        "y": 395.2538680892869
+      },
+      "edge_order": [],
+      "agent_id": "agent_6301kknv5hd5fr89hby28wvrrzcb",
+      "delay_ms": 0,
+      "transfer_message": null,
+      "enable_transferred_agent_first_message": true
+    },
+    "node_01kknzmj0pf6ebazvvcyeb73v1": {
+      "type": "standalone_agent",
+      "position": {
+        "x": -270.7015141488842,
+        "y": 503.918459722753
+      },
+      "edge_order": [],
+      "agent_id": "agent_4401kknv2pswe5mb5c8dzgf87bcq",
+      "delay_ms": 0,
+      "transfer_message": null,
+      "enable_transferred_agent_first_message": true
+    },
+    "node_01kknzn7dzf6ebazwfxj2gbayh": {
+      "type": "standalone_agent",
+      "position": {
+        "x": -175.4339269633797,
+        "y": 634.9113921028219
+      },
+      "edge_order": [],
+      "agent_id": "agent_7501kkntg09qegs8nx4fv8g1js1z",
+      "delay_ms": 0,
+      "transfer_message": null,
+      "enable_transferred_agent_first_message": true
+    },
+    "node_01kknzp4kkf6ebazwvfn499d6p": {
+      "type": "standalone_agent",
+      "position": {
+        "x": 97.53003866383759,
+        "y": 703.3849703924033
+      },
+      "edge_order": [],
+      "agent_id": "agent_8601kknt8xcve37vyqnf4asktczh",
+      "delay_ms": 0,
+      "transfer_message": null,
+      "enable_transferred_agent_first_message": true
+    },
+    "node_01kknzpqxpf6ebazxfhbm4qpef": {
+      "type": "standalone_agent",
+      "position": {
+        "x": 241.919975491868,
+        "y": 591.7432666593901
+      },
+      "edge_order": [],
+      "agent_id": "agent_1301kknqwgvmezk90qcgmjqtwhr5",
+      "delay_ms": 0,
+      "transfer_message": null,
+      "enable_transferred_agent_first_message": true
+    },
+    "node_01kkqxgmeef6ebazz8gw7wcqq0": {
+      "conversation_config": {
+        "turn": {
+          "turn_eagerness": null,
+          "spelling_patience": null,
+          "speculative_turn": true
+        },
+        "tts": {
+          "voice_id": null
+        },
+        "agent": {
+          "prompt": {
+            "prompt": null,
+            "llm": null,
+            "built_in_tools": {}
+          }
+        }
+      },
+      "additional_prompt": "You are Clara, the digital law-firm assistant for Schroeder & Partner Rechtsanwaelte.\n\nThis node is for callback/follow-up capture when the caller does not want to continue live right now.\n\nCollect minimum useful details:\n- full name\n- callback number\n- optional email\n- preferred callback window\n- short issue summary\n- urgency hint if offered\n\nDo not give legal advice.\nDo not claim booking or attorney assignment is already completed unless explicitly confirmed.\nIf caller declines details, acknowledge and close politely.\nUse end call when complete.\n\nLanguage formatting:\n- Continue in the caller language and keep output in Latin script only (no mixed-script output).",
+      "additional_knowledge_base": [],
+      "additional_tool_ids": [],
+      "type": "override_agent",
+      "position": {
+        "x": 436.3101734208607,
+        "y": 389.1449525970465
+      },
+      "edge_order": [
+        "edge_01kkqz64j9f6ebb00jmpt3252s"
+      ],
+      "label": "Take Message"
+    },
+    "node_01kkqz64j7f6ebb00fewxq8yzq": {
+      "type": "end",
+      "position": {
+        "x": 484.50459022318137,
+        "y": 590.2639611759614
+      },
+      "edge_order": []
+    }
+  },
+  "prevent_subagent_loops": true
+}

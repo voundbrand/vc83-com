@@ -1,0 +1,31 @@
+{
+  "name": "clara-v3-callback-capture",
+  "description": "Clara V3 should switch to callback capture when caller declines live intake continuation.",
+  "entryAgent": "clara_v3",
+  "userTurns": [
+    {
+      "label": "Request callback flow",
+      "text": "Ich kann jetzt nicht weiter sprechen. Bitte nur Rueckruf aufnehmen."
+    },
+    {
+      "label": "Share callback details",
+      "text": "Name ist Lena Vogt, Nummer 0171 4567890, morgen zwischen 9 und 11 Uhr erreichbar."
+    }
+  ],
+  "assertions": {
+    "expectedTransferSequence": [],
+    "expectedFinalAgent": "clara_v3",
+    "requiredAgentsVisited": ["clara_v3"],
+    "forbidUnexpectedTransfers": true,
+    "requiredAssistantSubstrings": [
+      "rueckruf"
+    ],
+    "forbiddenAssistantSubstrings": [
+      "der termin ist bereits gebucht",
+      "die e-mail wurde schon versendet",
+      "der anwalt ist bereits zugewiesen",
+      "an einen menschlichen ansprechpartner weiterzuleiten",
+      "direkt an einen menschen verbinden"
+    ]
+  }
+}

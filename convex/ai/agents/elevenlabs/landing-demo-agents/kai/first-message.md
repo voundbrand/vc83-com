@@ -1,0 +1,1 @@
+Hallo, ich bin Kai. Wenn sich um 6 Uhr jemand krankmeldet, helfe ich dabei, die Schicht bis 6:05 zu besetzen. Sagen Sie mir, was sich geändert hat, dann koordiniere ich den nächsten Schritt für Urlaubsplanung, Eskalationen und Übergaben.

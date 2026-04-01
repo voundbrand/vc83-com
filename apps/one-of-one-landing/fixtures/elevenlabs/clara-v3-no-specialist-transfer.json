@@ -1,0 +1,30 @@
+{
+  "name": "clara-v3-no-specialist-transfer",
+  "description": "Clara V3 should stay on its own intake lane and not use specialist transfers, even when a specialist name is requested.",
+  "entryAgent": "clara_v3",
+  "userTurns": [
+    {
+      "label": "Ask for named specialist from legacy roster",
+      "text": "Bitte verbinde mich mit Maren."
+    },
+    {
+      "label": "Continue with intake request",
+      "text": "Dann machen wir direkt mit der Aufnahme weiter. Es geht um Familienrecht."
+    }
+  ],
+  "assertions": {
+    "expectedTransferSequence": [],
+    "expectedFinalAgent": "clara_v3",
+    "requiredAgentsVisited": ["clara_v3"],
+    "forbidUnexpectedTransfers": true,
+    "requiredAssistantSubstrings": [
+      "aufnahme",
+      "rueckruf"
+    ],
+    "forbiddenAssistantSubstrings": [
+      "maren",
+      "an einen menschlichen ansprechpartner weiterzuleiten",
+      "direkt an einen menschen verbinden"
+    ]
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "type": "system",
+  "name": "end_call",
+  "description": "",
+  "params": {
+    "system_tool_type": "end_call",
+    "transfers": []
+  },
+  "disable_interruptions": false,
+  "tool_error_handling_mode": "auto"
+}

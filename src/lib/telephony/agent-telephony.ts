@@ -1,10 +1,10 @@
-import { ANNE_BECKER_AGENT_TEMPLATE } from "../../../apps/me-immo/elevenlabs/agents/anne-becker/template";
-import { KANZLEI_MVP_AGENT_TEMPLATE } from "../../../apps/one-of-one-landing/elevenlabs/agents/kanzlei-mvp/template";
+import { ANNE_BECKER_AGENT_TEMPLATE } from "../../../convex/ai/agents/elevenlabs/client_owned/anne_becker/template";
+import { KANZLEI_MVP_AGENT_TEMPLATE } from "../../../convex/ai/agents/elevenlabs/templates/kanzlei_mvp/template";
 import {
   CLARA_AGENT_TEMPLATE,
   JONAS_AGENT_TEMPLATE,
   MAREN_AGENT_TEMPLATE,
-} from "../../../apps/one-of-one-landing/elevenlabs/agents/core-wedge-templates";
+} from "../../../convex/ai/agents/elevenlabs/templates/core_wedge_templates";
 
 export const TELEPHONY_PROVIDER_OPTIONS = [
   {

@@ -1,0 +1,127 @@
+{
+  "version": "1",
+  "focus": {
+    "is_enabled": true
+  },
+  "prompt_injection": {
+    "is_enabled": true
+  },
+  "content": {
+    "execution_mode": "streaming",
+    "config": {
+      "sexual": {
+        "is_enabled": false,
+        "threshold": 0.3
+      },
+      "violence": {
+        "is_enabled": false,
+        "threshold": 0.3
+      },
+      "harassment": {
+        "is_enabled": false,
+        "threshold": 0.3
+      },
+      "self_harm": {
+        "is_enabled": false,
+        "threshold": 0.3
+      },
+      "profanity": {
+        "is_enabled": false,
+        "threshold": 0.3
+      },
+      "religion_or_politics": {
+        "is_enabled": false,
+        "threshold": 0.3
+      },
+      "medical_and_legal_information": {
+        "is_enabled": false,
+        "threshold": 0.3
+      }
+    },
+    "trigger_action": {
+      "type": "end_call"
+    }
+  },
+  "moderation": {
+    "execution_mode": "streaming",
+    "config": {
+      "sexual": {
+        "is_enabled": false,
+        "threshold": 0.3
+      },
+      "violence": {
+        "is_enabled": false,
+        "threshold": 0.3
+      },
+      "violence_graphic": {
+        "is_enabled": false,
+        "threshold": 0.3
+      },
+      "harassment": {
+        "is_enabled": false,
+        "threshold": 0.3
+      },
+      "harassment_threatening": {
+        "is_enabled": false,
+        "threshold": 0.3
+      },
+      "hate": {
+        "is_enabled": false,
+        "threshold": 0.3
+      },
+      "hate_threatening": {
+        "is_enabled": false,
+        "threshold": 0.3
+      },
+      "self_harm_instructions": {
+        "is_enabled": false,
+        "threshold": 0.3
+      },
+      "self_harm": {
+        "is_enabled": false,
+        "threshold": 0.3
+      },
+      "self_harm_intent": {
+        "is_enabled": false,
+        "threshold": 0.3
+      },
+      "sexual_minors": {
+        "is_enabled": false,
+        "threshold": 0.3
+      }
+    }
+  },
+  "custom": {
+    "config": {
+      "configs": [
+        {
+          "is_enabled": true,
+          "name": "No sharing personal/internal info",
+          "prompt": "Block replies only when the agent reveals, guesses, confirms, or repeats private employee information such as personal mobile numbers, personal phone numbers, home addresses, or internal-only personal details about employees or team members. Do not block reception intake where the caller is asked to provide or confirm their own callback details, including their own name, company, phone number, email, preferred callback time, or short message. Do not block approved public business contact details such as the official office address or published main line.\n\nAllowed examples:\n- \"Koennten Sie mir bitte Ihren Namen, Ihre Telefonnummer und eine kurze Nachricht nennen?\"\n- \"Unter welcher Nummer duerfen wir Sie zurueckrufen?\"\n- \"Wenn Sie moechten, koennen Sie auch Ihre E-Mail-Adresse nennen.\"\n- sharing the official public office address or published main line\n\nBlocked examples:\n- revealing a team member's private mobile number\n- revealing a home address\n- revealing internal-only employee contact details\n\nIf the agent reveals private employee information or internal-only personal details, this guardrail is violated.",
+          "execution_mode": "streaming",
+          "trigger_action": {
+            "type": "end_call"
+          }
+        },
+        {
+          "is_enabled": true,
+          "name": "No fake caller-system actions",
+          "prompt": "Block replies only when the agent claims that a real production action or real system state already exists in the caller's actual business or systems.\n\nClara V3 is allowed to:\n- capture intake facts\n- flag urgency\n- collect callback details\n- state that follow-up happens in a second backend step\n\nBlocked examples:\n- \"Ich habe den Termin in Ihrem System gebucht.\"\n- \"Die E-Mail wurde bereits versendet.\"\n- \"Der Anwalt ist bereits fest zugewiesen.\"\n- any wording that claims a successful live transfer or completed external action\n",
+          "execution_mode": "streaming",
+          "trigger_action": {
+            "type": "end_call"
+          }
+        },
+        {
+          "is_enabled": true,
+          "name": "No invented unsupported capabilities",
+          "prompt": "Block replies only when the agent invents unsupported capabilities for Clara V3.\n\nClara V3 supported capabilities are:\n- law-firm intake for Arbeitsrecht, Familienrecht, Mietrecht, Strafrecht\n- urgency triage and safety-first language\n- callback capture and summary packaging\n- end-call when intake is complete\n\nBlocked examples:\n- inventing specialist routing\n- claiming a live transfer was done\n- claiming completed booking/messaging/assignment actions\n- inventing workflow branches outside intake and callback packaging\n",
+          "execution_mode": "streaming",
+          "trigger_action": {
+            "type": "end_call"
+          }
+        }
+      ]
+    }
+  }
+}

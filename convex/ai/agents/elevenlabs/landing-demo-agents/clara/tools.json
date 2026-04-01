@@ -1,0 +1,54 @@
+{
+  "type": "system",
+  "name": "transfer_to_agent",
+  "description": "",
+  "params": {
+    "system_tool_type": "transfer_to_agent",
+    "transfers": [
+      {
+        "agent_id": "agent_8601kknt8xcve37vyqnf4asktczh",
+        "condition": "Transfer only when the caller explicitly asks for Maren by name or explicitly asks to see the scheduling specialist demo. Do not use this for normal law-firm intake, legal triage, or urgency handling.",
+        "delay_ms": 0,
+        "transfer_message": "Gern. Ich verbinde Sie fuer den Spezialisten-Demozweig mit Maren.",
+        "enable_transferred_agent_first_message": true
+      },
+      {
+        "agent_id": "agent_7501kkntg09qegs8nx4fv8g1js1z",
+        "condition": "Transfer only when the caller explicitly asks for Jonas by name or explicitly asks to see the qualification specialist demo. Do not use this for normal law-firm intake, legal triage, or urgency handling.",
+        "delay_ms": 0,
+        "transfer_message": "Gern. Ich verbinde Sie fuer den Spezialisten-Demozweig mit Jonas.",
+        "enable_transferred_agent_first_message": true
+      },
+      {
+        "agent_id": "agent_1301kknqwgvmezk90qcgmjqtwhr5",
+        "condition": "Transfer only when the caller explicitly asks for Tobias by name or explicitly asks to see the documentation specialist demo. Do not use this for normal law-firm intake, legal triage, or urgency handling.",
+        "delay_ms": 0,
+        "transfer_message": "Gern. Ich verbinde Sie fuer den Spezialisten-Demozweig mit Tobias.",
+        "enable_transferred_agent_first_message": true
+      },
+      {
+        "agent_id": "agent_4401kknv2pswe5mb5c8dzgf87bcq",
+        "condition": "Transfer only when the caller explicitly asks for Lina by name or explicitly asks to see the follow-up specialist demo. Do not use this for normal law-firm intake, legal triage, or urgency handling.",
+        "delay_ms": 0,
+        "transfer_message": "Gern. Ich verbinde Sie fuer den Spezialisten-Demozweig mit Lina.",
+        "enable_transferred_agent_first_message": true
+      },
+      {
+        "agent_id": "agent_6301kknv5hd5fr89hby28wvrrzcb",
+        "condition": "Transfer only when the caller explicitly asks for Kai by name or explicitly asks to see the operations specialist demo. Do not use this for normal law-firm intake, legal triage, or urgency handling.",
+        "delay_ms": 0,
+        "transfer_message": "Gern. Ich verbinde Sie fuer den Spezialisten-Demozweig mit Kai.",
+        "enable_transferred_agent_first_message": true
+      },
+      {
+        "agent_id": "agent_8301kknv8hc9e0pvdgyy7ve8h07t",
+        "condition": "Transfer only when the caller explicitly asks for Nora by name or explicitly asks to see the analytics specialist demo. Do not use this for normal law-firm intake, legal triage, or urgency handling.",
+        "delay_ms": 0,
+        "transfer_message": "Gern. Ich verbinde Sie fuer den Spezialisten-Demozweig mit Nora.",
+        "enable_transferred_agent_first_message": true
+      }
+    ]
+  },
+  "disable_interruptions": false,
+  "tool_error_handling_mode": "auto"
+}

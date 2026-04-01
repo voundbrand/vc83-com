@@ -1,0 +1,145 @@
+{
+  "version": "1",
+  "focus": {
+    "is_enabled": true
+  },
+  "prompt_injection": {
+    "is_enabled": true
+  },
+  "content": {
+    "execution_mode": "streaming",
+    "config": {
+      "sexual": {
+        "is_enabled": false,
+        "threshold": 0.3
+      },
+      "violence": {
+        "is_enabled": false,
+        "threshold": 0.3
+      },
+      "harassment": {
+        "is_enabled": false,
+        "threshold": 0.3
+      },
+      "self_harm": {
+        "is_enabled": false,
+        "threshold": 0.3
+      },
+      "profanity": {
+        "is_enabled": false,
+        "threshold": 0.3
+      },
+      "religion_or_politics": {
+        "is_enabled": false,
+        "threshold": 0.3
+      },
+      "medical_and_legal_information": {
+        "is_enabled": false,
+        "threshold": 0.3
+      }
+    },
+    "trigger_action": {
+      "type": "end_call"
+    }
+  },
+  "moderation": {
+    "execution_mode": "streaming",
+    "config": {
+      "sexual": {
+        "is_enabled": false,
+        "threshold": 0.3
+      },
+      "violence": {
+        "is_enabled": false,
+        "threshold": 0.3
+      },
+      "violence_graphic": {
+        "is_enabled": false,
+        "threshold": 0.3
+      },
+      "harassment": {
+        "is_enabled": false,
+        "threshold": 0.3
+      },
+      "harassment_threatening": {
+        "is_enabled": false,
+        "threshold": 0.3
+      },
+      "hate": {
+        "is_enabled": false,
+        "threshold": 0.3
+      },
+      "hate_threatening": {
+        "is_enabled": false,
+        "threshold": 0.3
+      },
+      "self_harm_instructions": {
+        "is_enabled": false,
+        "threshold": 0.3
+      },
+      "self_harm": {
+        "is_enabled": false,
+        "threshold": 0.3
+      },
+      "self_harm_intent": {
+        "is_enabled": false,
+        "threshold": 0.3
+      },
+      "sexual_minors": {
+        "is_enabled": false,
+        "threshold": 0.3
+      }
+    }
+  },
+  "custom": {
+    "config": {
+      "configs": [
+        {
+          "is_enabled": true,
+          "name": "No sharing personal/internal info",
+          "prompt": "Block replies only when the agent reveals, guesses, confirms, or repeats private employee information such as personal mobile numbers, personal phone numbers, home addresses, or internal-only personal details about employees or team members. Do not block reception intake where the caller is asked to provide or confirm their own callback details, including their own name, company, phone number, email, preferred callback time, or short message. Do not block approved public business contact details such as the official office address or published main line.\n\nAllowed examples:\n- \"Koennten Sie mir bitte Ihren Namen, Ihre Telefonnummer und eine kurze Nachricht nennen?\"\n- \"Unter welcher Nummer duerfen wir Sie zurueckrufen?\"\n- \"Wenn Sie moechten, koennen Sie auch Ihre E-Mail-Adresse nennen.\"\n- sharing the official public office address or published main line\n\nBlocked examples:\n- revealing a team member's private mobile number\n- revealing a home address\n- revealing internal-only employee contact details\n\nIf the agent reveals private employee information or internal-only personal details, this guardrail is violated.",
+          "execution_mode": "streaming",
+          "trigger_action": {
+            "type": "end_call"
+          }
+        },
+        {
+          "is_enabled": false,
+          "name": "No guessing department responsibilities",
+          "prompt": "The agent must not guess or make up information about what departments do internally. If unsure, the agent should ask the caller or offer to take a message. If the agent fabricates department details, this guardrail is violated.",
+          "execution_mode": "streaming",
+          "trigger_action": {
+            "type": "end_call"
+          }
+        },
+        {
+          "is_enabled": true,
+          "name": "No fake caller-system actions",
+          "prompt": "Block replies only when the agent claims that a real production action or real system state already exists in the caller's actual business or systems. Allow clearly marked demo-sandbox state inside the fixed Schmitt & Partner demo, including demo availability, demo bookings, demo confirmations, demo reminders, demo CRM entries, demo staffing state, and demo analytics, as long as they are explicitly framed as demo-state or sandbox-state. Allow live-deployment bridge phrasing like \"In Ihrem Betrieb wuerde das live ...\".\n\nAllowed examples:\n- \"Im Demo-Kalender von Schmitt & Partner waere Dienstag um 14 Uhr frei.\"\n- \"In der Demo waere dieser Termin jetzt eingeplant.\"\n- \"In Ihrem Betrieb wuerde das live die Buchung und Bestaetigung ausloesen.\"\n\nBlocked examples:\n- \"Ich habe den Termin in Ihrem System gebucht.\"\n- \"Ihre Kundin ist jetzt in Ihrem Kalender bestaetigt.\"\n- any wording that claims a real action already happened in the caller's actual business\n\nAllowed examples:\n- \"In der Demo waere dieser Termin jetzt fuer Dienstag um 12 Uhr in Berlin eingeplant.\"\n- \"In Ihrem Betrieb wuerde das live die Buchung, Bestaetigung und Kalenderaktualisierung ausloesen.\"\n\nBlocked examples:\n- \"Ich habe Ihren Termin reserviert.\"\n- \"Ich habe Ihren Termin gebucht.\"\n- any wording that sounds like the AI already completed a real action in the caller's business\n",
+          "execution_mode": "streaming",
+          "trigger_action": {
+            "type": "end_call"
+          }
+        },
+        {
+          "is_enabled": false,
+          "name": "No invented demo lanes",
+          "prompt": "Block replies that invent a new specialist, department, workflow lane, or unsupported capability outside the existing Schmitt & Partner demo team. Allow brief mapping from the fixed Schmitt & Partner demo to the caller's business. Allow short explanations of what Clara, Maren, Jonas, Tobias, Lina, Kai, and Nora handle.\n\nAllowed examples:\n- \"Im Schmitt-und-Partner-Demo waere das Terminvergabe.\"\n- \"Fuer Ihren Friseursalon entspraeche das der telefonischen Buchung und Umbuchung.\"\n- \"Dafuer ist Maren die richtige Spezialistin.\"\n\nBlocked examples:\n- inventing a new department\n- inventing a new specialist\n- claiming a capability the demo does not support\n\nAllowed examples:\n- \"Im Schmitt-und-Partner-Demo waere das Terminvergabe.\"\n- \"Fuer Ihren Friseursalon entspraeche das der telefonischen Buchung und Umbuchung.\"\n- \"Dafuer ist Maren die richtige Spezialistin.\"\n\nBlocked examples:\n- inventing a new department\n- inventing a new specialist\n- claiming a capability the demo does not support\n",
+          "execution_mode": "streaming",
+          "trigger_action": {
+            "type": "end_call"
+          }
+        },
+        {
+          "is_enabled": true,
+          "name": "No invented unsupported capabilities",
+          "prompt": "Block replies only when the agent invents a new specialist, new department, unsupported workflow, or unsupported capability outside the existing Schmitt & Partner demo. Allow broad prospect-fit answers that use concrete supported examples such as call handling, scheduling, reminders, qualification, documentation, operations, or reporting. Allow mapping those existing examples to the caller's business. Do not block short top-of-funnel phrasing just because the caller asks whether this could work for their company.\n\nAllowed examples:\n- \"Ja. In der Demo koennte das Anrufannahme, Terminvergabe oder Kundenerinnerungen abbilden.\"\n- \"Fuer Ihren Betrieb koennte ich Ihnen direkt zeigen, wie Terminvergabe oder Kundenerinnerungen aussehen.\"\n- \"Dafuer waeren Maren oder Lina die passenden Beispiele.\"\n\nBlocked examples:\n- inventing a new department\n- inventing a new specialist\n- claiming a capability the demo does not support\n",
+          "execution_mode": "streaming",
+          "trigger_action": {
+            "type": "end_call"
+          }
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "type": "system",
+  "name": "transfer_to_agent",
+  "description": "",
+  "response_timeout_secs": 20,
+  "disable_interruptions": false,
+  "force_pre_tool_speech": false,
+  "assignments": [],
+  "tool_call_sound": null,
+  "tool_call_sound_behavior": "auto",
+  "tool_error_handling_mode": "auto",
+  "params": {
+    "system_tool_type": "transfer_to_agent",
+    "transfers": [
+      {
+        "agent_id": "agent_4501kkk9m4fdezp8hby997w5v630",
+        "condition": "Transfer to Clara only when the caller explicitly asks to go back to Clara, asks for the main concierge or receptionist, asks for a broader overview, or clearly wants to switch away from the current specialist to a different demo. Do not use this just because the caller asked to be transferred to the specialist they are already speaking with. Do not use this for bare confirmations, vague affirmations, laughter, or incomplete answers to the current specialist's own question. If the caller only says \"ja\", \"okay\", \"gern\", or similar while still inside the current specialist lane, continue that lane or ask one short clarifying question instead.",
+        "delay_ms": 0,
+        "transfer_message": "Gern. Ich verbinde Sie jetzt wieder mit Clara.",
+        "enable_transferred_agent_first_message": false,
+        "is_workflow_node_transfer": true
+      }
+    ]
+  },
+  "dynamic_variables": {
+    "dynamic_variable_placeholders": {}
+  }
+}

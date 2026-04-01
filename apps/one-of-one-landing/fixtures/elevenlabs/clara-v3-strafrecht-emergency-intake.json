@@ -1,0 +1,32 @@
+{
+  "name": "clara-v3-strafrecht-emergency-intake",
+  "description": "Clara V3 should treat criminal-law detention as emergency intake without drifting into specialist demo routing.",
+  "entryAgent": "clara_v3",
+  "userTurns": [
+    {
+      "label": "Criminal-law emergency",
+      "text": "Es geht um Strafrecht. Mein Bruder wurde gerade festgenommen."
+    },
+    {
+      "label": "Critical facts",
+      "text": "Er ist auf der Wache Nord, Rechte wurden vorgelesen, Anwalt wurde noch nicht angefordert."
+    }
+  ],
+  "assertions": {
+    "expectedTransferSequence": [],
+    "requiredAgentsVisited": ["clara_v3"],
+    "forbidUnexpectedTransfers": true,
+    "requiredAssistantSubstrings": [
+      "strafrecht",
+      "festgenommen",
+      "rueckruf"
+    ],
+    "forbiddenAssistantSubstrings": [
+      "der termin ist bereits gebucht",
+      "die e-mail wurde schon versendet",
+      "der anwalt ist bereits zugewiesen",
+      "an einen menschlichen ansprechpartner weiterzuleiten",
+      "direkt an einen menschen verbinden"
+    ]
+  }
+}

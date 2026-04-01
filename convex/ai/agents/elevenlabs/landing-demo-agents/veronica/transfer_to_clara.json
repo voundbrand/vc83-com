@@ -1,0 +1,28 @@
+{
+  "type": "system",
+  "name": "transfer_to_agent",
+  "description": "",
+  "response_timeout_secs": 20,
+  "disable_interruptions": false,
+  "force_pre_tool_speech": false,
+  "assignments": [],
+  "tool_call_sound": null,
+  "tool_call_sound_behavior": "auto",
+  "tool_error_handling_mode": "auto",
+  "params": {
+    "system_tool_type": "transfer_to_agent",
+    "transfers": [
+      {
+        "agent_id": "agent_4501kkk9m4fdezp8hby997w5v630",
+        "condition": "Transfer to Clara only when the caller explicitly asks for the AI demo, asks how the AI agents work, asks whether this could work for their business, asks to speak with Clara, or asks to hear one of the AI specialists. Do not use this for vague curiosity about the office itself.",
+        "delay_ms": 0,
+        "transfer_message": "Gern. Ich verbinde Sie jetzt mit Clara.",
+        "enable_transferred_agent_first_message": false,
+        "is_workflow_node_transfer": true
+      }
+    ]
+  },
+  "dynamic_variables": {
+    "dynamic_variable_placeholders": {}
+  }
+}

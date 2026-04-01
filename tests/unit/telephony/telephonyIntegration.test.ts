@@ -24,7 +24,7 @@ const {
   updateAgentSpy: vi.fn(),
 }));
 
-vi.mock("../../../apps/one-of-one-landing/scripts/elevenlabs/lib/elevenlabs-api", () => ({
+vi.mock("../../../scripts/ai/elevenlabs/lib/elevenlabs-api", () => ({
   resolveElevenLabsConvaiBaseUrl: (value?: string | null) =>
     value ? `${value.replace(/\/+$/, "")}/convai` : "https://api.elevenlabs.io/v1/convai",
   ElevenLabsClient: class {

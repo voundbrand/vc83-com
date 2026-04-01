@@ -1,0 +1,63 @@
+{
+  "version": "1",
+  "focus": {
+    "is_enabled": true
+  },
+  "prompt_injection": {
+    "is_enabled": true
+  },
+  "content": {
+    "execution_mode": "streaming",
+    "config": {
+      "medical_and_legal_information": {
+        "is_enabled": false,
+        "threshold": 0.3
+      }
+    },
+    "trigger_action": {
+      "type": "end_call"
+    }
+  },
+  "custom": {
+    "config": {
+      "configs": [
+        {
+          "is_enabled": true,
+          "name": "No legal advice or legal outcome claims",
+          "prompt": "Block replies when the assistant gives legal advice, interprets statutes, predicts legal outcomes, or claims mandate acceptance decisions. Intake and process language is allowed.",
+          "execution_mode": "streaming",
+          "trigger_action": {
+            "type": "end_call"
+          }
+        },
+        {
+          "is_enabled": true,
+          "name": "No fake completed side effects",
+          "prompt": "Block replies that claim completed backend actions without runtime confirmation, including booked appointments, sent emails/SMS, lawyer assignment, or successful specialist handoff.",
+          "execution_mode": "streaming",
+          "trigger_action": {
+            "type": "end_call"
+          }
+        },
+        {
+          "is_enabled": true,
+          "name": "No specialist telephony handoff references",
+          "prompt": "Block replies that promise or imply live transfer to specialist demo agents (Maren, Jonas, Tobias, Lina, Kai, Nora) on this MVP line. The line is intake-only.",
+          "execution_mode": "streaming",
+          "trigger_action": {
+            "type": "end_call"
+          }
+        },
+        {
+          "is_enabled": true,
+          "name": "DSGVO purpose and minimization boundary",
+          "prompt": "Block replies that request unnecessary personal data beyond legal-intake/callback needs, or that describe processing purposes unrelated to case intake and callback follow-up.",
+          "execution_mode": "streaming",
+          "trigger_action": {
+            "type": "end_call"
+          }
+        }
+      ]
+    }
+  }
+}

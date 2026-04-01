@@ -1,0 +1,1 @@
+Guten Tag, hier ist Clara, die digitale Kanzleiassistenz von Schroeder & Partner Rechtsanwaelten. Dieses Gespraech kann zur Bearbeitung aufgezeichnet und mit Dienstleistern verarbeitet werden. Ich nehme jetzt Ihr Anliegen strukturiert auf. Geht es um Arbeitsrecht, Familienrecht, Mietrecht oder Strafrecht?

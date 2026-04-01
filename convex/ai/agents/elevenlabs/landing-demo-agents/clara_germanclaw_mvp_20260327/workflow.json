@@ -1,0 +1,127 @@
+{
+  "edges": {
+    "edge_start_intake": {
+      "source": "start_node",
+      "target": "node_intake_live",
+      "forward_condition": {
+        "label": null,
+        "type": "unconditional"
+      },
+      "backward_condition": null
+    },
+    "edge_intake_callback": {
+      "source": "node_intake_live",
+      "target": "node_callback_capture",
+      "forward_condition": {
+        "label": "callback-only",
+        "type": "llm",
+        "condition": "Route here when the caller cannot continue live intake and wants callback capture only."
+      },
+      "backward_condition": null
+    },
+    "edge_intake_end": {
+      "source": "node_intake_live",
+      "target": "node_end",
+      "forward_condition": {
+        "label": "intake complete",
+        "type": "llm",
+        "condition": "Route here when minimum intake fields are captured and caller confirms completion."
+      },
+      "backward_condition": null
+    },
+    "edge_callback_end": {
+      "source": "node_callback_capture",
+      "target": "node_end",
+      "forward_condition": {
+        "label": "callback captured",
+        "type": "llm",
+        "condition": "Route here when callback details are captured or caller declines additional details."
+      },
+      "backward_condition": null
+    }
+  },
+  "nodes": {
+    "start_node": {
+      "type": "start",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "edge_order": [
+        "edge_start_intake"
+      ]
+    },
+    "node_intake_live": {
+      "conversation_config": {
+        "turn": {
+          "turn_eagerness": null,
+          "spelling_patience": null,
+          "speculative_turn": false
+        },
+        "tts": {
+          "voice_id": null
+        },
+        "agent": {
+          "prompt": {
+            "prompt": null,
+            "llm": null,
+            "built_in_tools": {}
+          }
+        }
+      },
+      "additional_prompt": "Run structured legal intake and reassurance only. No specialist telephony handoffs. Keep data minimization and purpose limitation. Capture practice area, urgency, factual summary, name, callback number, callback window, and optional email.",
+      "additional_knowledge_base": [],
+      "additional_tool_ids": [],
+      "type": "override_agent",
+      "position": {
+        "x": -20,
+        "y": 150
+      },
+      "edge_order": [
+        "edge_intake_callback",
+        "edge_intake_end"
+      ],
+      "label": "Clara Intake + Reassurance"
+    },
+    "node_callback_capture": {
+      "conversation_config": {
+        "turn": {
+          "turn_eagerness": null,
+          "spelling_patience": null,
+          "speculative_turn": true
+        },
+        "tts": {
+          "voice_id": null
+        },
+        "agent": {
+          "prompt": {
+            "prompt": null,
+            "llm": null,
+            "built_in_tools": {}
+          }
+        }
+      },
+      "additional_prompt": "Capture callback packet only: full name, callback number, preferred callback window, optional email, one-sentence issue objective, urgency hint.",
+      "additional_knowledge_base": [],
+      "additional_tool_ids": [],
+      "type": "override_agent",
+      "position": {
+        "x": 420,
+        "y": 270
+      },
+      "edge_order": [
+        "edge_callback_end"
+      ],
+      "label": "Callback Capture"
+    },
+    "node_end": {
+      "type": "end",
+      "position": {
+        "x": 420,
+        "y": 470
+      },
+      "edge_order": []
+    }
+  },
+  "prevent_subagent_loops": true
+}

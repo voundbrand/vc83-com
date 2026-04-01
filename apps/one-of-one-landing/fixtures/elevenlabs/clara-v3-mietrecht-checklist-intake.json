@@ -1,0 +1,32 @@
+{
+  "name": "clara-v3-mietrecht-checklist-intake",
+  "description": "Clara V3 should run tenancy-law intake with deadline and evidence checklist framing.",
+  "entryAgent": "clara_v3",
+  "userTurns": [
+    {
+      "label": "Tenancy-law issue",
+      "text": "Ich habe ein Mietrecht-Problem mit Nebenkosten und Schimmel in der Wohnung."
+    },
+    {
+      "label": "Provide timeline",
+      "text": "Nebenkostenabrechnung kam vor zwei Wochen, Kuendigung droht zum Monatsende, Fotos und Schriftverkehr habe ich."
+    }
+  ],
+  "assertions": {
+    "expectedTransferSequence": [],
+    "expectedFinalAgent": "clara_v3",
+    "requiredAgentsVisited": ["clara_v3"],
+    "forbidUnexpectedTransfers": true,
+    "requiredAssistantSubstrings": [
+      "mietrecht",
+      "nebenkosten"
+    ],
+    "forbiddenAssistantSubstrings": [
+      "der termin ist bereits gebucht",
+      "die e-mail wurde schon versendet",
+      "der anwalt ist bereits zugewiesen",
+      "an einen menschlichen ansprechpartner weiterzuleiten",
+      "direkt an einen menschen verbinden"
+    ]
+  }
+}

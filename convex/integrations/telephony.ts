@@ -13,7 +13,7 @@ import { normalizeKanzleiBookingConciergeConfig } from "../organizationOntology"
 import {
   ElevenLabsClient,
   resolveElevenLabsConvaiBaseUrl,
-} from "../../apps/one-of-one-landing/scripts/elevenlabs/lib/elevenlabs-api";
+} from "../../scripts/ai/elevenlabs/lib/elevenlabs-api";
 import {
   buildElevenLabsAgentCreatePayload,
   buildDesiredPrompt,

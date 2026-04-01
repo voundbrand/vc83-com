@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { AGENT_CATALOG } from "../../../apps/one-of-one-landing/scripts/elevenlabs/lib/catalog";
-import { readLocalAgentSource } from "../../../apps/one-of-one-landing/scripts/elevenlabs/lib/source-of-truth";
+import { AGENT_CATALOG } from "../../../scripts/ai/elevenlabs/lib/catalog";
+import { readLocalAgentSource } from "../../../scripts/ai/elevenlabs/lib/source-of-truth";
 
 describe("Anne Becker ElevenLabs config", () => {
   it("registers Anne Becker with the provided live agent id", () => {

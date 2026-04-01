@@ -7,8 +7,9 @@
     "build": "node ../../node_modules/next/dist/bin/next build",
     "start": "node ../../node_modules/next/dist/bin/next start",
     "typecheck": "node ../../node_modules/typescript/bin/tsc --noEmit -p tsconfig.json",
-    "elevenlabs:sync": "node ../../node_modules/tsx/dist/cli.mjs scripts/elevenlabs/sync-elevenlabs-agent.ts",
-    "elevenlabs:simulate": "node ../../node_modules/tsx/dist/cli.mjs scripts/elevenlabs/simulate-elevenlabs-flow.ts"
+    "elevenlabs:sync": "npm --prefix ../.. run ai:elevenlabs:sync --",
+    "elevenlabs:simulate": "npm --prefix ../.. run ai:elevenlabs:simulate --",
+    "elevenlabs:test-sync": "npm --prefix ../.. run ai:elevenlabs:test-sync --"
   },
   "dependencies": {
     "@tailwindcss/postcss": "^4.2.1",

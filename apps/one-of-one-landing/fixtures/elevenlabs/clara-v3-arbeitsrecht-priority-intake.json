@@ -1,0 +1,32 @@
+{
+  "name": "clara-v3-arbeitsrecht-priority-intake",
+  "description": "Clara V3 should keep labor-law intake with urgency handling and structured fact capture.",
+  "entryAgent": "clara_v3",
+  "userTurns": [
+    {
+      "label": "Labor-law emergency",
+      "text": "Ich brauche dringend Hilfe im Arbeitsrecht. Meine Frist laeuft in zwei Tagen."
+    },
+    {
+      "label": "Provide core facts",
+      "text": "Kuendigung erhalten am 25. Maerz, ich bin Arbeitnehmerin, Firma ca. 40 Mitarbeiter."
+    }
+  ],
+  "assertions": {
+    "expectedTransferSequence": [],
+    "expectedFinalAgent": "clara_v3",
+    "requiredAgentsVisited": ["clara_v3"],
+    "forbidUnexpectedTransfers": true,
+    "requiredAssistantSubstrings": [
+      "kuendigung",
+      "arbeitsrecht"
+    ],
+    "forbiddenAssistantSubstrings": [
+      "der termin ist bereits gebucht",
+      "die e-mail wurde schon versendet",
+      "der anwalt ist bereits zugewiesen",
+      "an einen menschlichen ansprechpartner weiterzuleiten",
+      "direkt an einen menschen verbinden"
+    ]
+  }
+}
