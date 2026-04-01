@@ -57,6 +57,34 @@ export interface HubGwUserProfileEnrichment {
   business: UserBusinessProfile | null;
 }
 
+function parseDeploymentNameFromConvexUrl(url: string): string | null {
+  try {
+    const host = new URL(url).hostname.toLowerCase();
+    // Supports:
+    // - <deployment>.convex.cloud
+    // - <deployment>.<region>.convex.cloud
+    // - <deployment>.convex.site
+    // - <deployment>.<region>.convex.site
+    const match = host.match(/^([a-z0-9-]+)(?:\.[a-z0-9-]+)?\.convex\.(cloud|site)$/i);
+    return match?.[1] || null;
+  } catch {
+    return null;
+  }
+}
+
+function parseDeploymentNameFromDeployKey(deployKey: string): string | null {
+  const prefix = deployKey.split("|")[0]?.trim();
+  if (!prefix) {
+    return null;
+  }
+  const parts = prefix.split(":");
+  if (parts.length < 2) {
+    return null;
+  }
+  const deploymentName = parts[1]?.trim();
+  return deploymentName || null;
+}
+
 export function getConvexClient(): ConvexHttpClient {
   const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
   const adminToken = process.env.CONVEX_DEPLOY_KEY;
@@ -66,6 +94,18 @@ export function getConvexClient(): ConvexHttpClient {
   }
   if (!adminToken) {
     throw new Error("CONVEX_DEPLOY_KEY is not configured");
+  }
+
+  const deploymentFromUrl = parseDeploymentNameFromConvexUrl(convexUrl);
+  const deploymentFromDeployKey = parseDeploymentNameFromDeployKey(adminToken);
+  if (
+    deploymentFromUrl &&
+    deploymentFromDeployKey &&
+    deploymentFromUrl !== deploymentFromDeployKey
+  ) {
+    throw new Error(
+      `Convex deployment mismatch: NEXT_PUBLIC_CONVEX_URL targets "${deploymentFromUrl}" but CONVEX_DEPLOY_KEY targets "${deploymentFromDeployKey}".`
+    );
   }
 
   const client = new ConvexHttpClient(convexUrl);

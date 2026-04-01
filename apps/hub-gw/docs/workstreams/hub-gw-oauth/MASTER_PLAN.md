@@ -1,7 +1,7 @@
 # Hub-GW OAuth Master Plan
 
 **Workstream root:** `/Users/foundbrand_001/Development/vc83-com/apps/hub-gw/docs/workstreams/hub-gw-oauth`  
-**Last updated:** 2026-03-25
+**Last updated:** 2026-03-28
 
 ---
 
@@ -71,8 +71,9 @@ Because of those facts, "just install NextAuth and wire a provider" would leave 
 4. Hub-GW OIDC now consumes the reusable Convex bridge contracts: start redirect goes through `/api/v1/frontend-oidc/start`, callback completion goes through `/api/v1/frontend-oidc/callback`, and sync input is sourced from `bridge.frontendSyncInput` / `bridge.hubGwSyncInput`.
 5. The Hub-GW sync boundary remains `apps/hub-gw/lib/server-convex.ts::syncHubGwFrontendIdentity`, which calls `internal.auth.syncFrontendUser` through the existing admin Convex client.
 6. `convex/frontendOidc.ts` now includes lifecycle cleanup for one-time state rows (`cleanupExpiredFrontendOidcStateInternal`) and `convex/crons.ts` schedules hourly cleanup.
-7. `convex/auth.ts::syncFrontendUser` implementation now returns `crmContactId`, `crmOrganizationId`, `subOrgId`, and `isSeller`; closeout is still policy-blocked by `HGO-004` verification coupling.
-8. CRM traversal now resolves via `works_at` with a logged `belongs_to_organization` compatibility fallback, and `crm_organization.customProperties.platformSubOrgId` is the explicit mapping contract.
+7. `convex/auth.ts::syncFrontendUser` implementation now returns `crmContactId`, `crmOrganizationId`, `subOrgId`, and `isSeller`; verification for `HGO-004` is complete.
+8. CRM traversal resolves via `works_at` with a logged `belongs_to_organization` compatibility fallback, and seller/sub-org mapping is deterministic: primary `crm_organization.customProperties.platformSubOrgId`, followed by explicit legacy ID/slug fallback keys constrained to parent-org scope.
+9. Reusable frontend OIDC callback now attempts token client auth with deterministic fallback (`client_secret_post` then `client_secret_basic` on client-auth failure), callback missing-state errors preserve provider error context, and admin preflight (`runFrontendOidcIntegrationPreflight`) validates openid scope presence, PKCE S256 wiring, and authorize redirect state/scope signals.
 9. `frontendSessions` exists, but Hub-GW is not currently built around it.
 
 ---

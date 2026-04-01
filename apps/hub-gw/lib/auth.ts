@@ -267,7 +267,20 @@ async function completeFrontendOidcCallbackThroughBridge(args: {
 }): Promise<FrontendOidcBridgeTokenPayload> {
   const state = normalizeCallbackParam(args.callbackParams, "state");
   if (!state) {
-    throw new Error("Missing state parameter in OIDC callback");
+    const providerError = normalizeCallbackParam(args.callbackParams, "error");
+    const providerErrorDescription = normalizeCallbackParam(
+      args.callbackParams,
+      "error_description"
+    );
+    if (providerError) {
+      const descriptionSuffix = providerErrorDescription
+        ? ` (${providerErrorDescription})`
+        : "";
+      throw new Error(
+        `provider_error_missing_state: OIDC provider returned "${providerError}" without state${descriptionSuffix}`
+      );
+    }
+    throw new Error("missing_state: Missing state parameter in OIDC callback");
   }
 
   const callbackBody = {

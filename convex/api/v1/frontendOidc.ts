@@ -3,6 +3,7 @@ import { getCorsHeaders, handleOptionsRequest } from "./corsHeaders";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const generatedApi: any = require("../../_generated/api");
+const CONTRACT_VERSION = "frontend_oidc_v1";
 
 type FrontendOidcStartRequest = {
   organizationId?: string;
@@ -269,10 +270,25 @@ export const frontendOidcCallbackHandler = httpAction(async (ctx, request) => {
     const callbackPayload = await parseCallbackRequest(request);
     const state = normalizeOptionalString(callbackPayload.state);
     if (!state) {
+      const providerError = normalizeOptionalString(callbackPayload.error);
+      const providerErrorDescription = normalizeOptionalString(
+        callbackPayload.errorDescription
+      );
+      const providerErrorUri = normalizeOptionalString(callbackPayload.errorUri);
       return new Response(
         JSON.stringify({
           success: false,
-          error: "Missing state parameter",
+          contractVersion: CONTRACT_VERSION,
+          error: {
+            code: providerError ? "provider_error_missing_state" : "missing_state",
+            message: providerError
+              ? providerErrorDescription ||
+                "OIDC provider returned an error without state"
+              : "Missing state parameter",
+            providerError: providerError || undefined,
+            providerErrorDescription: providerErrorDescription || undefined,
+            providerErrorUri: providerErrorUri || undefined,
+          },
         }),
         {
           status: 400,

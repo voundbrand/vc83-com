@@ -1,7 +1,7 @@
 # Hub-GW OAuth Workstream Index
 
 **Workstream root:** `/Users/foundbrand_001/Development/vc83-com/apps/hub-gw/docs/workstreams/hub-gw-oauth`  
-**Last updated:** 2026-03-25  
+**Last updated:** 2026-03-28  
 **Source request:** Read through `PROMPT_HUB_GW_OAUTH.md`, check whether it matches the repo, and convert it into a realistic implementation plan whose final outcome is reusable org-level OIDC, not a Hub-GW one-off.
 
 ---
@@ -42,8 +42,8 @@ The key correction is that Hub-GW auth was not just "add NextAuth":
 3. `HGO-001` is `DONE`.
 4. `HGO-002` is `DONE`.
 5. `HGO-003` is `DONE`.
-6. `HGO-004` implementation is in place, but the row is currently `BLOCKED` on a pre-existing typecheck failure in `/Users/foundbrand_001/Development/vc83-com/convex/onboarding/universalOnboardingPolicy.ts:180`.
-7. `crm_organization.customProperties.platformSubOrgId` is now the explicit stage-1 mapping contract for deterministic Hub-GW seller-context resolution.
+6. `HGO-004` is `DONE`; backend sync payload and CRM traversal contracts are verification-complete.
+7. `HGO-005` is `DONE`; seller/sub-org mapping now uses deterministic ordered fallback keys (`platformSubOrgId` primary, explicit legacy ID/slug keys second) with strict parent-org scope checks and no name heuristics.
 8. The workstream is intentionally choosing a phased implementation instead of a one-shot.
 9. Hub-GW is the proving ground, not the permanent special-case architecture.
 10. Workstream artifacts are now consolidated under `apps/hub-gw/docs/workstreams/hub-gw-oauth`.
@@ -51,6 +51,7 @@ The key correction is that Hub-GW auth was not just "add NextAuth":
 12. `HGO-015` is now `DONE`; rollout smoke matrix is published with deterministic `PASS/FAIL/BLOCKED` outcomes and live endpoint evidence.
 13. Next deterministic row is `HGO-014` (`PENDING`) for legacy endpoint fate and docs alignment.
 14. Frontend OIDC state cleanup now uses bounded paginated batches with telemetry to keep hourly cron runs safe under growth.
+15. Frontend OIDC now includes deterministic preflight and token-client-auth fallback hardening for live provider diagnostics.
 
 ---
 
@@ -68,7 +69,7 @@ The key correction is that Hub-GW auth was not just "add NextAuth":
 
 - [x] Lane `A` planning kickoff: `HGO-001`
 - [x] Lane `A` auth foundation: `HGO-002`
-- [~] Lane `B` backend sync and seller context: `HGO-003` done, `HGO-004` implemented but blocked on verification, `HGO-005` pending
+- [x] Lane `B` backend sync and seller context: `HGO-003`, `HGO-004`, `HGO-005` done
 - [x] Lane `C` frontend OAuth/session integration: `HGO-006`, `HGO-007` done
 - [x] Lane `D` seller hardening and ownership cleanup: `HGO-008`, `HGO-009` done
 - [x] Lane `E` reusable org-level OIDC generalization: `HGO-010` through `HGO-013` done

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useMutation, useQuery } from "convex/react";
+import { useAction, useMutation, useQuery } from "convex/react";
 import { ArrowLeft, CheckCircle2, Loader2, ShieldCheck } from "lucide-react";
 import { InteriorButton } from "@/components/ui/interior-button";
 import { useNotification } from "@/hooks/use-notification";
@@ -41,6 +41,39 @@ interface FrontendOidcSettingsSnapshot {
   nameClaim: string | null;
 }
 
+interface FrontendOidcPreflightResult {
+  success: boolean;
+  checks?: {
+    scopeIncludesOpenid?: {
+      status?: "pass" | "fail" | "warn";
+      message?: string;
+      configuredScope?: string;
+    };
+    pkceS256?: {
+      status?: "pass" | "fail" | "warn";
+      message?: string;
+      codeChallengeMethod?: string | null;
+    };
+    authorizeScopeAcceptance?: {
+      status?: "pass" | "fail" | "warn";
+      message?: string;
+      providerError?: string | null;
+      providerErrorDescription?: string | null;
+    };
+    authorizeStateEcho?: {
+      status?: "pass" | "fail" | "warn";
+      message?: string;
+      expectedState?: string | null;
+      echoedState?: string | null;
+    };
+  };
+  probe?: {
+    status?: number | null;
+    location?: string | null;
+    warning?: string | null;
+  };
+}
+
 export function FrontendOidcSettings({ onBack }: FrontendOidcSettingsProps) {
   const { sessionId } = useAuth();
   const currentOrg = useCurrentOrganization();
@@ -54,6 +87,7 @@ export function FrontendOidcSettings({ onBack }: FrontendOidcSettingsProps) {
       : "skip"
   ) as FrontendOidcSettingsSnapshot | null | undefined;
   const saveIntegration = useMutation(api.frontendOidc.saveFrontendOidcIntegration);
+  const runPreflight = useAction(api.frontendOidc.runFrontendOidcIntegrationPreflight);
 
   const [enabled, setEnabled] = useState(true);
   const [providerId, setProviderId] = useState(DEFAULT_PROVIDER_ID);
@@ -75,6 +109,9 @@ export function FrontendOidcSettings({ onBack }: FrontendOidcSettingsProps) {
   );
   const [nameClaim, setNameClaim] = useState("name");
   const [isSaving, setIsSaving] = useState(false);
+  const [isRunningPreflight, setIsRunningPreflight] = useState(false);
+  const [preflightResult, setPreflightResult] =
+    useState<FrontendOidcPreflightResult | null>(null);
 
   useEffect(() => {
     if (!integration) {
@@ -194,6 +231,51 @@ export function FrontendOidcSettings({ onBack }: FrontendOidcSettingsProps) {
       );
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleRunPreflight = async () => {
+    if (!sessionId || !organizationId) {
+      return;
+    }
+
+    setIsRunningPreflight(true);
+    try {
+      const providerSlug = providerId.trim() || DEFAULT_PROVIDER_ID;
+      const result = (await runPreflight({
+        sessionId,
+        organizationId,
+        requestHost:
+          typeof window !== "undefined" ? window.location.host : undefined,
+        redirectUri:
+          typeof window !== "undefined"
+            ? `${window.location.origin}/api/auth/callback/${providerSlug}`
+            : undefined,
+        scope,
+      })) as FrontendOidcPreflightResult;
+
+      setPreflightResult(result);
+      if (result?.success) {
+        notification.success(
+          "Preflight Passed",
+          "Scope/PKCE/state checks are currently healthy."
+        );
+      } else {
+        notification.error(
+          "Preflight Failed",
+          "OIDC preflight found one or more deterministic contract issues."
+        );
+      }
+    } catch (error) {
+      setPreflightResult(null);
+      notification.error(
+        "Preflight Failed",
+        error instanceof Error
+          ? error.message
+          : "Could not run frontend OIDC preflight."
+      );
+    } finally {
+      setIsRunningPreflight(false);
     }
   };
 
@@ -542,6 +624,54 @@ export function FrontendOidcSettings({ onBack }: FrontendOidcSettingsProps) {
                 Use Platform Auth
               </InteriorButton>
             </div>
+            <InteriorButton
+              variant="secondary"
+              onClick={handleRunPreflight}
+              disabled={isRunningPreflight || isSaving || !enabled}
+              className="w-full"
+            >
+              {isRunningPreflight ? (
+                <>
+                  <Loader2 size={14} className="mr-1 animate-spin" />
+                  Running Preflight...
+                </>
+              ) : (
+                "Run OIDC Preflight"
+              )}
+            </InteriorButton>
+
+            {preflightResult ? (
+              <div
+                className="rounded border-2 p-4 text-xs"
+                style={{
+                  borderColor: "var(--window-document-border)",
+                  background: "var(--window-document-bg-elevated)",
+                }}
+              >
+                <p className="mb-2 font-bold" style={{ color: "var(--window-document-text)" }}>
+                  Preflight Result: {preflightResult.success ? "PASS" : "FAIL"}
+                </p>
+                <p style={{ color: "var(--neutral-gray)" }}>
+                  Scope: {preflightResult.checks?.scopeIncludesOpenid?.status || "n/a"} | PKCE:{" "}
+                  {preflightResult.checks?.pkceS256?.status || "n/a"} | State Echo:{" "}
+                  {preflightResult.checks?.authorizeStateEcho?.status || "n/a"} | Scope Accept:{" "}
+                  {preflightResult.checks?.authorizeScopeAcceptance?.status || "n/a"}
+                </p>
+                {preflightResult.checks?.authorizeScopeAcceptance?.providerError ? (
+                  <p className="mt-2" style={{ color: "#b91c1c" }}>
+                    Provider error: {preflightResult.checks.authorizeScopeAcceptance.providerError}
+                    {preflightResult.checks.authorizeScopeAcceptance.providerErrorDescription
+                      ? ` (${preflightResult.checks.authorizeScopeAcceptance.providerErrorDescription})`
+                      : ""}
+                  </p>
+                ) : null}
+                {preflightResult.probe?.warning ? (
+                  <p className="mt-2" style={{ color: "#b45309" }}>
+                    Probe warning: {preflightResult.probe.warning}
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
           </>
         )}
       </div>

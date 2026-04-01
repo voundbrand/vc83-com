@@ -6,15 +6,21 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { api } from "@convex/_generated/api";
 import { fetchAction } from "convex/nextjs";
+
+const { api }: any = require("@convex/_generated/api");
+const googleCallbackAction = api.oauth.google.handleGoogleCallback;
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const code = searchParams.get("code");
   const state = searchParams.get("state");
+  const scope = searchParams.get("scope");
   const error = searchParams.get("error");
   const errorDescription = searchParams.get("error_description");
+  const grantedScopes = scope
+    ? scope.split(/\s+/).map((value) => value.trim()).filter(Boolean)
+    : [];
 
   // Handle OAuth errors (user denied, etc.)
   if (error) {
@@ -39,9 +45,10 @@ export async function GET(request: NextRequest) {
 
   try {
     // Call Convex backend to exchange code for tokens
-    const result = await fetchAction(api.oauth.google.handleGoogleCallback, {
+    const result = await fetchAction(googleCallbackAction, {
       code,
       state,
+      ...(grantedScopes.length > 0 ? { grantedScopes } : {}),
     });
 
     // Redirect back to home with Manage window open to Integrations tab
@@ -69,4 +76,3 @@ export async function GET(request: NextRequest) {
     );
   }
 }
-

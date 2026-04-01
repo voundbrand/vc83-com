@@ -218,6 +218,199 @@ function ensureReturnUrl(value: string): string {
   return ensureHttpUrl(normalized, "returnUrl");
 }
 
+type TokenAuthMethod = "client_secret_post" | "client_secret_basic";
+
+type TokenExchangeAttempt = {
+  method: TokenAuthMethod;
+  ok: boolean;
+  status: number;
+  payload: Record<string, unknown>;
+  rawBody: string;
+};
+
+function createTokenRequestBody(args: {
+  code: string;
+  redirectUri: string;
+  codeVerifier: string;
+  clientId: string;
+  clientSecret: string;
+  method: TokenAuthMethod;
+}): URLSearchParams {
+  const body = new URLSearchParams();
+  body.set("grant_type", "authorization_code");
+  body.set("code", args.code);
+  body.set("redirect_uri", args.redirectUri);
+  body.set("code_verifier", args.codeVerifier);
+  body.set("client_id", args.clientId);
+  if (args.method === "client_secret_post") {
+    body.set("client_secret", args.clientSecret);
+  }
+  return body;
+}
+
+function createBasicAuthHeader(clientId: string, clientSecret: string): string {
+  return `Basic ${btoa(`${clientId}:${clientSecret}`)}`;
+}
+
+async function runTokenExchangeAttempt(args: {
+  tokenUrl: string;
+  code: string;
+  redirectUri: string;
+  codeVerifier: string;
+  clientId: string;
+  clientSecret: string;
+  method: TokenAuthMethod;
+}): Promise<TokenExchangeAttempt> {
+  const tokenRequestBody = createTokenRequestBody({
+    code: args.code,
+    redirectUri: args.redirectUri,
+    codeVerifier: args.codeVerifier,
+    clientId: args.clientId,
+    clientSecret: args.clientSecret,
+    method: args.method,
+  });
+
+  const headers: Record<string, string> = {
+    "Content-Type": "application/x-www-form-urlencoded",
+    Accept: "application/json",
+  };
+  if (args.method === "client_secret_basic") {
+    headers.Authorization = createBasicAuthHeader(args.clientId, args.clientSecret);
+  }
+
+  const tokenResponse = await fetch(args.tokenUrl, {
+    method: "POST",
+    headers,
+    body: tokenRequestBody.toString(),
+    cache: "no-store",
+  });
+
+  const rawBody = await tokenResponse.text();
+  let payload: Record<string, unknown> = {};
+  try {
+    payload = JSON.parse(rawBody) as Record<string, unknown>;
+  } catch {
+    payload = {};
+  }
+
+  return {
+    method: args.method,
+    ok: tokenResponse.ok,
+    status: tokenResponse.status,
+    payload,
+    rawBody,
+  };
+}
+
+function isClientAuthFailure(attempt: TokenExchangeAttempt): boolean {
+  if (attempt.ok) {
+    return false;
+  }
+  const providerError = normalizeOptionalString(attempt.payload.error)?.toLowerCase() || "";
+  const providerDescription =
+    normalizeOptionalString(attempt.payload.error_description)?.toLowerCase() || "";
+  const rawBody = attempt.rawBody.toLowerCase();
+
+  if (providerError === "invalid_client" || providerError === "unauthorized_client") {
+    return true;
+  }
+  if (
+    providerDescription.includes("client authentication failed") ||
+    providerDescription.includes("invalid client")
+  ) {
+    return true;
+  }
+  if (rawBody.includes("invalid_client") || rawBody.includes("client authentication failed")) {
+    return true;
+  }
+  return attempt.status === 401 || attempt.status === 403;
+}
+
+async function exchangeAuthorizationCodeWithFallback(args: {
+  tokenUrl: string;
+  code: string;
+  redirectUri: string;
+  codeVerifier: string;
+  clientId: string;
+  clientSecret: string;
+}): Promise<
+  | {
+      success: true;
+      attempt: TokenExchangeAttempt;
+      attemptedMethods: TokenAuthMethod[];
+    }
+  | {
+      success: false;
+      errorCode: "token_exchange_failed" | "token_exchange_error";
+      message: string;
+      providerError: string | null;
+      attemptedMethods: TokenAuthMethod[];
+    }
+> {
+  const attemptedMethods: TokenAuthMethod[] = [];
+
+  try {
+    const postAttempt = await runTokenExchangeAttempt({
+      ...args,
+      method: "client_secret_post",
+    });
+    attemptedMethods.push("client_secret_post");
+    if (postAttempt.ok) {
+      return {
+        success: true,
+        attempt: postAttempt,
+        attemptedMethods,
+      };
+    }
+
+    if (!isClientAuthFailure(postAttempt)) {
+      return {
+        success: false,
+        errorCode: "token_exchange_failed",
+        message:
+          normalizeOptionalString(postAttempt.payload.error_description) ||
+          "OIDC token endpoint rejected the authorization code",
+        providerError: normalizeOptionalString(postAttempt.payload.error),
+        attemptedMethods,
+      };
+    }
+
+    const basicAttempt = await runTokenExchangeAttempt({
+      ...args,
+      method: "client_secret_basic",
+    });
+    attemptedMethods.push("client_secret_basic");
+    if (basicAttempt.ok) {
+      return {
+        success: true,
+        attempt: basicAttempt,
+        attemptedMethods,
+      };
+    }
+
+    return {
+      success: false,
+      errorCode: "token_exchange_failed",
+      message:
+        normalizeOptionalString(basicAttempt.payload.error_description) ||
+        normalizeOptionalString(postAttempt.payload.error_description) ||
+        "OIDC token endpoint rejected the authorization code",
+      providerError:
+        normalizeOptionalString(basicAttempt.payload.error) ||
+        normalizeOptionalString(postAttempt.payload.error),
+      attemptedMethods,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      errorCode: "token_exchange_error",
+      message: error instanceof Error ? error.message : "Token exchange failed",
+      providerError: null,
+      attemptedMethods,
+    };
+  }
+}
+
 function getClaimByPath(claims: Record<string, unknown>, claimPath: string): unknown {
   const normalizedPath = normalizeOptionalString(claimPath);
   if (!normalizedPath) {
@@ -1021,52 +1214,15 @@ export const completeFrontendOidcAuthorizationInternal = internalAction({
 
     const endpoints = await resolveOidcEndpoints(runtime);
 
-    const tokenRequestBody = new URLSearchParams();
-    tokenRequestBody.set("grant_type", "authorization_code");
-    tokenRequestBody.set("code", code);
-    tokenRequestBody.set("redirect_uri", redirectUri);
-    tokenRequestBody.set("client_id", runtime.clientId);
-    tokenRequestBody.set("client_secret", runtime.clientSecret);
-    tokenRequestBody.set("code_verifier", codeVerifier);
-
-    let tokenPayload: Record<string, unknown> = {};
-    try {
-      const tokenResponse = await fetch(endpoints.tokenUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-          Accept: "application/json",
-        },
-        body: tokenRequestBody.toString(),
-        cache: "no-store",
-      });
-
-      const rawBody = await tokenResponse.text();
-      try {
-        tokenPayload = JSON.parse(rawBody) as Record<string, unknown>;
-      } catch {
-        tokenPayload = {};
-      }
-
-      if (!tokenResponse.ok) {
-        return {
-          success: false,
-          contractVersion: CONTRACT_VERSION,
-          organizationId,
-          provider: {
-            id: providerId,
-            name: providerName,
-          },
-          error: {
-            code: "token_exchange_failed",
-            message:
-              normalizeOptionalString(tokenPayload.error_description) ||
-              "OIDC token endpoint rejected the authorization code",
-            providerError: normalizeOptionalString(tokenPayload.error),
-          },
-        };
-      }
-    } catch (error) {
+    const tokenExchange = await exchangeAuthorizationCodeWithFallback({
+      tokenUrl: endpoints.tokenUrl,
+      code,
+      redirectUri,
+      codeVerifier,
+      clientId: runtime.clientId,
+      clientSecret: runtime.clientSecret,
+    });
+    if (!tokenExchange.success) {
       return {
         success: false,
         contractVersion: CONTRACT_VERSION,
@@ -1076,12 +1232,17 @@ export const completeFrontendOidcAuthorizationInternal = internalAction({
           name: providerName,
         },
         error: {
-          code: "token_exchange_error",
-          message: error instanceof Error ? error.message : "Token exchange failed",
+          code: tokenExchange.errorCode,
+          message: tokenExchange.message,
+          providerError:
+            tokenExchange.providerError ||
+            `attempted_auth_methods:${tokenExchange.attemptedMethods.join(",")}`,
         },
       };
     }
 
+    const tokenPayload = tokenExchange.attempt.payload;
+    const tokenAuthMethod = tokenExchange.attempt.method;
     const idToken = normalizeOptionalString(tokenPayload.id_token);
     const accessToken = normalizeOptionalString(tokenPayload.access_token);
     const tokenType = normalizeOptionalString(tokenPayload.token_type);
@@ -1314,6 +1475,7 @@ export const completeFrontendOidcAuthorizationInternal = internalAction({
       oauth: {
         tokenType,
         scope: responseScope || normalizeOptionalString(consumedValue.scope) || runtime.scope,
+        tokenAuthMethod,
         expiresAt,
         userinfoFetched,
       },

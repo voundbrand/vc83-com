@@ -7,7 +7,7 @@
  * - objects.subtype = "frontend_oidc"
  */
 
-import { internalMutation, mutation, query } from "./_generated/server";
+import { action, internalMutation, mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { checkPermission, requireAuthenticatedUser } from "./rbacHelpers";
 import type { Id } from "./_generated/dataModel";
@@ -19,6 +19,7 @@ const FRONTEND_OIDC_SETTINGS_TYPE = "integration_settings";
 const FRONTEND_OIDC_SETTINGS_SUBTYPE = "frontend_oidc";
 const DEFAULT_PROVIDER_ID = "frontend_oidc";
 const DEFAULT_PROVIDER_NAME = "Organization OIDC";
+const DEFAULT_SCOPE = "openid profile email";
 const CLIENT_SECRET_ENCRYPTED_KEY = "clientSecretEncrypted";
 const FRONTEND_OIDC_STATE_TYPE = "integration_runtime";
 const FRONTEND_OIDC_STATE_SUBTYPE = "frontend_oidc_state";
@@ -43,6 +44,15 @@ function normalizeOptionalString(value: unknown): string | null {
   }
   const normalized = value.trim();
   return normalized.length > 0 ? normalized : null;
+}
+
+function normalizeScopeSet(scope: string): Set<string> {
+  return new Set(
+    scope
+      .split(/\s+/)
+      .map((value) => value.trim().toLowerCase())
+      .filter((value) => value.length > 0)
+  );
 }
 
 function normalizeProviderId(value: unknown): string | null {
@@ -491,6 +501,204 @@ export const saveFrontendOidcIntegration = mutation({
             userinfoUrl,
           })
       ),
+    };
+  },
+});
+
+/**
+ * Run a deterministic preflight probe for frontend OIDC integration.
+ *
+ * Checks:
+ * 1. `openid` is present in configured scope.
+ * 2. Start flow generates PKCE `S256`.
+ * 3. Initial authorize redirect echoes state and does not immediately fail with `invalid_scope`.
+ */
+export const runFrontendOidcIntegrationPreflight = action({
+  args: {
+    sessionId: v.string(),
+    organizationId: v.id("organizations"),
+    requestHost: v.optional(v.string()),
+    redirectUri: v.optional(v.string()),
+    scope: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const integration = (await ctx.runQuery(
+      generatedApi.frontendOidc.getFrontendOidcIntegration,
+      {
+        sessionId: args.sessionId,
+        organizationId: args.organizationId,
+      }
+    )) as
+      | {
+          enabled?: boolean;
+          configured?: boolean;
+          scope?: string | null;
+        }
+      | null
+      | undefined;
+
+    const effectiveScope =
+      normalizeOptionalString(args.scope) ||
+      normalizeOptionalString(integration?.scope) ||
+      DEFAULT_SCOPE;
+    const scopeSet = normalizeScopeSet(effectiveScope);
+    const scopeIncludesOpenid = scopeSet.has("openid");
+
+    const redirectUri =
+      normalizeOptionalString(args.redirectUri) ||
+      "https://preflight.invalid/api/v1/frontend-oidc/callback";
+
+    const startResult = (await ctx.runAction(
+      generatedApi.internal.frontendOidcInternal.startFrontendOidcAuthorizationInternal,
+      {
+        organizationId: args.organizationId,
+        requestHost: normalizeOptionalString(args.requestHost) || undefined,
+        redirectUri,
+        scope: effectiveScope,
+        stateTtlMs: 60_000,
+      }
+    )) as {
+      authorizationUrl: string;
+      state: string;
+      pkce?: { codeChallengeMethod?: string | null; codeChallenge?: string | null };
+      expiresAt?: number | null;
+    };
+
+    const authorizationUrl = startResult.authorizationUrl;
+    const expectedState = normalizeOptionalString(startResult.state);
+
+    const authorizationParsed = new URL(authorizationUrl);
+    const pkceMethod =
+      normalizeOptionalString(startResult.pkce?.codeChallengeMethod) ||
+      normalizeOptionalString(
+        authorizationParsed.searchParams.get("code_challenge_method")
+      );
+    const codeChallenge =
+      normalizeOptionalString(startResult.pkce?.codeChallenge) ||
+      normalizeOptionalString(authorizationParsed.searchParams.get("code_challenge"));
+    const pkcePass = pkceMethod === "S256" && Boolean(codeChallenge);
+
+    let probeStatus: number | null = null;
+    let probeLocation: string | null = null;
+    let probeError: string | null = null;
+    let probeErrorDescription: string | null = null;
+    let echoedState: string | null = null;
+    let stateEchoStatus: "pass" | "fail" | "warn" = "warn";
+    let scopeAcceptedStatus: "pass" | "fail" | "warn" = "warn";
+    let probeWarning: string | null = null;
+
+    try {
+      const response = await fetch(authorizationUrl, {
+        method: "GET",
+        redirect: "manual",
+        cache: "no-store",
+      });
+      probeStatus = response.status;
+
+      const locationHeader = normalizeOptionalString(response.headers.get("location"));
+      if (locationHeader) {
+        probeLocation = new URL(locationHeader, authorizationParsed.origin).toString();
+        const probeLocationUrl = new URL(probeLocation);
+        probeError = normalizeOptionalString(probeLocationUrl.searchParams.get("error"));
+        probeErrorDescription = normalizeOptionalString(
+          probeLocationUrl.searchParams.get("error_description")
+        );
+        echoedState = normalizeOptionalString(probeLocationUrl.searchParams.get("state"));
+
+        if (expectedState && echoedState) {
+          stateEchoStatus = echoedState === expectedState ? "pass" : "fail";
+        } else if (expectedState && !echoedState) {
+          stateEchoStatus = "warn";
+        }
+
+        if (probeError === "invalid_scope") {
+          scopeAcceptedStatus = "fail";
+        } else if (probeError) {
+          scopeAcceptedStatus = "warn";
+        } else {
+          scopeAcceptedStatus = "pass";
+        }
+      } else if (response.status >= 400) {
+        scopeAcceptedStatus = "warn";
+        probeWarning = "Authorize probe returned an error status without redirect location.";
+      }
+    } catch (error) {
+      probeWarning =
+        error instanceof Error
+          ? `Authorize probe request failed: ${error.message}`
+          : "Authorize probe request failed";
+    } finally {
+      if (expectedState) {
+        await ctx.runMutation(
+          generatedApi.internal.frontendOidc.consumeFrontendOidcStateInternal,
+          {
+            organizationId: args.organizationId,
+            state: expectedState,
+          }
+        );
+      }
+    }
+
+    const success =
+      scopeIncludesOpenid &&
+      pkcePass &&
+      stateEchoStatus !== "fail" &&
+      scopeAcceptedStatus !== "fail";
+
+    return {
+      success,
+      contractVersion: "frontend_oidc_preflight_v1",
+      checks: {
+        scopeIncludesOpenid: {
+          status: scopeIncludesOpenid ? "pass" : "fail",
+          value: scopeIncludesOpenid,
+          configuredScope: effectiveScope,
+          message: scopeIncludesOpenid
+            ? "Configured scope includes openid."
+            : "Configured scope is missing openid.",
+        },
+        pkceS256: {
+          status: pkcePass ? "pass" : "fail",
+          value: pkcePass,
+          codeChallengeMethod: pkceMethod,
+          message: pkcePass
+            ? "PKCE S256 challenge is present in the authorization request."
+            : "Authorization request is missing PKCE S256 challenge configuration.",
+        },
+        authorizeScopeAcceptance: {
+          status: scopeAcceptedStatus,
+          providerError: probeError,
+          providerErrorDescription: probeErrorDescription,
+          message:
+            scopeAcceptedStatus === "fail"
+              ? "Authorize redirect returned invalid_scope."
+              : scopeAcceptedStatus === "pass"
+                ? "Authorize redirect did not report invalid_scope."
+                : "Authorize probe was inconclusive for scope acceptance.",
+        },
+        authorizeStateEcho: {
+          status: stateEchoStatus,
+          expectedState,
+          echoedState,
+          message:
+            stateEchoStatus === "pass"
+              ? "Authorize redirect echoed state unchanged."
+              : stateEchoStatus === "fail"
+                ? "Authorize redirect changed state unexpectedly."
+                : "Authorize redirect did not include state; verify callback behavior with live login.",
+        },
+      },
+      probe: {
+        status: probeStatus,
+        location: probeLocation,
+        warning: probeWarning,
+      },
+      runtime: {
+        enabled: integration?.enabled !== false,
+        configured: Boolean(integration?.configured),
+        authorizationUrl,
+        expiresAt: startResult.expiresAt || null,
+      },
     };
   },
 });

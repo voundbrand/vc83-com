@@ -8,20 +8,20 @@
 
 1. Run at most one `IN_PROGRESS` row globally unless temporary parallelism is explicitly approved.
 2. Do not start lane `B` before lane `A` `P0` rows (`HGO-001`, `HGO-002`) are `DONE`.
-3. Do not start lane `C` before `HGO-003` is `DONE` and `HGO-004` implementation is landed (row may remain `BLOCKED` on external verification policy).
+3. Do not start lane `C` before `HGO-003` and `HGO-004` are `DONE`.
 4. Do not start lane `D` before `HGO-006` and `HGO-007` are `DONE`.
 5. Do not start lane `E` before `HGO-008` and `HGO-009` are `DONE`.
 6. Do not start lane `F` before `HGO-012` and `HGO-013` are `DONE`.
 7. `HGO-014` may close as either a full wiring row or a deprecation or cleanup row, but one of those outcomes must be explicit.
 8. After each `DONE` row that changes plan authority, sync `TASK_QUEUE.md`, `SESSION_PROMPTS.md`, `INDEX.md`, `MASTER_PLAN.md`, and `../PROMPT_HUB_GW_OAUTH.md`.
 
-Status snapshot (2026-03-25):
+Status snapshot (2026-03-28):
 
 1. `HGO-001` is `DONE`.
 2. `HGO-002` is `DONE`.
 3. `HGO-003` is `DONE`.
-4. `HGO-004` is `BLOCKED` pending row verification because the repo currently fails typecheck in `/Users/foundbrand_001/Development/vc83-com/convex/onboarding/universalOnboardingPolicy.ts:180`.
-5. `HGO-005` is `PENDING`.
+4. `HGO-004` is `DONE`.
+5. `HGO-005` is `DONE`.
 6. `HGO-006` through `HGO-009` are `DONE`.
 7. `HGO-010` through `HGO-013` are `DONE`; `HGO-015` is `DONE`; `HGO-014` remains `PENDING`.
 8. Active row count is `0`.

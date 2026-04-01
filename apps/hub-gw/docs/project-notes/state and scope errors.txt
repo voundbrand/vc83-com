@@ -1,0 +1,29 @@
+
+
+Wir erzeugen den OIDC-Request mit:
+
+- `client_id=hub`
+- `redirect_uri=https://sevenlayers.ngrok.pizza/api/auth/callback/gruendungswerft`
+- `scope=openid`
+- `state=kn7d39bvfab1f75q4hmn3m2sy583knvg.1zv-ivYTJjENovFXi7GNK8tZC5IV0P04f3PX3-UgM4o`
+- PKCE S256 + nonce
+
+Beispiel-URL (aus dem Request):
+`https://auth.gruendungswerft.com/login/?response_type=code&client_id=hub&redirect_uri=https%3A%2F%2Fsevenlayers.ngrok.pizza%2Fapi%2Fauth%2Fcallback%2Fgruendungswerft&scope=openid&state=kn7d39bvfab1f75q4hmn3m2sy583knvg.1zv-ivYTJjENovFXi7GNK8tZC5IV0P04f3PX3-UgM4o&nonce=...&code_challenge=...&code_challenge_method=S256`
+
+Nach Login sehen wir im weiteren Flow jedoch:
+`state=e7e41e66a0987d4e298bdcfc5d5874f0`
+
+Also ein anderer `state` als gesendet.  
+`state` muss in OIDC 1:1 unverändert zurückkommen.
+
+Zusätzlich kommt beim Callback:
+- `error=invalid_scope`
+- `error_description=The requested scope is invalid, unknown, or malformed`
+- `hint=Check the openid scope`
+
+Wichtig: wir senden explizit `scope=openid`.
+
+Kannst du bitte prüfen:
+1. warum `state` im Auth-Flow überschrieben wird,  
+2. warum `openid` für `client_id=hub` als `invalid_scope` zurückkommt?

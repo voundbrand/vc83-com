@@ -1115,6 +1115,19 @@ type FrontendIdentityContext = {
   isSeller: boolean;
 };
 
+const PRIMARY_SUB_ORG_MAPPING_KEY = "platformSubOrgId";
+const LEGACY_SUB_ORG_ID_MAPPING_KEYS = [
+  "platformSubOrganizationId",
+  "subOrgId",
+  "sellerSubOrgId",
+  "hubGwSubOrgId",
+] as const;
+const LEGACY_SUB_ORG_SLUG_MAPPING_KEYS = [
+  "platformSubOrgSlug",
+  "subOrgSlug",
+  "sellerSubOrgSlug",
+] as const;
+
 type FrontendUserSyncResult = FrontendIdentityContext & {
   frontendUserId: Id<"objects">;
   email: string;
@@ -1156,6 +1169,143 @@ function withIdentityContext(
   }
 
   return nextCustomProperties;
+}
+
+type SubOrgMappingCandidate =
+  | {
+      valueKind: "org_id";
+      source: string;
+      value: string;
+    }
+  | {
+      valueKind: "org_slug";
+      source: string;
+      value: string;
+    };
+
+function getCustomPropertyString(
+  customProperties: Record<string, unknown> | undefined,
+  key: string
+): string | null {
+  if (!customProperties) {
+    return null;
+  }
+  const rawValue = customProperties[key];
+  if (typeof rawValue !== "string") {
+    return null;
+  }
+  const normalized = rawValue.trim();
+  return normalized.length > 0 ? normalized : null;
+}
+
+function collectSubOrgMappingCandidates(
+  customProperties: Record<string, unknown> | undefined
+): SubOrgMappingCandidate[] {
+  const candidates: SubOrgMappingCandidate[] = [];
+  const seenOrgIds = new Set<string>();
+  const seenSlugs = new Set<string>();
+
+  const pushIdCandidate = (sourceKey: string) => {
+    const value = getCustomPropertyString(customProperties, sourceKey);
+    if (!value || seenOrgIds.has(value)) {
+      return;
+    }
+    seenOrgIds.add(value);
+    candidates.push({
+      valueKind: "org_id",
+      source: sourceKey,
+      value,
+    });
+  };
+
+  const pushSlugCandidate = (sourceKey: string) => {
+    const value = getCustomPropertyString(customProperties, sourceKey);
+    if (!value || seenSlugs.has(value)) {
+      return;
+    }
+    seenSlugs.add(value);
+    candidates.push({
+      valueKind: "org_slug",
+      source: sourceKey,
+      value: value.toLowerCase(),
+    });
+  };
+
+  pushIdCandidate(PRIMARY_SUB_ORG_MAPPING_KEY);
+  for (const key of LEGACY_SUB_ORG_ID_MAPPING_KEYS) {
+    pushIdCandidate(key);
+  }
+  for (const key of LEGACY_SUB_ORG_SLUG_MAPPING_KEYS) {
+    pushSlugCandidate(key);
+  }
+
+  return candidates;
+}
+
+async function resolveSubOrgMappingCandidate(
+  ctx: MutationCtx,
+  args: {
+    candidate: SubOrgMappingCandidate;
+    crmOrganizationId: Id<"objects">;
+    parentOrganizationId: Id<"organizations">;
+  }
+): Promise<Id<"organizations"> | null> {
+  const isLegacyFallback = args.candidate.source !== PRIMARY_SUB_ORG_MAPPING_KEY;
+
+  const fail = (reason: string) => {
+    console.warn("[Hub-GW OAuth] Ignoring sub-org mapping candidate", {
+      crmOrganizationId: String(args.crmOrganizationId),
+      source: args.candidate.source,
+      valueKind: args.candidate.valueKind,
+      value: args.candidate.value,
+      reason,
+      parentOrganizationId: String(args.parentOrganizationId),
+    });
+  };
+
+  if (args.candidate.valueKind === "org_id") {
+    const mappedSubOrg = await ctx.db.get(args.candidate.value as Id<"organizations">);
+    if (!mappedSubOrg) {
+      fail("organization_not_found");
+      return null;
+    }
+
+    if (String(mappedSubOrg.parentOrganizationId) !== String(args.parentOrganizationId)) {
+      fail("outside_parent_scope");
+      return null;
+    }
+
+    if (isLegacyFallback) {
+      console.warn("[Hub-GW OAuth] Using legacy sub-org ID mapping fallback", {
+        crmOrganizationId: String(args.crmOrganizationId),
+        source: args.candidate.source,
+        resolvedSubOrgId: String(mappedSubOrg._id),
+      });
+    }
+
+    return mappedSubOrg._id;
+  }
+
+  const mappedBySlug = await ctx.db
+    .query("organizations")
+    .withIndex("by_slug", (q) => q.eq("slug", args.candidate.value))
+    .first();
+  if (!mappedBySlug) {
+    fail("slug_not_found");
+    return null;
+  }
+
+  if (String(mappedBySlug.parentOrganizationId) !== String(args.parentOrganizationId)) {
+    fail("slug_outside_parent_scope");
+    return null;
+  }
+
+  console.warn("[Hub-GW OAuth] Using legacy sub-org slug mapping fallback", {
+    crmOrganizationId: String(args.crmOrganizationId),
+    source: args.candidate.source,
+    resolvedSubOrgId: String(mappedBySlug._id),
+  });
+  return mappedBySlug._id;
 }
 
 async function ensureObjectLink(
@@ -1300,8 +1450,10 @@ async function resolveSellerIdentityContext(
     };
   }
 
-  const mappedSubOrgIdRaw = crmOrganization.customProperties?.platformSubOrgId;
-  if (typeof mappedSubOrgIdRaw !== "string") {
+  const mappingCandidates = collectSubOrgMappingCandidates(
+    crmOrganization.customProperties as Record<string, unknown> | undefined
+  );
+  if (mappingCandidates.length < 1) {
     return {
       crmContactId: matchingContact._id,
       crmOrganizationId,
@@ -1310,26 +1462,19 @@ async function resolveSellerIdentityContext(
     };
   }
 
-  const mappedSubOrg = await ctx.db.get(mappedSubOrgIdRaw as Id<"organizations">);
-  if (!mappedSubOrg) {
-    console.warn("[Hub-GW OAuth] Ignoring missing crm_organization.customProperties.platformSubOrgId", {
-      crmOrganizationId: String(crmOrganizationId),
-      platformSubOrgId: mappedSubOrgIdRaw,
-    });
-    return {
-      crmContactId: matchingContact._id,
+  let resolvedSubOrgId: Id<"organizations"> | null = null;
+  for (const candidate of mappingCandidates) {
+    resolvedSubOrgId = await resolveSubOrgMappingCandidate(ctx, {
+      candidate,
       crmOrganizationId,
-      subOrgId: null,
-      isSeller: false,
-    };
+      parentOrganizationId: args.parentOrganizationId,
+    });
+    if (resolvedSubOrgId) {
+      break;
+    }
   }
 
-  if (String(mappedSubOrg.parentOrganizationId) !== String(args.parentOrganizationId)) {
-    console.warn("[Hub-GW OAuth] Ignoring platformSubOrgId outside parent-org scope", {
-      crmOrganizationId: String(crmOrganizationId),
-      platformSubOrgId: mappedSubOrgIdRaw,
-      parentOrganizationId: String(args.parentOrganizationId),
-    });
+  if (!resolvedSubOrgId) {
     return {
       crmContactId: matchingContact._id,
       crmOrganizationId,
@@ -1341,7 +1486,7 @@ async function resolveSellerIdentityContext(
   return {
     crmContactId: matchingContact._id,
     crmOrganizationId,
-    subOrgId: mappedSubOrg._id,
+    subOrgId: resolvedSubOrgId,
     isSeller: true,
   };
 }

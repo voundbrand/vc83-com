@@ -24,6 +24,26 @@ const GOOGLE_REQUIRED_SCOPES = [
   "https://www.googleapis.com/auth/calendar",
 ];
 
+function normalizeScopeList(scopes: unknown): string[] {
+  if (!Array.isArray(scopes)) {
+    return [];
+  }
+
+  const normalizedScopes = new Set<string>();
+  for (const scope of scopes) {
+    if (typeof scope !== "string") {
+      continue;
+    }
+
+    const normalizedScope = scope.trim();
+    if (normalizedScope) {
+      normalizedScopes.add(normalizedScope);
+    }
+  }
+
+  return Array.from(normalizedScopes);
+}
+
 /**
  * Generate Google OAuth authorization URL
  * User will be redirected to this URL to grant permissions
@@ -65,6 +85,11 @@ export const initiateGoogleOAuth = mutation({
       }
     }
 
+    // Build scope string from required + requested scopes
+    const requestedScopes = normalizeScopeList(args.requestedScopes || []);
+    const allScopes = normalizeScopeList([...GOOGLE_REQUIRED_SCOPES, ...requestedScopes]);
+    const scopeString = allScopes.join(" ");
+
     // Generate CSRF state token
     const state = crypto.randomUUID();
 
@@ -75,6 +100,8 @@ export const initiateGoogleOAuth = mutation({
       organizationId: user.defaultOrgId,
       connectionType: args.connectionType,
       provider: "google",
+      requestedScopes,
+      allScopes,
       createdAt: Date.now(),
       expiresAt: Date.now() + 10 * 60 * 1000, // 10 minutes
     });
@@ -90,11 +117,6 @@ export const initiateGoogleOAuth = mutation({
       appUrl: process.env.NEXT_PUBLIC_APP_URL,
       redirectUri,
     });
-
-    // Build scope string from required + requested scopes
-    const requestedScopes = args.requestedScopes || [];
-    const allScopes = [...new Set([...GOOGLE_REQUIRED_SCOPES, ...requestedScopes])];
-    const scopeString = allScopes.join(" ");
 
     console.log("Google OAuth Scopes:", { requiredScopes: GOOGLE_REQUIRED_SCOPES, requestedScopes, allScopes });
 
@@ -130,6 +152,7 @@ export const handleGoogleCallback = action({
   args: {
     code: v.string(),
     state: v.string(),
+    grantedScopes: v.optional(v.array(v.string())),
   },
   handler: async (ctx, args): Promise<{
     success: boolean;
@@ -141,6 +164,7 @@ export const handleGoogleCallback = action({
       userId: Id<"users">;
       organizationId: Id<"organizations">;
       connectionType: "personal" | "organizational";
+      allScopes?: string[];
     } | null = await (ctx as any).runQuery(generatedApi.internal.oauth.google.verifyState, {
       state: args.state,
     });
@@ -191,14 +215,28 @@ export const handleGoogleCallback = action({
 
     const profile = await profileResponse.json();
 
+    const grantedScopes = normalizeScopeList(args.grantedScopes || []);
+    const tokenScopes = typeof tokenData.scope === "string"
+      ? tokenData.scope.split(" ")
+      : [];
+    const effectiveScopes = normalizeScopeList(
+      grantedScopes.length > 0
+        ? grantedScopes
+        : tokenScopes.length > 0
+          ? tokenScopes
+          : stateRecord.allScopes || GOOGLE_REQUIRED_SCOPES
+    );
+
     // Encrypt tokens before storage
     const encryptedAccessToken: string = await (ctx as any).runAction(generatedApi.internal.oauth.encryption.encryptToken, {
       plaintext: tokenData.access_token,
     });
 
-    const encryptedRefreshToken: string = await (ctx as any).runAction(generatedApi.internal.oauth.encryption.encryptToken, {
-      plaintext: tokenData.refresh_token || tokenData.access_token, // Use access token if no refresh token
-    });
+    const encryptedRefreshToken = tokenData.refresh_token
+      ? await (ctx as any).runAction(generatedApi.internal.oauth.encryption.encryptToken, {
+          plaintext: tokenData.refresh_token,
+        })
+      : undefined;
 
     // Calculate token expiration
     const tokenExpiresAt = Date.now() + (tokenData.expires_in * 1000);
@@ -214,7 +252,7 @@ export const handleGoogleCallback = action({
       accessToken: encryptedAccessToken,
       refreshToken: encryptedRefreshToken,
       tokenExpiresAt,
-      scopes: tokenData.scope ? tokenData.scope.split(" ") : GOOGLE_REQUIRED_SCOPES,
+      scopes: effectiveScopes,
       metadata: {
         name: profile.name,
         picture: profile.picture,
@@ -293,6 +331,7 @@ export const verifyState = internalQuery({
       userId: stateRecord.userId,
       organizationId: stateRecord.organizationId,
       connectionType: stateRecord.connectionType,
+      allScopes: normalizeScopeList(stateRecord.allScopes),
     };
   },
 });
@@ -309,7 +348,7 @@ export const storeConnection = internalMutation({
     providerEmail: v.string(),
     connectionType: v.union(v.literal("personal"), v.literal("organizational")),
     accessToken: v.string(),
-    refreshToken: v.string(),
+    refreshToken: v.optional(v.string()),
     tokenExpiresAt: v.number(),
     scopes: v.array(v.string()),
     metadata: v.any(),
@@ -331,19 +370,30 @@ export const storeConnection = internalMutation({
       .first();
 
     if (existing) {
-      // Update existing connection
-      await ctx.db.patch(existing._id, {
+      const updates: Record<string, unknown> = {
         providerAccountId: args.providerAccountId,
         providerEmail: args.providerEmail,
         accessToken: args.accessToken,
-        refreshToken: args.refreshToken,
         tokenExpiresAt: args.tokenExpiresAt,
         scopes: args.scopes,
-        customProperties: args.metadata, // Store metadata in customProperties
+        customProperties: {
+          ...(existing.customProperties || {}),
+          ...(args.metadata || {}),
+        },
         status: "active",
         updatedAt: Date.now(),
-      });
+      };
+      if (args.refreshToken) {
+        updates.refreshToken = args.refreshToken;
+      }
+
+      // Update existing connection
+      await ctx.db.patch(existing._id, updates);
       return existing._id;
+    }
+
+    if (!args.refreshToken) {
+      throw new Error("Google OAuth did not return a refresh token");
     }
 
     // Create new connection
