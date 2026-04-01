@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { Id } from "../../../convex/_generated/dataModel";
-import { useAction } from "convex/react";
+import { useAction, useQuery } from "convex/react";
 // Dynamic require to avoid TS2589 deep type instantiation on generated Convex API types.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const { api: apiAny } = require("../../../convex/_generated/api") as { api: any };
@@ -43,6 +43,7 @@ type TabType =
   | "account-deletion";
 type ExportState = "idle" | "exporting" | "success" | "error";
 type DeletionState = "idle" | "confirming" | "deleting" | "deleted" | "error";
+type ComplianceScopeMode = "org" | "platform";
 
 interface ComplianceWindowProps {
   /** When true, shows back-to-desktop navigation (for /compliance route) */
@@ -50,6 +51,21 @@ interface ComplianceWindowProps {
   /** Optional initial tab override for deep-linked entrypoints */
   initialTab?: TabType;
 }
+
+type ComplianceScopeContext = {
+  currentOrganizationId: string;
+  currentOrganizationName: string | null;
+  isSuperAdmin: boolean;
+  platformOrganizationId: string | null;
+  platformOrganizationName: string | null;
+  platformModeAvailable: boolean;
+  platformModeAvailabilityReason:
+    | "not_super_admin"
+    | "platform_org_not_configured"
+    | "platform_org_unavailable"
+    | "available";
+  platformModeActive: boolean;
+};
 
 /**
  * Compliance Window
@@ -64,6 +80,7 @@ export function ComplianceWindow({ fullScreen = false, initialTab }: ComplianceW
   // Tab state defaults are resolved once auth/license context is known.
   const { isAvailable: complianceAvailable, isLoading: licenseLoading } = useAppAvailability("compliance");
   const [activeTab, setActiveTab] = useState<TabType>("account-deletion");
+  const [scopeMode, setScopeMode] = useState<ComplianceScopeMode>("org");
   const initialTabResolvedRef = useRef(false);
 
   // PDF converter state
@@ -100,6 +117,31 @@ export function ComplianceWindow({ fullScreen = false, initialTab }: ComplianceW
   const convertToPdf = useAction(apiAny.compliance.convertMarkdownToPdf);
   const exportUserData = useAction(apiAny.compliance.exportUserData);
   const permanentlyDeleteAccount = useAction(apiAny.compliance.permanentlyDeleteAccountImmediate);
+  const scopeContext = useQuery(
+    apiAny.complianceControlPlane.getComplianceScopeContext,
+    sessionId ? { sessionId } : "skip",
+  ) as ComplianceScopeContext | undefined;
+
+  useEffect(() => {
+    if (!scopeContext?.platformModeAvailable && scopeMode === "platform") {
+      setScopeMode("org");
+    }
+  }, [scopeContext?.platformModeAvailable, scopeMode]);
+
+  const complianceOperationsOrganizationId =
+    scopeMode === "platform"
+      && scopeContext?.platformModeAvailable
+      && scopeContext.platformOrganizationId
+      ? scopeContext.platformOrganizationId
+      : organizationId;
+  const isComplianceTargetPlatformOrg = Boolean(
+    scopeContext?.platformOrganizationId
+    && complianceOperationsOrganizationId
+    && String(scopeContext.platformOrganizationId) === String(complianceOperationsOrganizationId),
+  );
+  const canMutateComplianceDecisions = Boolean(
+    isOrgOwner || (isSuperAdmin && isComplianceTargetPlatformOrg),
+  );
 
   useEffect(() => {
     if (initialTabResolvedRef.current || licenseLoading) {
@@ -443,6 +485,63 @@ Either party may terminate this Agreement with thirty (30) days written notice.
           )}
         </div>
       </div>
+
+      {isSuperAdmin && (
+        <div
+          className="px-4 py-3 border-b"
+          style={{ borderColor: "var(--win95-border)", background: "var(--win95-surface)" }}
+        >
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold" style={{ color: "var(--win95-text)" }}>
+                Compliance Scope
+              </p>
+              <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
+                {scopeMode === "platform"
+                  ? `Platform mode${scopeContext?.platformOrganizationName ? ` (${scopeContext.platformOrganizationName})` : ""}`
+                  : `Org mode${currentOrganization?.name ? ` (${currentOrganization.name})` : ""}`}
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setScopeMode("org")}
+                className="px-3 py-1.5 text-xs font-semibold rounded border"
+                style={{
+                  borderColor: "var(--win95-border)",
+                  background: scopeMode === "org" ? "var(--win95-bg-light)" : "var(--win95-button-face)",
+                  color: "var(--win95-text)",
+                }}
+              >
+                Org mode
+              </button>
+              <button
+                type="button"
+                onClick={() => setScopeMode("platform")}
+                disabled={!scopeContext?.platformModeAvailable}
+                className="px-3 py-1.5 text-xs font-semibold rounded border disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{
+                  borderColor: "var(--win95-border)",
+                  background: scopeMode === "platform" ? "var(--win95-bg-light)" : "var(--win95-button-face)",
+                  color: "var(--win95-text)",
+                }}
+                title={
+                  scopeContext?.platformModeAvailable
+                    ? `Switch to platform mode${scopeContext.platformOrganizationName ? ` (${scopeContext.platformOrganizationName})` : ""}`
+                    : "Platform mode unavailable: configure PLATFORM_ORG_ID/TEST_ORG_ID and ensure platform org is active."
+                }
+              >
+                Platform mode
+              </button>
+            </div>
+          </div>
+          <p className="mt-2 text-xs" style={{ color: "var(--neutral-gray)" }}>
+            {scopeMode === "platform"
+              ? "Platform mode targets platform-organization compliance records and enables super-admin mutation authority."
+              : "Org mode is review-focused for super-admin. To mutate AVV/workflow state as super-admin, switch to Platform mode."}
+          </p>
+        </div>
+      )}
 
       {/* Tabs */}
       <div
@@ -843,7 +942,7 @@ Either party may terminate this Agreement with thirty (30) days written notice.
           <div className="max-w-6xl mx-auto">
             <ComplianceInboxTab
               sessionId={sessionId}
-              organizationId={organizationId as Id<"organizations">}
+              organizationId={complianceOperationsOrganizationId as Id<"organizations">}
               isOrgOwner={isOrgOwner}
               isSuperAdmin={isSuperAdmin}
             />
@@ -855,9 +954,10 @@ Either party may terminate this Agreement with thirty (30) days written notice.
           <div className="max-w-6xl mx-auto">
             <ComplianceEvidenceVaultTab
               sessionId={sessionId}
-              organizationId={organizationId as Id<"organizations">}
+              organizationId={complianceOperationsOrganizationId as Id<"organizations">}
               isOrgOwner={isOrgOwner}
               isSuperAdmin={isSuperAdmin}
+              canEdit={canMutateComplianceDecisions}
             />
           </div>
         )}
@@ -867,9 +967,10 @@ Either party may terminate this Agreement with thirty (30) days written notice.
           <div className="max-w-6xl mx-auto">
             <ComplianceOrgGovernanceTab
               sessionId={sessionId}
-              organizationId={organizationId as Id<"organizations">}
+              organizationId={complianceOperationsOrganizationId as Id<"organizations">}
               isOrgOwner={isOrgOwner}
               isSuperAdmin={isSuperAdmin}
+              canEdit={canMutateComplianceDecisions}
             />
           </div>
         )}

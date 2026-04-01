@@ -7,6 +7,7 @@ describe("compliance inheritance authority policy", () => {
       hasOrgOwnerDecisionAuthority({
         isOrgOwner: true,
         isSuperAdmin: false,
+        isPlatformOrg: false,
       }),
     ).toBe(true);
   });
@@ -16,6 +17,7 @@ describe("compliance inheritance authority policy", () => {
       hasOrgOwnerDecisionAuthority({
         isOrgOwner: false,
         isSuperAdmin: true,
+        isPlatformOrg: false,
       }),
     ).toBe(false);
   });
@@ -25,7 +27,18 @@ describe("compliance inheritance authority policy", () => {
       hasOrgOwnerDecisionAuthority({
         isOrgOwner: true,
         isSuperAdmin: true,
+        isPlatformOrg: false,
       }),
     ).toBe(false);
+  });
+
+  it("allows super-admin mutation authority on configured platform org", () => {
+    expect(
+      hasOrgOwnerDecisionAuthority({
+        isOrgOwner: false,
+        isSuperAdmin: true,
+        isPlatformOrg: true,
+      }),
+    ).toBe(true);
   });
 });

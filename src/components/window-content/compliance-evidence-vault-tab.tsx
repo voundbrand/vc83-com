@@ -61,6 +61,39 @@ type PlatformSharedEvidenceSnapshot = {
   total: number;
 };
 
+type PlatformTrustPackageEntry = {
+  evidenceObjectId: string;
+  title: string;
+  sourceOrganizationId: string;
+  subtype: EvidenceSubtype | null;
+  sourceType: EvidenceSourceType | null;
+  inheritanceScope: EvidenceInheritanceScope | null;
+  lifecycleStatus: EvidenceLifecycleStatus | null;
+  updatedAt: number;
+  nextReviewAt: number | null;
+  retentionDeleteAt: number | null;
+  riskIds: RiskId[];
+  checksumSha256: string | null;
+  downloadUrl: string | null;
+  downloadStatus:
+    | "ready"
+    | "missing_integrity_media"
+    | "media_record_missing"
+    | "storage_unavailable"
+    | "url_generation_failed";
+};
+
+type PlatformTrustPackageSnapshot = {
+  contractVersion: string;
+  generatedAt: number;
+  packageVersion: string;
+  advisoryOnly: boolean;
+  totalEntries: number;
+  sourceOrganizationCount: number;
+  latestUpdatedAt: number | null;
+  entries: PlatformTrustPackageEntry[];
+};
+
 type EvidenceRiskTimelineSnapshot = {
   organizationId: string;
   entries: Array<{
@@ -124,6 +157,7 @@ interface ComplianceEvidenceVaultTabProps {
   organizationId: Id<"organizations">;
   isOrgOwner: boolean;
   isSuperAdmin: boolean;
+  canEdit: boolean;
 }
 
 const RISK_OPTIONS: RiskId[] = ["R-002", "R-003", "R-004", "R-005"];
@@ -175,6 +209,37 @@ function sourceStyles(sourceType: EvidenceSourceType | null): { background: stri
     return { background: "var(--success-bg)", color: "var(--success)" };
   }
   return { background: "var(--desktop-shell-accent)", color: "var(--desktop-menu-text-muted)" };
+}
+
+function trustPackageDownloadStatusLabel(status: PlatformTrustPackageEntry["downloadStatus"]): string {
+  if (status === "ready") {
+    return "Ready";
+  }
+  if (status === "missing_integrity_media") {
+    return "Missing media linkage";
+  }
+  if (status === "media_record_missing") {
+    return "Media record missing";
+  }
+  if (status === "storage_unavailable") {
+    return "Storage unavailable";
+  }
+  return "URL generation failed";
+}
+
+function downloadJsonFile(args: {
+  filename: string;
+  payload: Record<string, unknown>;
+}): void {
+  const blob = new Blob([JSON.stringify(args.payload, null, 2)], {
+    type: "application/json",
+  });
+  const objectUrl = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = objectUrl;
+  anchor.download = args.filename;
+  anchor.click();
+  URL.revokeObjectURL(objectUrl);
 }
 
 function evidenceTypeOptions(): Array<{ value: TypeFilter; label: string }> {
@@ -344,8 +409,10 @@ export function ComplianceEvidenceVaultTab({
   organizationId,
   isOrgOwner,
   isSuperAdmin,
+  canEdit,
 }: ComplianceEvidenceVaultTabProps) {
   const hasAccess = isOrgOwner || isSuperAdmin;
+  const canPublishPlatformShared = isSuperAdmin && canEdit;
   const [riskFilter, setRiskFilter] = useState<RiskFilter>("all");
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
   const [sourceFilter, setSourceFilter] = useState<SourceFilter>("all");
@@ -358,6 +425,7 @@ export function ComplianceEvidenceVaultTab({
   const [isChecksumComputing, setIsChecksumComputing] = useState(false);
   const [checksumError, setChecksumError] = useState<string | null>(null);
   const [redactionReviewConfirmed, setRedactionReviewConfirmed] = useState(false);
+  const [publishPlatformShared, setPublishPlatformShared] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [uploadSuccess, setUploadSuccess] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -367,6 +435,7 @@ export function ComplianceEvidenceVaultTab({
   const [supportingSuccess, setSupportingSuccess] = useState<string | null>(null);
   const [supportingBusyEvidenceId, setSupportingBusyEvidenceId] = useState<string | null>(null);
   const [supportingRiskTargets, setSupportingRiskTargets] = useState<Record<string, RiskId>>({});
+  const [trustPackageExportError, setTrustPackageExportError] = useState<string | null>(null);
 
   const generateEvidenceUploadUrl = useMutation(apiAny.complianceEvidenceVault.generateEvidenceUploadUrl);
   const completeEvidenceUpload = useMutation(apiAny.complianceEvidenceVault.completeEvidenceUpload);
@@ -405,6 +474,15 @@ export function ComplianceEvidenceVaultTab({
         }
       : "skip",
   ) as PlatformSharedEvidenceSnapshot | undefined;
+  const trustPackageSnapshot = useQuery(
+    apiAny.complianceControlPlane.getCompliancePlatformTrustPackage,
+    hasAccess
+      ? {
+          sessionId,
+          organizationId,
+        }
+      : "skip",
+  ) as PlatformTrustPackageSnapshot | undefined;
 
   const providerQuery = providerFilter.trim().toLowerCase();
   const filteredRows = useMemo(() => {
@@ -462,6 +540,42 @@ export function ComplianceEvidenceVaultTab({
     }
     return counts;
   }, [filteredRows]);
+
+  const handleExportTrustPackageManifest = () => {
+    if (!trustPackageSnapshot) {
+      setTrustPackageExportError("Trust package is not loaded yet.");
+      return;
+    }
+    setTrustPackageExportError(null);
+    const manifestEntries = trustPackageSnapshot.entries.map((entry) => ({
+      evidenceObjectId: entry.evidenceObjectId,
+      title: entry.title,
+      sourceOrganizationId: entry.sourceOrganizationId,
+      subtype: entry.subtype,
+      sourceType: entry.sourceType,
+      inheritanceScope: entry.inheritanceScope,
+      lifecycleStatus: entry.lifecycleStatus,
+      updatedAt: entry.updatedAt,
+      nextReviewAt: entry.nextReviewAt,
+      retentionDeleteAt: entry.retentionDeleteAt,
+      riskIds: entry.riskIds,
+      checksumSha256: entry.checksumSha256,
+      downloadStatus: entry.downloadStatus,
+    }));
+    downloadJsonFile({
+      filename: `platform-trust-package-${trustPackageSnapshot.packageVersion}.json`,
+      payload: {
+        contractVersion: trustPackageSnapshot.contractVersion,
+        generatedAt: trustPackageSnapshot.generatedAt,
+        packageVersion: trustPackageSnapshot.packageVersion,
+        advisoryOnly: trustPackageSnapshot.advisoryOnly,
+        totalEntries: trustPackageSnapshot.totalEntries,
+        sourceOrganizationCount: trustPackageSnapshot.sourceOrganizationCount,
+        latestUpdatedAt: trustPackageSnapshot.latestUpdatedAt,
+        entries: manifestEntries,
+      },
+    });
+  };
 
   useEffect(() => {
     if (filteredRows.length === 0) {
@@ -546,6 +660,12 @@ export function ComplianceEvidenceVaultTab({
     uploadForm.notes,
   ]);
 
+  useEffect(() => {
+    if (!canPublishPlatformShared && publishPlatformShared) {
+      setPublishPlatformShared(false);
+    }
+  }, [canPublishPlatformShared, publishPlatformShared]);
+
   const updateUploadForm = (updates: Partial<UploadFormState>) => {
     setUploadForm((current) => ({ ...current, ...updates }));
   };
@@ -572,6 +692,7 @@ export function ComplianceEvidenceVaultTab({
     setSelectedFileChecksum(null);
     setChecksumError(null);
     setRedactionReviewConfirmed(false);
+    setPublishPlatformShared(false);
   };
 
   const validateUploadInputs = (): string[] => {
@@ -653,6 +774,7 @@ export function ComplianceEvidenceVaultTab({
 
     setIsUploading(true);
     try {
+      const shouldPublishPlatformShared = canPublishPlatformShared && publishPlatformShared;
       const uploadTicket = await generateEvidenceUploadUrl({
         sessionId,
         organizationId,
@@ -688,8 +810,9 @@ export function ComplianceEvidenceVaultTab({
         sourceType: uploadForm.sourceType,
         sensitivity: uploadForm.sensitivity,
         lifecycleStatus: uploadForm.lifecycleStatus,
-        inheritanceScope: "none",
-        inheritanceEligible: false,
+        inheritanceScope: shouldPublishPlatformShared ? "platform_shared" : "none",
+        inheritanceEligible: shouldPublishPlatformShared,
+        platformShareScope: shouldPublishPlatformShared ? "fleet_all_orgs" : undefined,
         riskReferences: uploadForm.selectedRiskIds.map((riskId) => ({
           riskId,
           controlId: uploadForm.controlId.trim() || undefined,
@@ -719,8 +842,10 @@ export function ComplianceEvidenceVaultTab({
     setSupportingError(null);
     setSupportingSuccess(null);
 
-    if (!isOrgOwner) {
-      setSupportingError("Only organization owners can attach supporting evidence to risk workflows.");
+    if (!canEdit) {
+      setSupportingError(
+        "Only organization owners, or super-admin in platform mode, can attach supporting evidence to risk workflows.",
+      );
       return;
     }
 
@@ -803,6 +928,150 @@ export function ComplianceEvidenceVaultTab({
             Deterministic listing with fail-closed filters for risk, provider, evidence type, source, and expiry.
           </p>
         </div>
+      </div>
+
+      <div className="rounded border p-3 space-y-3" style={{ borderColor: "var(--win95-border)", background: "var(--win95-surface)" }}>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="text-sm font-semibold" style={{ color: "var(--win95-text)" }}>
+              Platform trust package (advisory export)
+            </p>
+            <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
+              Exportable platform compliance package metadata and per-document download links for operator review.
+            </p>
+          </div>
+          <button
+            onClick={handleExportTrustPackageManifest}
+            disabled={!trustPackageSnapshot || trustPackageSnapshot.totalEntries === 0}
+            className="rounded border px-3 py-1.5 text-xs font-semibold disabled:opacity-50"
+            style={{
+              borderColor: "var(--win95-border)",
+              background: "var(--desktop-shell-accent)",
+              color: "var(--desktop-menu-text-muted)",
+            }}
+          >
+            Export package manifest
+          </button>
+        </div>
+
+        {trustPackageExportError ? (
+          <div className="rounded border p-2" style={{ borderColor: "var(--error)", background: "var(--color-error-subtle)" }}>
+            <p className="flex items-center gap-2 text-xs" style={{ color: "var(--error)" }}>
+              <AlertCircle size={14} />
+              {trustPackageExportError}
+            </p>
+          </div>
+        ) : null}
+
+        {trustPackageSnapshot === undefined ? (
+          <div className="flex items-center gap-2 text-xs" style={{ color: "var(--neutral-gray)" }}>
+            <Loader2 size={14} className="animate-spin" />
+            Loading platform trust package...
+          </div>
+        ) : (
+          <>
+            <div className="grid gap-2 md:grid-cols-4">
+              <div className="rounded border px-2 py-1.5 text-xs" style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg)" }}>
+                <p style={{ color: "var(--neutral-gray)" }}>Package version</p>
+                <p className="font-semibold" style={{ color: "var(--win95-text)" }}>
+                  {trustPackageSnapshot.packageVersion}
+                </p>
+              </div>
+              <div className="rounded border px-2 py-1.5 text-xs" style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg)" }}>
+                <p style={{ color: "var(--neutral-gray)" }}>Entries</p>
+                <p className="font-semibold" style={{ color: "var(--win95-text)" }}>
+                  {trustPackageSnapshot.totalEntries}
+                </p>
+              </div>
+              <div className="rounded border px-2 py-1.5 text-xs" style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg)" }}>
+                <p style={{ color: "var(--neutral-gray)" }}>Source orgs</p>
+                <p className="font-semibold" style={{ color: "var(--win95-text)" }}>
+                  {trustPackageSnapshot.sourceOrganizationCount}
+                </p>
+              </div>
+              <div className="rounded border px-2 py-1.5 text-xs" style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg)" }}>
+                <p style={{ color: "var(--neutral-gray)" }}>Latest update</p>
+                <p className="font-semibold" style={{ color: "var(--win95-text)" }}>
+                  {formatDate(trustPackageSnapshot.latestUpdatedAt)}
+                </p>
+              </div>
+            </div>
+
+            <p className="text-xs" style={{ color: "var(--warning)" }}>
+              Advisory only: package inheritance does not clear tenant gate blockers until org-local adoption/evidence links are recorded.
+            </p>
+
+            {trustPackageSnapshot.totalEntries === 0 ? (
+              <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+                No platform trust-package entries are currently visible for this organization.
+              </p>
+            ) : (
+              <div className="rounded border overflow-hidden" style={{ borderColor: "var(--win95-border)" }}>
+                <table className="w-full text-left text-xs">
+                  <thead style={{ background: "var(--desktop-shell-accent)" }}>
+                    <tr>
+                      <th className="px-3 py-2 font-semibold">Document</th>
+                      <th className="px-3 py-2 font-semibold">Risk links</th>
+                      <th className="px-3 py-2 font-semibold">Checksum</th>
+                      <th className="px-3 py-2 font-semibold">Status</th>
+                      <th className="px-3 py-2 font-semibold">Updated</th>
+                      <th className="px-3 py-2 font-semibold">Download</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {trustPackageSnapshot.entries.map((entry) => (
+                      <tr key={entry.evidenceObjectId} className="border-t" style={{ borderColor: "var(--win95-border)" }}>
+                        <td className="px-3 py-2">
+                          <p className="font-semibold" style={{ color: "var(--win95-text)" }}>
+                            {entry.title}
+                          </p>
+                          <p style={{ color: "var(--neutral-gray)" }}>
+                            {entry.subtype ? normalizeLabel(entry.subtype) : "unknown"} | {entry.sourceOrganizationId}
+                          </p>
+                        </td>
+                        <td className="px-3 py-2" style={{ color: "var(--neutral-gray)" }}>
+                          {entry.riskIds.length > 0 ? entry.riskIds.join(", ") : "none"}
+                        </td>
+                        <td className="px-3 py-2" style={{ color: "var(--neutral-gray)" }}>
+                          {entry.checksumSha256 ?? "n/a"}
+                        </td>
+                        <td className="px-3 py-2" style={{ color: "var(--neutral-gray)" }}>
+                          {trustPackageDownloadStatusLabel(entry.downloadStatus)}
+                        </td>
+                        <td className="px-3 py-2" style={{ color: "var(--neutral-gray)" }}>
+                          {formatDate(entry.updatedAt)}
+                        </td>
+                        <td className="px-3 py-2">
+                          <button
+                            onClick={() => {
+                              if (!entry.downloadUrl) {
+                                setTrustPackageExportError(
+                                  `Download unavailable for ${entry.title}: ${trustPackageDownloadStatusLabel(entry.downloadStatus)}.`,
+                                );
+                                return;
+                              }
+                              setTrustPackageExportError(null);
+                              window.open(entry.downloadUrl, "_blank", "noopener,noreferrer");
+                            }}
+                            disabled={!entry.downloadUrl}
+                            className="rounded border px-2 py-1 text-[11px] font-semibold disabled:opacity-50"
+                            style={{
+                              borderColor: "var(--win95-border)",
+                              background: "var(--win95-highlight)",
+                              color: "white",
+                            }}
+                          >
+                            Download
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </>
+        )}
       </div>
 
       <div className="rounded border p-3 space-y-3" style={{ borderColor: "var(--win95-border)", background: "var(--win95-surface)" }}>
@@ -890,7 +1159,7 @@ export function ComplianceEvidenceVaultTab({
                             }
                             className="border rounded px-2 py-1 text-[11px]"
                             style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg)" }}
-                            disabled={supportingBusyEvidenceId !== null || !isOrgOwner}
+                            disabled={supportingBusyEvidenceId !== null || !canEdit}
                           >
                             {targetRiskOptions.map((riskId) => (
                               <option key={riskId} value={riskId}>
@@ -900,7 +1169,7 @@ export function ComplianceEvidenceVaultTab({
                           </select>
                           <button
                             onClick={() => handleUseSupportingEvidence(row)}
-                            disabled={!isOrgOwner || supportingBusyEvidenceId !== null}
+                            disabled={!canEdit || supportingBusyEvidenceId !== null}
                             className="rounded border px-2 py-1 text-[11px] font-semibold disabled:opacity-50"
                             style={{
                               borderColor: "var(--win95-border)",
@@ -1235,6 +1504,22 @@ export function ComplianceEvidenceVaultTab({
             ))}
           </div>
         </div>
+
+        {canPublishPlatformShared ? (
+          <label className="inline-flex items-center gap-2 text-xs" style={{ color: "var(--win95-text)" }}>
+            <input
+              type="checkbox"
+              checked={publishPlatformShared}
+              onChange={(event) => setPublishPlatformShared(event.target.checked)}
+              disabled={isUploading}
+            />
+            Publish this evidence as platform-shared (inherited advisory context for all organizations)
+          </label>
+        ) : isSuperAdmin ? (
+          <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+            Platform-shared publishing is available in Platform mode.
+          </p>
+        ) : null}
 
         <div className="flex items-center justify-between gap-3">
           <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>

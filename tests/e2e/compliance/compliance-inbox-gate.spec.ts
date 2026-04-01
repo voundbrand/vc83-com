@@ -167,12 +167,14 @@ test.describe("Compliance Inbox -> Gate flow", () => {
       hasOrgOwnerDecisionAuthority({
         isOrgOwner: true,
         isSuperAdmin: false,
+        isPlatformOrg: false,
       }),
     ).toBe(true);
     expect(
       hasOrgOwnerDecisionAuthority({
         isOrgOwner: false,
         isSuperAdmin: true,
+        isPlatformOrg: false,
       }),
     ).toBe(false);
   });

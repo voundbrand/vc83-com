@@ -73,6 +73,27 @@ type SecurityWorkflowDraft = {
   };
 };
 
+type AvvOutreachState =
+  | "draft"
+  | "pending_confirmation"
+  | "queued"
+  | "sent"
+  | "awaiting_response"
+  | "response_received"
+  | "approved"
+  | "rejected"
+  | "escalated"
+  | "closed_blocked";
+
+type AvvOutreachSnapshot = {
+  rows: Array<{
+    dossierObjectId: string;
+    providerName: string | null;
+    providerEmail: string | null;
+    state: AvvOutreachState;
+  }>;
+};
+
 function resolveWorkflow(action: ComplianceInboxWizardAction | null): WorkflowKind {
   if (!action?.riskId) {
     return null;
@@ -87,6 +108,29 @@ function resolveWorkflow(action: ComplianceInboxWizardAction | null): WorkflowKi
     return "security";
   }
   return null;
+}
+
+function parseDateInputToTimestamp(value: string): number | null {
+  const normalized = value.trim();
+  if (!normalized) {
+    return null;
+  }
+  const timestamp = new Date(normalized).getTime();
+  return Number.isFinite(timestamp) ? timestamp : null;
+}
+
+function normalizeLookupKey(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+function resolveAvvOutreachStateFromWizard(value: string): AvvOutreachState {
+  if (value === "signed") {
+    return "approved";
+  }
+  if (value === "received") {
+    return "response_received";
+  }
+  return "pending_confirmation";
 }
 
 const WORKFLOW_STEPS: Record<Exclude<WorkflowKind, null>, string[]> = {
@@ -166,7 +210,7 @@ function isWizardDraftSaveDeniedError(error: unknown): boolean {
   if (!(error instanceof Error)) {
     return false;
   }
-  return error.message.includes("Only organization owners can save compliance inbox wizard drafts.");
+  return error.message.includes("save compliance inbox wizard drafts");
 }
 
 export function ComplianceInboxWizard({
@@ -205,6 +249,12 @@ export function ComplianceInboxWizard({
       ? { sessionId, organizationId, actionId: action.actionId }
       : "skip",
   ) as SecurityWorkflowDraft | null | undefined;
+  const avvOutreachSnapshot = useQuery(
+    apiAny.complianceOutreachAgent.listAvvOutreachProviderDossiers,
+    workflow === "avv" && action
+      ? { sessionId, organizationId }
+      : "skip",
+  ) as AvvOutreachSnapshot | undefined;
   const wizardDraftSnapshot = useQuery(
     apiAny.complianceControlPlane.getComplianceInboxWizardDraft,
     canEdit && action ? { sessionId, organizationId } : "skip",
@@ -290,6 +340,28 @@ export function ComplianceInboxWizard({
       blockers: string[];
     };
     failClosed: boolean;
+  }>;
+  const saveAvvOutreachProviderDossier = useMutation(
+    apiAny.complianceOutreachAgent.saveAvvOutreachProviderDossier,
+  ) as (args: {
+    sessionId: string;
+    organizationId: Id<"organizations">;
+    dossierObjectId?: Id<"objects">;
+    providerName: string;
+    providerEmail: string;
+    slaFirstDueAt: number;
+    slaReminderAt?: number;
+    slaEscalationAt?: number;
+    state?: AvvOutreachState;
+    stateReason?: string;
+    notes?: string;
+    wizardActionId?: string;
+    wizardWorkflowState?: string;
+  }) => Promise<{
+    success: boolean;
+    dossierObjectId: string;
+    state: AvvOutreachState;
+    updatedAt: number;
   }>;
 
   useEffect(() => {
@@ -653,16 +725,59 @@ export function ComplianceInboxWizard({
         | null = null;
 
       if (workflow === "avv") {
+        if (!canEdit) {
+          throw new Error(
+            "Only organization owners, or super-admin in platform mode, can complete AVV workflows.",
+          );
+        }
+        const nextReviewAtTs = parseDateInputToTimestamp(avvForm.nextReviewAt);
+        const slaFirstDueAt = nextReviewAtTs ?? Date.now() + 24 * 60 * 60 * 1000;
+        const slaReminderAt = slaFirstDueAt + 48 * 60 * 60 * 1000;
+        const slaEscalationAt = slaFirstDueAt + 96 * 60 * 60 * 1000;
+        const normalizedEmail = normalizeLookupKey(avvForm.providerEmail);
+        const normalizedName = normalizeLookupKey(avvForm.providerName);
+        const existingDossier = (avvOutreachSnapshot?.rows ?? []).find((row) => {
+          const providerEmail = row.providerEmail ? normalizeLookupKey(row.providerEmail) : "";
+          const providerName = row.providerName ? normalizeLookupKey(row.providerName) : "";
+          return (
+            (normalizedEmail.length > 0 && providerEmail === normalizedEmail)
+            || (normalizedName.length > 0 && providerName === normalizedName)
+          );
+        });
+        const mappedState = resolveAvvOutreachStateFromWizard(avvForm.outreachState);
+        const saveResult = await saveAvvOutreachProviderDossier({
+          sessionId,
+          organizationId,
+          dossierObjectId: existingDossier?.dossierObjectId
+            ? (existingDossier.dossierObjectId as Id<"objects">)
+            : undefined,
+          providerName: avvForm.providerName,
+          providerEmail: avvForm.providerEmail,
+          slaFirstDueAt,
+          slaReminderAt,
+          slaEscalationAt,
+          state: mappedState,
+          stateReason: `Updated from compliance inbox wizard action ${action.actionId}.`,
+          wizardActionId: action.actionId,
+          wizardWorkflowState: avvForm.outreachState,
+          notes: [avvForm.notes, `evidence_ref:${avvForm.avvEvidenceRef}`]
+            .filter((entry) => entry.trim().length > 0)
+            .join(" | "),
+        });
         checklistSummary = {
           providerName: avvForm.providerName,
           providerEmail: avvForm.providerEmail,
           outreachState: avvForm.outreachState,
           avvEvidenceRef: avvForm.avvEvidenceRef,
           nextReviewAt: avvForm.nextReviewAt,
+          dossierObjectId: saveResult.dossierObjectId,
+          persistedOutreachState: saveResult.state,
         };
       } else if (workflow === "transfer") {
         if (!canEdit) {
-          throw new Error("Only organization owners can complete transfer workflows.");
+          throw new Error(
+            "Only organization owners, or super-admin in platform mode, can complete transfer workflows.",
+          );
         }
         transferCompletion = await completeTransferWorkflow({
           sessionId,
@@ -691,7 +806,9 @@ export function ComplianceInboxWizard({
         };
       } else {
         if (!canEdit) {
-          throw new Error("Only organization owners can complete security workflows.");
+          throw new Error(
+            "Only organization owners, or super-admin in platform mode, can complete security workflows.",
+          );
         }
         securityCompletion = await completeSecurityWorkflow({
           sessionId,
@@ -737,7 +854,7 @@ export function ComplianceInboxWizard({
         );
       } else {
         setCompletionMessage(
-          "Checklist captured locally. Evidence submission and workflow persistence are completed in subsequent tasks.",
+          "AVV workflow persisted to outreach dossier state. Inbox counters and outreach queue metrics are now synchronized.",
         );
       }
       setErrorMessage(null);
@@ -776,7 +893,18 @@ export function ComplianceInboxWizard({
           Read-only workflow view
         </p>
         <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-          Only organization owners can save wizard checkpoints and complete compliance checklist mutations.
+          Only organization owners, or super-admin in platform mode, can save wizard checkpoints and complete checklist mutations.
+        </p>
+      </div>
+    );
+  }
+
+  if (workflow === "avv" && avvOutreachSnapshot === undefined) {
+    return (
+      <div className="rounded border p-4" style={{ borderColor: "var(--win95-border)", background: "var(--win95-surface)" }}>
+        <p className="text-xs inline-flex items-center gap-2" style={{ color: "var(--neutral-gray)" }}>
+          <Loader2 size={14} className="animate-spin" />
+          Loading AVV outreach dossiers...
         </p>
       </div>
     );

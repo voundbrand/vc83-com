@@ -106,6 +106,7 @@ interface ComplianceOrgGovernanceTabProps {
   organizationId: Id<"organizations">;
   isOrgOwner: boolean;
   isSuperAdmin: boolean;
+  canEdit: boolean;
 }
 
 const RISK_STATUS_OPTIONS: Array<{ value: RiskStatus; label: string }> = [
@@ -167,6 +168,7 @@ export function ComplianceOrgGovernanceTab({
   organizationId,
   isOrgOwner,
   isSuperAdmin,
+  canEdit,
 }: ComplianceOrgGovernanceTabProps) {
   const hasAccess = isOrgOwner || isSuperAdmin;
 
@@ -282,7 +284,7 @@ export function ComplianceOrgGovernanceTab({
   };
 
   const handleSaveRiskAssessment = async () => {
-    if (!selectedRisk || !selectedRiskDraft || !isOrgOwner) {
+    if (!selectedRisk || !selectedRiskDraft || !canEdit) {
       return;
     }
 
@@ -307,7 +309,7 @@ export function ComplianceOrgGovernanceTab({
   };
 
   const handleAddEvidence = async () => {
-    if (!selectedRisk || !isOrgOwner) {
+    if (!selectedRisk || !canEdit) {
       return;
     }
 
@@ -340,7 +342,7 @@ export function ComplianceOrgGovernanceTab({
   };
 
   const handleSaveGateDecision = async () => {
-    if (!isOrgOwner) {
+    if (!canEdit) {
       return;
     }
     resetMessages();
@@ -502,7 +504,7 @@ export function ComplianceOrgGovernanceTab({
           </div>
         </div>
         <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-          Only org-owner actions in this organization can change risk assessments and gate decisions. Super-admin evidence remains read-only support. Use Evidence Vault inherited rows to attach explicit supporting references per risk.
+          Tenant-org decisions remain org-owner managed. Super-admin can mutate decisions only in platform mode on the configured platform org. Use Evidence Vault inherited rows to attach explicit supporting references per risk.
         </p>
       </div>
 
@@ -608,7 +610,7 @@ export function ComplianceOrgGovernanceTab({
                     style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg)" }}
                     value={selectedRiskDraft.status}
                     onChange={(event) => updateSelectedDraft({ status: event.target.value as RiskStatus })}
-                    disabled={!isOrgOwner}
+                    disabled={!canEdit}
                   >
                     {RISK_STATUS_OPTIONS.map((option) => (
                       <option key={option.value} value={option.value}>
@@ -627,7 +629,7 @@ export function ComplianceOrgGovernanceTab({
                     onChange={(event) =>
                       updateSelectedDraft({ decisionStatus: event.target.value as RiskDecisionStatus })
                     }
-                    disabled={!isOrgOwner}
+                    disabled={!canEdit}
                   >
                     {RISK_DECISION_OPTIONS.map((option) => (
                       <option key={option.value} value={option.value}>
@@ -645,7 +647,7 @@ export function ComplianceOrgGovernanceTab({
                   style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg)", resize: "vertical" }}
                   value={selectedRiskDraft.notes}
                   onChange={(event) => updateSelectedDraft({ notes: event.target.value })}
-                  disabled={!isOrgOwner}
+                  disabled={!canEdit}
                 />
               </label>
 
@@ -655,7 +657,7 @@ export function ComplianceOrgGovernanceTab({
                 </p>
                 <button
                   onClick={handleSaveRiskAssessment}
-                  disabled={!isOrgOwner || busyAction !== null}
+                  disabled={!canEdit || busyAction !== null}
                   className="px-3 py-1.5 rounded text-xs font-semibold disabled:opacity-50"
                   style={{ background: "var(--win95-highlight)", color: "white" }}
                 >
@@ -678,7 +680,7 @@ export function ComplianceOrgGovernanceTab({
                 placeholder="Evidence label"
                 className="w-full border rounded px-2 py-1 text-xs"
                 style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg)" }}
-                disabled={!isOrgOwner}
+                disabled={!canEdit}
               />
               <input
                 type="text"
@@ -687,7 +689,7 @@ export function ComplianceOrgGovernanceTab({
                 placeholder="https://... (optional)"
                 className="w-full border rounded px-2 py-1 text-xs"
                 style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg)" }}
-                disabled={!isOrgOwner}
+                disabled={!canEdit}
               />
               <textarea
                 value={evidenceNotes}
@@ -695,12 +697,12 @@ export function ComplianceOrgGovernanceTab({
                 placeholder="Notes (optional)"
                 className="w-full h-16 border rounded px-2 py-1 text-xs"
                 style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg)", resize: "vertical" }}
-                disabled={!isOrgOwner}
+                disabled={!canEdit}
               />
 
               <button
                 onClick={handleAddEvidence}
-                disabled={!isOrgOwner || busyAction !== null}
+                disabled={!canEdit || busyAction !== null}
                 className="px-3 py-1.5 rounded text-xs font-semibold disabled:opacity-50"
                 style={{ background: "var(--win95-highlight)", color: "white" }}
               >
@@ -758,7 +760,7 @@ export function ComplianceOrgGovernanceTab({
             onChange={(event) => setOwnerDecision(event.target.value as OwnerGateDecision)}
             className="border rounded px-2 py-1 text-xs"
             style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg)" }}
-            disabled={!isOrgOwner}
+            disabled={!canEdit}
           >
             <option value="NO_GO">NO_GO</option>
             <option value="GO">GO</option>
@@ -769,7 +771,7 @@ export function ComplianceOrgGovernanceTab({
             placeholder="Decision notes for audit trail"
             className="w-full h-16 border rounded px-2 py-1 text-xs"
             style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg)", resize: "vertical" }}
-            disabled={!isOrgOwner}
+            disabled={!canEdit}
           />
         </div>
 
@@ -779,7 +781,7 @@ export function ComplianceOrgGovernanceTab({
           </p>
           <button
             onClick={handleSaveGateDecision}
-            disabled={!isOrgOwner || busyAction !== null}
+            disabled={!canEdit || busyAction !== null}
             className="px-3 py-1.5 rounded text-xs font-semibold disabled:opacity-50"
             style={{ background: "var(--win95-highlight)", color: "white" }}
           >

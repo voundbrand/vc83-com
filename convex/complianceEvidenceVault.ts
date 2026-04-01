@@ -15,6 +15,8 @@ import {
 export const COMPLIANCE_EVIDENCE_OBJECT_TYPE = "compliance_evidence";
 export const COMPLIANCE_EVIDENCE_CONTRACT_VERSION = "compliance_evidence_metadata_v1";
 export const COMPLIANCE_EVIDENCE_ENCRYPTION_STATE = "encrypted_at_rest";
+export const COMPLIANCE_PLATFORM_TRUST_PACKAGE_CONTRACT_VERSION =
+  "compliance_platform_trust_package_v1";
 
 export const COMPLIANCE_RISK_ID_VALUES = ["R-002", "R-003", "R-004", "R-005"] as const;
 export const COMPLIANCE_EVIDENCE_SUBTYPE_VALUES = [
@@ -933,6 +935,16 @@ export function isPlatformSharedEvidenceVisibleForOrganization(
     return scopeSet.has(orgKey);
   }
   return !scopeSet.has(orgKey);
+}
+
+export function isPlatformTrustPackageEvidenceRowVisible(args: {
+  row: ComplianceEvidenceVaultRow;
+  organizationId: Id<"organizations">;
+}): boolean {
+  return isPlatformSharedEvidenceVisibleForOrganization(
+    args.row,
+    args.organizationId,
+  );
 }
 
 export type ResolvedComplianceEvidenceRow = ComplianceEvidenceVaultRow & {

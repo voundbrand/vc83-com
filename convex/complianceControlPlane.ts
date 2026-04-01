@@ -15,9 +15,11 @@ import {
 } from "./rbacHelpers";
 import {
   COMPLIANCE_EVIDENCE_OBJECT_TYPE,
+  COMPLIANCE_PLATFORM_TRUST_PACKAGE_CONTRACT_VERSION,
   type ComplianceEvidenceVaultRow,
   mapEvidenceObjectToRow,
   isPlatformSharedEvidenceVisibleForOrganization,
+  isPlatformTrustPackageEvidenceRowVisible,
   resolveEffectiveEvidenceRows,
   type ResolvedComplianceEvidenceRow,
 } from "./complianceEvidenceVault";
@@ -50,6 +52,7 @@ import {
   type ComplianceShadowModeEvaluationStatus,
   type ComplianceShadowModeSurface,
 } from "./schemas/orgAgentActionRuntimeSchemas";
+import { resolvePlatformOrgIdFromEnv } from "./lib/platformOrg";
 
 const COMPLIANCE_RELEASE_GATE_TYPE = "compliance_release_gate";
 const COMPLIANCE_RELEASE_GATE_RISK_SUBTYPE = "risk";
@@ -65,6 +68,8 @@ export const COMPLIANCE_OPERATIONAL_TELEMETRY_CONTRACT_VERSION =
   "compliance_operational_telemetry_v1";
 export const COMPLIANCE_MIGRATION_ROLLOUT_CONTRACT_VERSION =
   "compliance_migration_rollout_v1";
+export const LEGAL_FRONT_OFFICE_COMPLIANCE_EVALUATOR_GATE_CONTRACT_VERSION =
+  "legal_front_office_compliance_evaluator_gate_v1";
 
 const RISK_ID_VALUES = ["R-002", "R-003", "R-004", "R-005"] as const;
 const PLATFORM_SHARE_SCOPE_VALUES = ["fleet_all_orgs", "org_allowlist", "org_denylist"] as const;
@@ -74,17 +79,17 @@ const COMPLIANCE_ROLLOUT_RUNBOOKS = [
   {
     runbookId: "knowledge_compliance_master_plan",
     title: "Knowledge + Compliance Master Plan",
-    path: "/Users/foundbrand_001/Development/vc83-com/docs/platform/knowledge_compliance_architecture/MASTER_PLAN.md",
+    path: "/Users/foundbrand_001/Development/vc83-com/compliance/knowledge_compliance_architecture/MASTER_PLAN.md",
   },
   {
     runbookId: "knowledge_compliance_task_queue",
     title: "Knowledge + Compliance Task Queue",
-    path: "/Users/foundbrand_001/Development/vc83-com/docs/platform/knowledge_compliance_architecture/TASK_QUEUE.md",
+    path: "/Users/foundbrand_001/Development/vc83-com/compliance/knowledge_compliance_architecture/TASK_QUEUE.md",
   },
   {
     runbookId: "knowledge_compliance_session_prompts",
     title: "Knowledge + Compliance Session Prompts",
-    path: "/Users/foundbrand_001/Development/vc83-com/docs/platform/knowledge_compliance_architecture/SESSION_PROMPTS.md",
+    path: "/Users/foundbrand_001/Development/vc83-com/compliance/knowledge_compliance_architecture/SESSION_PROMPTS.md",
   },
 ] as const;
 
@@ -115,10 +120,11 @@ type OrgAccessContext = {
   userId: Id<"users">;
   isSuperAdmin: boolean;
   isOrgOwner: boolean;
+  isPlatformOrg: boolean;
 };
 
 const ORG_OWNER_DECISION_AUTHORITY_ERROR =
-  "Only organization owners in this organization can mutate org-level compliance decisions. Super-admin access is read-only for org decisions.";
+  "Only organization owners can mutate org-level compliance decisions, except super-admin when operating on the configured platform org.";
 
 const RISK_TEMPLATES: RiskTemplate[] = [
   {
@@ -170,6 +176,7 @@ type ComplianceInboxActionType =
   | "missing_evidence"
   | "evidence_review_due"
   | "evidence_retention_expired"
+  | "avv_outreach_follow_up"
   | "workflow_revalidation_warning"
   | "risk_blocker";
 type ComplianceInboxActionPriority = "critical" | "high" | "medium";
@@ -362,6 +369,83 @@ export interface ComplianceShadowModeEvaluationResult {
   reasonCode: string;
 }
 
+export interface LegalFrontOfficeComplianceEvaluatorGateDecision {
+  contractVersion: typeof LEGAL_FRONT_OFFICE_COMPLIANCE_EVALUATOR_GATE_CONTRACT_VERSION;
+  status: "passed" | "blocked";
+  failClosed: boolean;
+  reasonCode: string;
+  evaluatedAt: number;
+  effectiveGateStatus: ComplianceGateStatus | "unknown";
+  evaluationStatus: ComplianceShadowModeEvaluationStatus | "unknown";
+}
+
+export function resolveLegalFrontOfficeComplianceEvaluatorGate(args: {
+  evaluation: ComplianceShadowModeEvaluationResult | null;
+  evaluatorRequired: boolean;
+  evaluatedAt?: number;
+}): LegalFrontOfficeComplianceEvaluatorGateDecision {
+  const evaluatedAt =
+    typeof args.evaluatedAt === "number" && Number.isFinite(args.evaluatedAt)
+      ? args.evaluatedAt
+      : Date.now();
+  if (!args.evaluatorRequired) {
+    return {
+      contractVersion: LEGAL_FRONT_OFFICE_COMPLIANCE_EVALUATOR_GATE_CONTRACT_VERSION,
+      status: "passed",
+      failClosed: false,
+      reasonCode: "no_gate_required",
+      evaluatedAt,
+      effectiveGateStatus: args.evaluation?.effectiveGateStatus ?? "unknown",
+      evaluationStatus: args.evaluation?.evaluationStatus ?? "unknown",
+    };
+  }
+  if (!args.evaluation) {
+    return {
+      contractVersion: LEGAL_FRONT_OFFICE_COMPLIANCE_EVALUATOR_GATE_CONTRACT_VERSION,
+      status: "blocked",
+      failClosed: true,
+      reasonCode: "compliance_evaluator_unavailable",
+      evaluatedAt,
+      effectiveGateStatus: "unknown",
+      evaluationStatus: "unknown",
+    };
+  }
+  if (args.evaluation.evaluationStatus !== "evaluated") {
+    return {
+      contractVersion: LEGAL_FRONT_OFFICE_COMPLIANCE_EVALUATOR_GATE_CONTRACT_VERSION,
+      status: "blocked",
+      failClosed: true,
+      reasonCode: "compliance_evaluator_not_evaluated",
+      evaluatedAt,
+      effectiveGateStatus: args.evaluation.effectiveGateStatus,
+      evaluationStatus: args.evaluation.evaluationStatus,
+    };
+  }
+  if (
+    args.evaluation.effectiveGateStatus !== "GO"
+    || args.evaluation.wouldBlock
+  ) {
+    return {
+      contractVersion: LEGAL_FRONT_OFFICE_COMPLIANCE_EVALUATOR_GATE_CONTRACT_VERSION,
+      status: "blocked",
+      failClosed: true,
+      reasonCode: args.evaluation.reasonCode || "compliance_gate_blocked",
+      evaluatedAt,
+      effectiveGateStatus: args.evaluation.effectiveGateStatus,
+      evaluationStatus: args.evaluation.evaluationStatus,
+    };
+  }
+  return {
+    contractVersion: LEGAL_FRONT_OFFICE_COMPLIANCE_EVALUATOR_GATE_CONTRACT_VERSION,
+    status: "passed",
+    failClosed: false,
+    reasonCode: "compliance_gate_passed",
+    evaluatedAt,
+    effectiveGateStatus: args.evaluation.effectiveGateStatus,
+    evaluationStatus: args.evaluation.evaluationStatus,
+  };
+}
+
 export interface ComplianceMigrationRolloutPackage {
   contractVersion: typeof COMPLIANCE_MIGRATION_ROLLOUT_CONTRACT_VERSION;
   generatedAt: number;
@@ -397,6 +481,42 @@ export interface ComplianceMigrationRolloutPackage {
     strictEnforcementReady: boolean;
   };
   verificationCommands: string[];
+}
+
+type CompliancePlatformTrustPackageDownloadStatus =
+  | "ready"
+  | "missing_integrity_media"
+  | "media_record_missing"
+  | "storage_unavailable"
+  | "url_generation_failed";
+
+export interface CompliancePlatformTrustPackageEntry {
+  evidenceObjectId: string;
+  title: string;
+  sourceOrganizationId: string;
+  subtype: string | null;
+  sourceType: string | null;
+  inheritanceScope: string | null;
+  lifecycleStatus: string | null;
+  updatedAt: number;
+  nextReviewAt: number | null;
+  retentionDeleteAt: number | null;
+  riskIds: RiskId[];
+  checksumSha256: string | null;
+  downloadUrl: string | null;
+  downloadStatus: CompliancePlatformTrustPackageDownloadStatus;
+}
+
+export interface CompliancePlatformTrustPackage {
+  contractVersion: typeof COMPLIANCE_PLATFORM_TRUST_PACKAGE_CONTRACT_VERSION;
+  generatedAt: number;
+  organizationId: Id<"organizations">;
+  packageVersion: string;
+  advisoryOnly: true;
+  totalEntries: number;
+  sourceOrganizationCount: number;
+  latestUpdatedAt: number | null;
+  entries: CompliancePlatformTrustPackageEntry[];
 }
 
 const TRANSFER_WORKFLOW_RECORD_MISSING_BLOCKER = "transfer_workflow_record_missing";
@@ -1185,6 +1305,8 @@ function buildActionPriority(args: {
         ? 10
         : args.type === "missing_evidence"
           ? 20
+          : args.type === "avv_outreach_follow_up"
+            ? 25
           : args.type === "evidence_review_due"
             ? 30
             : args.type === "workflow_revalidation_warning"
@@ -1194,7 +1316,9 @@ function buildActionPriority(args: {
   const priority: ComplianceInboxActionPriority =
     args.type === "invalid_evidence_metadata" || args.type === "evidence_retention_expired"
       ? "critical"
-      : args.type === "missing_evidence" || args.type === "evidence_review_due"
+      : args.type === "missing_evidence"
+        || args.type === "evidence_review_due"
+        || args.type === "avv_outreach_follow_up"
         ? "high"
         : args.type === "workflow_revalidation_warning"
           ? "medium"
@@ -1327,11 +1451,50 @@ function describeWorkflowRevalidationWarning(args: {
   return `Workflow revalidation warning '${args.warningCode}' requires operator attention.`;
 }
 
+function describeAvvOutreachPlannerReason(row: ComplianceAvvOutreachRow): string {
+  if (!row.contractValid) {
+    return `AVV dossier metadata is invalid (${row.validationErrors.join(", ")}).`;
+  }
+  if (row.state === "draft") {
+    return "Provider dossier is still in draft and requires confirmation staging.";
+  }
+  if (row.state === "pending_confirmation") {
+    return "Provider dossier requires explicit operator confirmation before queueing outreach.";
+  }
+  if (row.state === "queued") {
+    return "Outreach email is queued and pending delivery confirmation.";
+  }
+  if (row.state === "sent" || row.state === "awaiting_response") {
+    return "Outreach is in-flight and waiting for provider response/evidence intake.";
+  }
+  if (row.state === "response_received") {
+    return "Provider response is captured and must be finalized to approved/rejected.";
+  }
+  if (row.state === "rejected") {
+    return "Provider AVV response was rejected and requires remediation or escalation.";
+  }
+  if (row.state === "escalated") {
+    return "Provider AVV workflow is escalated and requires immediate follow-up.";
+  }
+  if (row.state === "closed_blocked") {
+    return "Provider AVV workflow is closed blocked and requires explicit unblock decision.";
+  }
+  return "Provider AVV workflow is complete.";
+}
+
+function shouldTrackAvvOutreachPlannerAction(row: ComplianceAvvOutreachRow): boolean {
+  if (!row.contractValid) {
+    return true;
+  }
+  return row.state !== "approved";
+}
+
 export function buildComplianceInboxPlanner(args: {
   now: number;
   riskRows: ComplianceInboxRiskRowInput[];
   resolvedEvidenceRows: ResolvedComplianceEvidenceRow[];
   invalidEvidenceRows: ComplianceEvidenceVaultRow[];
+  avvOutreachRows?: ComplianceAvvOutreachRow[];
 }): ComplianceInboxPlannerResult {
   const actions: ComplianceInboxPlannerAction[] = [];
   const seenActionIds = new Set<string>();
@@ -1401,6 +1564,40 @@ export function buildComplianceInboxPlanner(args: {
         evidenceTitle: invalidRow.title,
       });
     }
+  }
+
+  const avvRows = [...(args.avvOutreachRows ?? [])].sort((left, right) => {
+    const leftDueAt = left.slaFirstDueAt ?? Number.MAX_SAFE_INTEGER;
+    const rightDueAt = right.slaFirstDueAt ?? Number.MAX_SAFE_INTEGER;
+    if (leftDueAt !== rightDueAt) {
+      return leftDueAt - rightDueAt;
+    }
+    return String(left.dossierObjectId).localeCompare(String(right.dossierObjectId));
+  });
+  for (const avvRow of avvRows) {
+    if (!shouldTrackAvvOutreachPlannerAction(avvRow)) {
+      continue;
+    }
+    const priority = buildActionPriority({
+      type: "avv_outreach_follow_up",
+      riskId: "R-002",
+    });
+    addAction({
+      actionId: `avv:${String(avvRow.dossierObjectId)}:${avvRow.state}`,
+      type: "avv_outreach_follow_up",
+      priority: priority.priority,
+      priorityRank:
+        avvRow.state === "escalated" || avvRow.state === "closed_blocked"
+          ? Math.min(priority.priorityRank, 6)
+          : priority.priorityRank,
+      riskId: "R-002",
+      title: "Advance AVV outreach workflow",
+      reason: describeAvvOutreachPlannerReason(avvRow),
+      dueAt:
+        avvRow.nextReminderAlertAt
+        ?? avvRow.slaReminderAt
+        ?? avvRow.slaFirstDueAt,
+    });
   }
 
   for (const riskId of RISK_ID_VALUES) {
@@ -1679,6 +1876,87 @@ function computePlatformSharedEvidenceSummaryForOrganization(args: {
   };
 }
 
+function buildPlatformTrustPackageVersion(args: {
+  latestUpdatedAt: number | null;
+  totalEntries: number;
+  sourceOrganizationCount: number;
+}): string {
+  const updatedToken =
+    typeof args.latestUpdatedAt === "number" && Number.isFinite(args.latestUpdatedAt)
+      ? String(args.latestUpdatedAt)
+      : "none";
+  return `ptp-v1-${updatedToken}-${args.totalEntries}-${args.sourceOrganizationCount}`;
+}
+
+async function resolvePlatformTrustPackageEntries(args: {
+  ctx: QueryCtx;
+  organizationId: Id<"organizations">;
+  evidenceObjects: Doc<"objects">[];
+}): Promise<CompliancePlatformTrustPackageEntry[]> {
+  const rows = args.evidenceObjects
+    .map(mapEvidenceObjectToRow)
+    .filter((row) =>
+      isPlatformTrustPackageEvidenceRowVisible({
+        row,
+        organizationId: args.organizationId,
+      }),
+    )
+    .sort((left, right) => {
+      if (left.updatedAt !== right.updatedAt) {
+        return right.updatedAt - left.updatedAt;
+      }
+      return left.title.localeCompare(right.title);
+    });
+
+  const entries = await Promise.all(
+    rows.map(async (row): Promise<CompliancePlatformTrustPackageEntry> => {
+      const riskIds = Array.from(
+        new Set(row.riskReferences.map((reference) => reference.riskId)),
+      ).sort((left, right) => left.localeCompare(right));
+      const mediaId = row.integrity?.mediaId;
+      let downloadUrl: string | null = null;
+      let downloadStatus: CompliancePlatformTrustPackageDownloadStatus =
+        "missing_integrity_media";
+
+      if (mediaId) {
+        const media = await args.ctx.db.get(mediaId as Id<"organizationMedia">);
+        if (!media) {
+          downloadStatus = "media_record_missing";
+        } else if (!media.storageId) {
+          downloadStatus = "storage_unavailable";
+        } else {
+          const resolvedUrl = await args.ctx.storage.getUrl(media.storageId);
+          if (resolvedUrl) {
+            downloadUrl = resolvedUrl;
+            downloadStatus = "ready";
+          } else {
+            downloadStatus = "url_generation_failed";
+          }
+        }
+      }
+
+      return {
+        evidenceObjectId: String(row.evidenceObjectId),
+        title: row.title,
+        sourceOrganizationId: String(row.organizationId),
+        subtype: row.subtype,
+        sourceType: row.sourceType,
+        inheritanceScope: row.inheritanceScope,
+        lifecycleStatus: row.lifecycleStatus,
+        updatedAt: row.updatedAt,
+        nextReviewAt: row.nextReviewAt,
+        retentionDeleteAt: row.retentionDeleteAt,
+        riskIds,
+        checksumSha256: row.integrity?.checksumSha256 ?? null,
+        downloadUrl,
+        downloadStatus,
+      };
+    }),
+  );
+
+  return entries;
+}
+
 function buildEvidenceResolutionKey(args: {
   objectId: Id<"objects">;
   subtype: string | null;
@@ -1859,8 +2137,12 @@ function normalizeEvidence(value: unknown): RiskEvidence[] {
 export function hasOrgOwnerDecisionAuthority(args: {
   isOrgOwner: boolean;
   isSuperAdmin: boolean;
+  isPlatformOrg: boolean;
 }): boolean {
-  return args.isOrgOwner && !args.isSuperAdmin;
+  if (args.isSuperAdmin) {
+    return args.isPlatformOrg === true;
+  }
+  return args.isOrgOwner;
 }
 
 async function resolveOrgAccessContext(
@@ -1878,8 +2160,13 @@ async function resolveOrgAccessContext(
     organizationId,
   );
   const isSuperAdmin = authority.isSuperAdmin;
+  const platformOrgId = resolvePlatformOrgIdFromEnv();
+  const isPlatformOrg = Boolean(
+    platformOrgId
+    && String(platformOrgId) === String(organizationId),
+  );
 
-  // Super-admin may inspect any org but cannot mutate org-local owner decisions.
+  // Super-admin may inspect any org; mutation authority is evaluated separately.
   if (!isSuperAdmin && authenticated.organizationId !== organizationId) {
     throw new Error("Cross-organization access is not allowed for this session.");
   }
@@ -1889,6 +2176,7 @@ async function resolveOrgAccessContext(
     userId: authenticated.userId,
     isSuperAdmin,
     isOrgOwner: authority.isOrgOwner,
+    isPlatformOrg,
   };
 }
 
@@ -2498,6 +2786,54 @@ async function ensureOwnerGateObject(
   return (await ctx.db.get(objectId))!;
 }
 
+export const getComplianceScopeContext = query({
+  args: {
+    sessionId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const authenticated = await requireAuthenticatedUser(ctx, args.sessionId);
+    const organization = await ctx.db.get(authenticated.organizationId);
+    const userContext = await getUserContext(
+      ctx,
+      authenticated.userId,
+      authenticated.organizationId,
+    );
+    const isSuperAdmin = userContext.isGlobal && userContext.roleName === "super_admin";
+
+    const platformOrganizationId = resolvePlatformOrgIdFromEnv();
+    const platformOrganization = platformOrganizationId
+      ? await ctx.db.get(platformOrganizationId)
+      : null;
+
+    const platformModeAvailabilityReason =
+      !isSuperAdmin
+        ? "not_super_admin"
+        : !platformOrganizationId
+          ? "platform_org_not_configured"
+          : !platformOrganization || platformOrganization.isActive === false
+            ? "platform_org_unavailable"
+            : "available";
+    const platformModeAvailable =
+      platformModeAvailabilityReason === "available";
+    const platformModeActive = Boolean(
+      platformModeAvailable
+      && platformOrganization
+      && String(platformOrganization._id) === String(authenticated.organizationId),
+    );
+
+    return {
+      currentOrganizationId: authenticated.organizationId,
+      currentOrganizationName: organization?.name ?? null,
+      isSuperAdmin,
+      platformOrganizationId: platformOrganization?._id ?? null,
+      platformOrganizationName: platformOrganization?.name ?? null,
+      platformModeAvailable,
+      platformModeAvailabilityReason,
+      platformModeActive,
+    };
+  },
+});
+
 export const getOrgComplianceGate = query({
   args: {
     sessionId: v.string(),
@@ -2559,7 +2895,7 @@ export const getOrgComplianceGate = query({
       organizationName: organization.name,
       isOrgOwner: accessContext.isOrgOwner,
       isSuperAdmin: accessContext.isSuperAdmin,
-      canEdit: accessContext.isOrgOwner,
+      canEdit: hasOrgOwnerDecisionAuthority(accessContext),
       risks: riskRows,
       gate: gateSnapshot,
       avvOutreach: {
@@ -2636,7 +2972,7 @@ export const getComplianceMigrationRolloutPackage = query({
       organizationName: organization.name,
       isOrgOwner: accessContext.isOrgOwner,
       isSuperAdmin: accessContext.isSuperAdmin,
-      canEdit: accessContext.isOrgOwner,
+      canEdit: hasOrgOwnerDecisionAuthority(accessContext),
       rolloutFlags,
       runbooks: COMPLIANCE_ROLLOUT_RUNBOOKS.map((runbook) => ({
         runbookId: runbook.runbookId,
@@ -2671,6 +3007,57 @@ export const getComplianceMigrationRolloutPackage = query({
         "npm run docs:guard",
         "npm run typecheck",
       ],
+    };
+  },
+});
+
+export const getCompliancePlatformTrustPackage = query({
+  args: {
+    sessionId: v.string(),
+    organizationId: v.optional(v.id("organizations")),
+  },
+  handler: async (ctx, args): Promise<CompliancePlatformTrustPackage> => {
+    const accessContext = await resolveOrgAccessContext(ctx, args);
+    if (!accessContext.isOrgOwner && !accessContext.isSuperAdmin) {
+      throw new Error(
+        "Only organization owners or super admins can access the platform trust package.",
+      );
+    }
+
+    const evidenceObjects = (await ctx.db
+      .query("objects")
+      .withIndex("by_type", (q) => q.eq("type", COMPLIANCE_EVIDENCE_OBJECT_TYPE))
+      .collect()) as Doc<"objects">[];
+    const entries = await resolvePlatformTrustPackageEntries({
+      ctx,
+      organizationId: accessContext.organizationId,
+      evidenceObjects,
+    });
+    const latestUpdatedAt = entries.reduce<number | null>((current, entry) => {
+      if (current === null) {
+        return entry.updatedAt;
+      }
+      return entry.updatedAt > current ? entry.updatedAt : current;
+    }, null);
+    const sourceOrganizationCount = new Set(
+      entries.map((entry) => entry.sourceOrganizationId),
+    ).size;
+    const packageVersion = buildPlatformTrustPackageVersion({
+      latestUpdatedAt,
+      totalEntries: entries.length,
+      sourceOrganizationCount,
+    });
+
+    return {
+      contractVersion: COMPLIANCE_PLATFORM_TRUST_PACKAGE_CONTRACT_VERSION,
+      generatedAt: Date.now(),
+      organizationId: accessContext.organizationId,
+      packageVersion,
+      advisoryOnly: true,
+      totalEntries: entries.length,
+      sourceOrganizationCount,
+      latestUpdatedAt,
+      entries,
     };
   },
 });
@@ -2856,6 +3243,7 @@ export const getComplianceInboxPlanner = query({
       riskRows,
       resolvedEvidenceRows: evidenceContext.resolvedRows,
       invalidEvidenceRows: evidenceContext.organizationRows.filter((row) => !row.contractValid),
+      avvOutreachRows,
     });
     const platformSharedEvidence = computePlatformSharedEvidenceSummaryForOrganization({
       organizationId: accessContext.organizationId,
@@ -2885,7 +3273,7 @@ export const getComplianceInboxPlanner = query({
       organizationName: organization.name,
       isOrgOwner: accessContext.isOrgOwner,
       isSuperAdmin: accessContext.isSuperAdmin,
-      canEdit: accessContext.isOrgOwner,
+      canEdit: hasOrgOwnerDecisionAuthority(accessContext),
       risks: riskRows,
       gate: gateSnapshot,
       avvOutreach: {
@@ -2912,7 +3300,7 @@ export const getComplianceInboxWizardDraft = query({
   },
   handler: async (ctx, args) => {
     const accessContext = await resolveOrgAccessContext(ctx, args);
-    if (!accessContext.isOrgOwner) {
+    if (!hasOrgOwnerDecisionAuthority(accessContext)) {
       return null;
     }
 
@@ -2948,8 +3336,10 @@ export const saveComplianceInboxWizardDraft = mutation({
   },
   handler: async (ctx, args) => {
     const accessContext = await resolveOrgAccessContext(ctx, args);
-    if (!accessContext.isOrgOwner) {
-      throw new Error("Only organization owners can save compliance inbox wizard drafts.");
+    if (!hasOrgOwnerDecisionAuthority(accessContext)) {
+      throw new Error(
+        "Only organization owners, or super-admin on the configured platform org, can save compliance inbox wizard drafts.",
+      );
     }
 
     const sessionId = normalizeString(args.sessionId);
@@ -3399,7 +3789,7 @@ export const saveRiskAssessment = mutation({
       riskLevel: args.status === "closed" ? "high" : "medium",
       channel: "compliance_center",
       targetSystemClass: "platform_internal",
-      humanApprovalGranted: accessContext.isOrgOwner,
+      humanApprovalGranted: hasOrgOwnerDecisionAuthority(accessContext),
     });
     if (runtimeGate.gate.status !== "passed") {
       throw new Error(`Compliance runtime gate blocked (${runtimeGate.gate.reasonCode}).`);
@@ -3507,7 +3897,7 @@ export const addRiskEvidence = mutation({
       riskLevel: "medium",
       channel: "compliance_center",
       targetSystemClass: "platform_internal",
-      humanApprovalGranted: accessContext.isOrgOwner,
+      humanApprovalGranted: hasOrgOwnerDecisionAuthority(accessContext),
     });
     if (runtimeGate.gate.status !== "passed") {
       throw new Error(`Compliance runtime gate blocked (${runtimeGate.gate.reasonCode}).`);
@@ -3614,7 +4004,7 @@ export const setOwnerGateDecision = mutation({
       channel: "compliance_governance",
       targetSystemClass: "platform_internal",
       requiresOwnerGoDecision: args.decision === "GO",
-      humanApprovalGranted: accessContext.isOrgOwner,
+      humanApprovalGranted: hasOrgOwnerDecisionAuthority(accessContext),
     });
     if (runtimeGate.gate.status !== "passed") {
       throw new Error(`Compliance runtime gate blocked (${runtimeGate.gate.reasonCode}).`);

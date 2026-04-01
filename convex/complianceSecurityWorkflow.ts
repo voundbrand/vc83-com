@@ -7,6 +7,7 @@ import {
   mapEvidenceObjectToRow,
   type ComplianceEvidenceVaultRow,
 } from "./complianceEvidenceVault";
+import { resolvePlatformOrgIdFromEnv } from "./lib/platformOrg";
 
 export const COMPLIANCE_SECURITY_WORKFLOW_OBJECT_TYPE = "compliance_security_workflow";
 export const COMPLIANCE_SECURITY_WORKFLOW_OBJECT_SUBTYPE = "r004_security_controls";
@@ -26,7 +27,12 @@ type OrgAccessContext = {
   userId: Id<"users">;
   isSuperAdmin: boolean;
   isOrgOwner: boolean;
+  isPlatformOrg: boolean;
 };
+
+function hasSecurityWorkflowMutationAuthority(access: OrgAccessContext): boolean {
+  return access.isOrgOwner || (access.isSuperAdmin && access.isPlatformOrg);
+}
 
 export type SecurityWorkflowArtifactStatus = {
   artifactId: SecurityArtifactId;
@@ -151,6 +157,11 @@ async function resolveOrgAccessContext(
   const organizationId = args.organizationId ?? authenticated.organizationId;
   const userContext = await getUserContext(ctx, authenticated.userId, organizationId);
   const isSuperAdmin = userContext.isGlobal && userContext.roleName === "super_admin";
+  const platformOrgId = resolvePlatformOrgIdFromEnv();
+  const isPlatformOrg = Boolean(
+    platformOrgId
+    && String(platformOrgId) === String(organizationId),
+  );
   if (!isSuperAdmin && authenticated.organizationId !== organizationId) {
     throw new Error("Cross-organization security workflow access is not allowed.");
   }
@@ -165,6 +176,7 @@ async function resolveOrgAccessContext(
     userId: authenticated.userId,
     isSuperAdmin,
     isOrgOwner,
+    isPlatformOrg,
   };
 }
 
@@ -557,8 +569,10 @@ export const saveSecurityWorkflowDraft = mutation({
   },
   handler: async (ctx, args) => {
     const access = await resolveOrgAccessContext(ctx, args);
-    if (!access.isOrgOwner) {
-      throw new Error("Only organization owners can save security workflow drafts.");
+    if (!hasSecurityWorkflowMutationAuthority(access)) {
+      throw new Error(
+        "Only organization owners, or super-admin on the configured platform org, can save security workflow drafts.",
+      );
     }
 
     return await persistSecurityWorkflowRecord({
@@ -592,8 +606,10 @@ export const completeSecurityWorkflowChecklist = mutation({
   },
   handler: async (ctx, args) => {
     const access = await resolveOrgAccessContext(ctx, args);
-    if (!access.isOrgOwner) {
-      throw new Error("Only organization owners can complete security workflow checklists.");
+    if (!hasSecurityWorkflowMutationAuthority(access)) {
+      throw new Error(
+        "Only organization owners, or super-admin on the configured platform org, can complete security workflow checklists.",
+      );
     }
     const result = await persistSecurityWorkflowRecord({
       ctx,

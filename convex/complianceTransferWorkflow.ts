@@ -7,6 +7,7 @@ import {
   mapEvidenceObjectToRow,
   type ComplianceEvidenceVaultRow,
 } from "./complianceEvidenceVault";
+import { resolvePlatformOrgIdFromEnv } from "./lib/platformOrg";
 
 export const COMPLIANCE_TRANSFER_WORKFLOW_OBJECT_TYPE = "compliance_transfer_workflow";
 export const COMPLIANCE_TRANSFER_WORKFLOW_OBJECT_SUBTYPE = "r003_transfer_impact";
@@ -21,7 +22,12 @@ type OrgAccessContext = {
   userId: Id<"users">;
   isSuperAdmin: boolean;
   isOrgOwner: boolean;
+  isPlatformOrg: boolean;
 };
+
+function hasTransferWorkflowMutationAuthority(access: OrgAccessContext): boolean {
+  return access.isOrgOwner || (access.isSuperAdmin && access.isPlatformOrg);
+}
 
 export type TransferWorkflowArtifactStatus = {
   artifactId: TransferArtifactId;
@@ -147,6 +153,11 @@ async function resolveOrgAccessContext(
   const organizationId = args.organizationId ?? authenticated.organizationId;
   const userContext = await getUserContext(ctx, authenticated.userId, organizationId);
   const isSuperAdmin = userContext.isGlobal && userContext.roleName === "super_admin";
+  const platformOrgId = resolvePlatformOrgIdFromEnv();
+  const isPlatformOrg = Boolean(
+    platformOrgId
+    && String(platformOrgId) === String(organizationId),
+  );
   if (!isSuperAdmin && authenticated.organizationId !== organizationId) {
     throw new Error("Cross-organization transfer workflow access is not allowed.");
   }
@@ -161,6 +172,7 @@ async function resolveOrgAccessContext(
     userId: authenticated.userId,
     isSuperAdmin,
     isOrgOwner,
+    isPlatformOrg,
   };
 }
 
@@ -558,8 +570,10 @@ export const saveTransferImpactWorkflowDraft = mutation({
   },
   handler: async (ctx, args) => {
     const access = await resolveOrgAccessContext(ctx, args);
-    if (!access.isOrgOwner) {
-      throw new Error("Only organization owners can save transfer workflow drafts.");
+    if (!hasTransferWorkflowMutationAuthority(access)) {
+      throw new Error(
+        "Only organization owners, or super-admin on the configured platform org, can save transfer workflow drafts.",
+      );
     }
 
     return await persistTransferWorkflowRecord({
@@ -595,8 +609,10 @@ export const completeTransferImpactWorkflowChecklist = mutation({
   },
   handler: async (ctx, args) => {
     const access = await resolveOrgAccessContext(ctx, args);
-    if (!access.isOrgOwner) {
-      throw new Error("Only organization owners can complete transfer workflow checklists.");
+    if (!hasTransferWorkflowMutationAuthority(access)) {
+      throw new Error(
+        "Only organization owners, or super-admin on the configured platform org, can complete transfer workflow checklists.",
+      );
     }
     const result = await persistTransferWorkflowRecord({
       ctx,

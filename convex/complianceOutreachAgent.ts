@@ -14,6 +14,7 @@ import {
   buildComplianceActionLifecycleAuditSnapshot,
   resolveComplianceActionRuntimeGate,
 } from "./ai/orgActionPolicy";
+import { resolvePlatformOrgIdFromEnv } from "./lib/platformOrg";
 
 const generatedApi: any = require("./_generated/api");
 
@@ -141,7 +142,12 @@ type OrgAccessContext = {
   userId: Id<"users">;
   isSuperAdmin: boolean;
   isOrgOwner: boolean;
+  isPlatformOrg: boolean;
 };
+
+function hasAvvOutreachMutationAuthority(access: OrgAccessContext): boolean {
+  return access.isOrgOwner || (access.isSuperAdmin && access.isPlatformOrg);
+}
 
 export type ComplianceAvvOutreachRow = {
   dossierObjectId: Id<"objects">;
@@ -166,6 +172,8 @@ export type ComplianceAvvOutreachRow = {
   escalationAlertedAt: number | null;
   linkedEvidenceObjectIds: string[];
   notes: string | null;
+  wizardActionId: string | null;
+  wizardWorkflowState: string | null;
   contractValid: boolean;
   validationErrors: string[];
   updatedAt: number;
@@ -595,6 +603,11 @@ async function resolveOrgAccessContext(
   const organizationId = args.organizationId ?? authenticated.organizationId;
   const userContext = await getUserContext(ctx, authenticated.userId, organizationId);
   const isSuperAdmin = userContext.isGlobal && userContext.roleName === "super_admin";
+  const platformOrgId = resolvePlatformOrgIdFromEnv();
+  const isPlatformOrg = Boolean(
+    platformOrgId
+    && String(platformOrgId) === String(organizationId),
+  );
   if (!isSuperAdmin && authenticated.organizationId !== organizationId) {
     throw new Error("Cross-organization AVV outreach access is not allowed.");
   }
@@ -609,6 +622,7 @@ async function resolveOrgAccessContext(
     userId: authenticated.userId,
     isSuperAdmin,
     isOrgOwner,
+    isPlatformOrg,
   };
 }
 
@@ -682,6 +696,8 @@ export function mapAvvOutreachObjectToRow(object: Doc<"objects">): ComplianceAvv
     escalationAlertedAt: normalizeTimestamp(props.escalationAlertedAt),
     linkedEvidenceObjectIds: normalizeStringList(props.linkedEvidenceObjectIds),
     notes: normalizeString(props.notes),
+    wizardActionId: normalizeString(props.wizardActionId),
+    wizardWorkflowState: normalizeString(props.wizardWorkflowState),
     contractValid: validationErrors.length === 0,
     validationErrors,
     updatedAt: object.updatedAt,
@@ -827,11 +843,15 @@ export const saveAvvOutreachProviderDossier = mutation({
     stateReason: v.optional(v.string()),
     notes: v.optional(v.string()),
     linkedEvidenceObjectIds: v.optional(v.array(v.id("objects"))),
+    wizardActionId: v.optional(v.string()),
+    wizardWorkflowState: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const access = await resolveOrgAccessContext(ctx, args);
-    if (!access.isOrgOwner) {
-      throw new Error("Only organization owners can modify AVV outreach provider dossiers.");
+    if (!hasAvvOutreachMutationAuthority(access)) {
+      throw new Error(
+        "Only organization owners, or super-admin on the configured platform org, can modify AVV outreach provider dossiers.",
+      );
     }
 
     const providerName = normalizeString(args.providerName);
@@ -868,6 +888,8 @@ export const saveAvvOutreachProviderDossier = mutation({
       slaEscalationAt: slaEscalationAt ?? undefined,
       stateReason: normalizeString(args.stateReason),
       notes: normalizeString(args.notes),
+      wizardActionId: normalizeString(args.wizardActionId),
+      wizardWorkflowState: normalizeString(args.wizardWorkflowState),
       linkedEvidenceObjectIds: linkedEvidenceObjectIds.length > 0 ? linkedEvidenceObjectIds : undefined,
       updatedBy: String(access.userId),
       updatedAt: now,
@@ -928,6 +950,8 @@ export const saveAvvOutreachProviderDossier = mutation({
         slaReminderAt,
         slaEscalationAt,
         ownerUserId: args.ownerUserId ? String(args.ownerUserId) : String(access.userId),
+        wizardActionId: normalizeString(args.wizardActionId),
+        wizardWorkflowState: normalizeString(args.wizardWorkflowState),
       }),
       performedBy: access.userId,
       performedAt: now,
@@ -952,8 +976,10 @@ export const transitionAvvOutreachState = mutation({
   },
   handler: async (ctx, args) => {
     const access = await resolveOrgAccessContext(ctx, args);
-    if (!access.isOrgOwner) {
-      throw new Error("Only organization owners can transition AVV outreach states.");
+    if (!hasAvvOutreachMutationAuthority(access)) {
+      throw new Error(
+        "Only organization owners, or super-admin on the configured platform org, can transition AVV outreach states.",
+      );
     }
 
     const dossierObject = await ctx.db.get(args.dossierObjectId);
@@ -1026,8 +1052,10 @@ export const confirmAndQueueAvvOutreachEmail = mutation({
   },
   handler: async (ctx, args) => {
     const access = await resolveOrgAccessContext(ctx, args);
-    if (!access.isOrgOwner) {
-      throw new Error("Only organization owners can confirm AVV outreach sends.");
+    if (!hasAvvOutreachMutationAuthority(access)) {
+      throw new Error(
+        "Only organization owners, or super-admin on the configured platform org, can confirm AVV outreach sends.",
+      );
     }
     if (!args.operatorConfirmed) {
       throw new Error("Operator confirmation is required before AVV outreach emails can be queued.");
@@ -1050,7 +1078,7 @@ export const confirmAndQueueAvvOutreachEmail = mutation({
       channel: "compliance_outbound_email",
       targetSystemClass: "external_connector",
       requiresExplicitOutboundConfirmation: true,
-      humanApprovalGranted: args.operatorConfirmed && access.isOrgOwner,
+      humanApprovalGranted: args.operatorConfirmed && hasAvvOutreachMutationAuthority(access),
     });
     if (runtimeGate.gate.status !== "passed") {
       throw new Error(`Compliance runtime gate blocked (${runtimeGate.gate.reasonCode}).`);
@@ -1173,8 +1201,10 @@ export const captureAvvOutreachResponseAndMapEvidence = mutation({
   },
   handler: async (ctx, args) => {
     const access = await resolveOrgAccessContext(ctx, args);
-    if (!access.isOrgOwner) {
-      throw new Error("Only organization owners can capture AVV outreach responses.");
+    if (!hasAvvOutreachMutationAuthority(access)) {
+      throw new Error(
+        "Only organization owners, or super-admin on the configured platform org, can capture AVV outreach responses.",
+      );
     }
 
     const responseSummary = normalizeString(args.responseSummary);
@@ -1200,7 +1230,7 @@ export const captureAvvOutreachResponseAndMapEvidence = mutation({
       riskLevel: "medium",
       channel: "compliance_inbound_response",
       targetSystemClass: "platform_internal",
-      humanApprovalGranted: access.isOrgOwner,
+      humanApprovalGranted: hasAvvOutreachMutationAuthority(access),
     });
     if (runtimeGate.gate.status !== "passed") {
       throw new Error(`Compliance runtime gate blocked (${runtimeGate.gate.reasonCode}).`);
@@ -1404,8 +1434,10 @@ export const linkEvidenceToAvvOutreachDossier = mutation({
   },
   handler: async (ctx, args) => {
     const access = await resolveOrgAccessContext(ctx, args);
-    if (!access.isOrgOwner) {
-      throw new Error("Only organization owners can link evidence to AVV outreach dossiers.");
+    if (!hasAvvOutreachMutationAuthority(access)) {
+      throw new Error(
+        "Only organization owners, or super-admin on the configured platform org, can link evidence to AVV outreach dossiers.",
+      );
     }
 
     const dossierObject = await requireAvvDossierObject(ctx, {
@@ -1461,7 +1493,7 @@ export const linkEvidenceToAvvOutreachDossier = mutation({
       riskLevel: "medium",
       channel: "compliance_vault",
       targetSystemClass: "platform_internal",
-      humanApprovalGranted: access.isOrgOwner,
+      humanApprovalGranted: hasAvvOutreachMutationAuthority(access),
     });
     if (runtimeGate.gate.status !== "passed") {
       throw new Error(`Compliance runtime gate blocked (${runtimeGate.gate.reasonCode}).`);

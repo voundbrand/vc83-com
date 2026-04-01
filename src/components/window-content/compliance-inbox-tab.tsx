@@ -225,6 +225,11 @@ export function ComplianceInboxTab({
     hasAccess ? { sessionId, organizationId } : "skip",
   ) as PlannerSnapshot | undefined;
   const canEdit = snapshot?.canEdit ?? false;
+  const readOnlyReason = !canEdit
+    ? isSuperAdmin
+      ? "Read-only mode: super-admin edits are enabled only in Platform mode for the configured platform organization."
+      : "Read-only mode: only organization owners can save wizard checkpoints or execute outreach mutations."
+    : null;
   const actions = snapshot?.planner.actions ?? [];
   const summary = snapshot?.planner.summary ?? {
     totalActions: 0,
@@ -437,12 +442,12 @@ export function ComplianceInboxTab({
         </div>
       </div>
 
-      {!canEdit ? (
+      {readOnlyReason ? (
         <div
           className="rounded border p-3 text-xs"
           style={{ borderColor: "var(--warning)", background: "var(--warning-bg)", color: "var(--warning)" }}
         >
-          Read-only mode: only organization owners can save inbox wizard checkpoints or execute outreach mutations.
+          {readOnlyReason}
         </div>
       ) : null}
 
@@ -637,7 +642,8 @@ export function ComplianceInboxTab({
             canEdit={canEdit}
             action={selectedAction}
             onComplete={() => {
-              // Additional persistence hooks are wired incrementally per workflow lane.
+              // Let planner re-select deterministic next action after mutation-backed workflow completion.
+              setSelectedActionId(null);
             }}
           />
         </div>

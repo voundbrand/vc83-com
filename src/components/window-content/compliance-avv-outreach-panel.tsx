@@ -317,7 +317,7 @@ export function ComplianceAvvOutreachPanel({
       </p>
       {!canEdit ? (
         <p className="mt-2 text-xs" style={{ color: "var(--warning)" }}>
-          Read-only access: only organization owners can mutate AVV outreach state.
+          Read-only access: only organization owners, or super-admin in platform mode, can mutate AVV outreach state.
         </p>
       ) : null}
 
@@ -327,6 +327,9 @@ export function ComplianceAvvOutreachPanel({
             <CheckCircle2 size={14} />
             No AVV dossiers are currently queued.
           </div>
+          <p className="mt-2" style={{ color: "var(--neutral-gray)" }}>
+            Start with the R-002 inbox wizard action to create the first provider dossier, then use this panel for follow-up states and evidence linking.
+          </p>
         </div>
       ) : (
         <div className="mt-3 space-y-3">
