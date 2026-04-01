@@ -9,6 +9,14 @@ function normalizeOptionalString(value: unknown): string | null {
   return normalized.length > 0 ? normalized : null;
 }
 
+function readEnvKey(key: string): string | undefined {
+  try {
+    return process.env[key];
+  } catch {
+    return undefined;
+  }
+}
+
 function parseRecipientList(target: string): string[] {
   return Array.from(
     new Set(
@@ -45,11 +53,13 @@ function resolveEmailCredentials(): {
   senderSource: TemplateCertificationEmailCredentialSource;
 } {
   const dedicatedApiKey = normalizeOptionalString(
-    process.env.TEMPLATE_CERTIFICATION_ALERT_EMAIL_API_KEY,
+    readEnvKey("TEMPLATE_CERT_ALERT_EMAIL_API_KEY")
+    ?? readEnvKey("TEMPLATE_CERTIFICATION_ALERT_EMAIL_API_KEY"),
   );
   const fallbackApiKey = normalizeOptionalString(process.env.RESEND_API_KEY);
   const dedicatedSender = normalizeOptionalString(
-    process.env.TEMPLATE_CERTIFICATION_ALERT_EMAIL_FROM,
+    readEnvKey("TEMPLATE_CERT_ALERT_EMAIL_FROM")
+    ?? readEnvKey("TEMPLATE_CERTIFICATION_ALERT_EMAIL_FROM"),
   );
   const fallbackSender = normalizeOptionalString(process.env.AUTH_RESEND_FROM);
   return {
@@ -58,7 +68,10 @@ function resolveEmailCredentials(): {
       resendApiKey: dedicatedApiKey || fallbackApiKey || undefined,
       resendSenderEmail: dedicatedSender || fallbackSender || undefined,
       resendReplyToEmail:
-        normalizeOptionalString(process.env.TEMPLATE_CERTIFICATION_ALERT_EMAIL_REPLY_TO)
+        normalizeOptionalString(
+          readEnvKey("TEMPLATE_CERT_ALERT_EMAIL_REPLY_TO")
+          ?? readEnvKey("TEMPLATE_CERTIFICATION_ALERT_EMAIL_REPLY_TO"),
+        )
         || undefined,
     },
     apiKeySource: dedicatedApiKey
@@ -190,7 +203,7 @@ export function evaluateTemplateCertificationEmailCredentialState(args: {
       credentialSource,
       reasonCode: "email_transport_not_configured",
       message: appendRunbookHint(
-        "Email transport credentials are incomplete. Configure TEMPLATE_CERTIFICATION_ALERT_EMAIL_API_KEY/RESEND_API_KEY and TEMPLATE_CERTIFICATION_ALERT_EMAIL_FROM/AUTH_RESEND_FROM.",
+        "Email transport credentials are incomplete. Configure TEMPLATE_CERT_ALERT_EMAIL_API_KEY/RESEND_API_KEY and TEMPLATE_CERT_ALERT_EMAIL_FROM/AUTH_RESEND_FROM.",
         governance.runbookUrl,
       ),
       ...(governance.runbookUrl ? { runbookUrl: governance.runbookUrl } : {}),
@@ -205,7 +218,7 @@ export function evaluateTemplateCertificationEmailCredentialState(args: {
       credentialSource,
       reasonCode: "email_transport_credential_policy_violation",
       message: appendRunbookHint(
-        "Email transport requires dedicated TEMPLATE_CERTIFICATION_ALERT_EMAIL_API_KEY and TEMPLATE_CERTIFICATION_ALERT_EMAIL_FROM credentials.",
+        "Email transport requires dedicated TEMPLATE_CERT_ALERT_EMAIL_API_KEY and TEMPLATE_CERT_ALERT_EMAIL_FROM credentials.",
         governance.runbookUrl,
       ),
       ...(governance.runbookUrl ? { runbookUrl: governance.runbookUrl } : {}),

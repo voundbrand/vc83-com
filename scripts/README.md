@@ -2,6 +2,8 @@
 
 Quick command-line testing for AI chat functionality without using the UI.
 
+For operational AI script entrypoints (including ElevenLabs sync/simulation), see `scripts/ai/README.md`.
+
 ## Setup
 
 1. **Get your test IDs** from the Convex dashboard:
@@ -78,6 +80,59 @@ npx convex dev
 
 # Terminal 2: Test your changes
 npx tsx scripts/test-ai-chat.ts "test message"
+```
+
+## Schmitt Demo Office Seed
+
+Use this to bootstrap a synthetic `Schmitt & Partner` law-office demo org with:
+- org-level telephony binding preflight seed (provider + from number + webhook secret)
+- Clara/Jonas/Maren telephony template deployment
+- optional Kanzlei MVP single-agent deployment
+- synthetic CRM organizations + leads (idempotent by demo seed keys)
+
+```bash
+# Show options
+npx tsx scripts/seed-schmitt-partner-demo-office.ts --help
+
+# Fast signup-mode bootstrap
+npx tsx scripts/seed-schmitt-partner-demo-office.ts --mode signup
+
+# Force a fake/no-provider-coupling telephony binding for demo-only runs
+npx tsx scripts/seed-schmitt-partner-demo-office.ts \
+  --mode signup \
+  --telephony-provider custom_sip
+
+# Reuse an existing org
+npx tsx scripts/seed-schmitt-partner-demo-office.ts \
+  --mode existing \
+  --session-id <SESSION_ID> \
+  --organization-id <ORG_ID>
+```
+
+Telephony binding behavior:
+- By default, the script seeds org telephony binding before template deployment via `integrations.telephony.saveOrganizationTelephonySettings`.
+- If `--telephony-from-number` is not provided, it falls back to `SCHMITT_DEMO_TELEPHONY_FROM_NUMBER`, then `DEMO_TELEPHONY_FROM_NUMBER`, then the fixture number.
+- If `--telephony-webhook-secret` is not provided, it falls back to `SCHMITT_DEMO_TELEPHONY_WEBHOOK_SECRET`, then `DEMO_TELEPHONY_WEBHOOK_SECRET`, then a deterministic demo secret derived from `--suffix`.
+- Disable auto-binding only if you manage it externally: `--skip-telephony-binding`.
+- Core-wedge deploy is dependency-aware and fail-soft: if transfer-role prerequisites are missing in your environment, the script records a `coreWedge.status = "blocked"` warning in the JSON summary and continues with Kanzlei MVP + synthetic CRM seeding.
+
+## Hub-GW OIDC Token Exchange Smoke
+
+Use this to run a deterministic frontend OIDC bridge test end-to-end:
+- starts a transaction via Convex `/api/v1/frontend-oidc/start`
+- opens provider login in Playwright
+- captures `code/state` at callback before NextAuth consumes it
+- posts callback to Convex `/api/v1/frontend-oidc/callback`
+
+```bash
+# interactive browser (recommended)
+npx tsx scripts/hub-gw-oidc-token-exchange-smoke.ts \
+  --app-url https://sevenlayers.ngrok.pizza \
+  --provider-id gruendungswerft \
+  --convex-base-url https://aromatic-akita-723.convex.site
+
+# show options
+npx tsx scripts/hub-gw-oidc-token-exchange-smoke.ts --help
 ```
 
 ## Environment Variables

@@ -8,6 +8,14 @@ function normalizeOptionalString(value: unknown): string | null {
   return normalized.length > 0 ? normalized : null;
 }
 
+function readEnvKey(key: string): string | undefined {
+  try {
+    return process.env[key];
+  } catch {
+    return undefined;
+  }
+}
+
 function appendRunbookHint(message: string, runbookUrl?: string | null): string {
   const normalizedRunbookUrl = normalizeOptionalString(runbookUrl);
   if (!normalizedRunbookUrl) {
@@ -42,10 +50,14 @@ function resolvePagerDutyRoutingKey(
     };
   }
   const globalRoutingKey = normalizeOptionalString(
-    process.env.TEMPLATE_CERTIFICATION_ALERT_PAGERDUTY_ROUTING_KEY,
+    readEnvKey("TEMPLATE_CERT_ALERT_PD_ROUTING_KEY")
+    ?? readEnvKey("TEMPLATE_CERT_ALERT_PAGERDUTY_ROUTING_KEY")
+    ?? readEnvKey("TEMPLATE_CERTIFICATION_ALERT_PAGERDUTY_ROUTING_KEY"),
   );
   const mapRaw = normalizeOptionalString(
-    process.env.TEMPLATE_CERTIFICATION_ALERT_PAGERDUTY_ROUTING_MAP_JSON,
+    readEnvKey("TEMPLATE_CERT_ALERT_PD_ROUTING_MAP_JSON")
+    ?? readEnvKey("TEMPLATE_CERT_ALERT_PAGERDUTY_ROUTING_MAP_JSON")
+    ?? readEnvKey("TEMPLATE_CERTIFICATION_ALERT_PAGERDUTY_ROUTING_MAP_JSON"),
   );
   if (mapRaw) {
     try {
@@ -162,7 +174,7 @@ export function evaluateTemplateCertificationPagerDutyCredentialState(args: {
       credentialSource: routing.source,
       reasonCode: "pagerduty_transport_not_configured",
       message: appendRunbookHint(
-        "PagerDuty transport is missing a routing key. Set target to routing_key:<key> or configure TEMPLATE_CERTIFICATION_ALERT_PAGERDUTY_ROUTING_KEY / TEMPLATE_CERTIFICATION_ALERT_PAGERDUTY_ROUTING_MAP_JSON.",
+        "PagerDuty transport is missing a routing key. Set target to routing_key:<key> or configure TEMPLATE_CERT_ALERT_PD_ROUTING_KEY / TEMPLATE_CERT_ALERT_PD_ROUTING_MAP_JSON.",
         governance.runbookUrl,
       ),
       ...(governance.runbookUrl ? { runbookUrl: governance.runbookUrl } : {}),

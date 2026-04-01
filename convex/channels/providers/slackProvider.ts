@@ -66,6 +66,14 @@ function asString(value: unknown): string | undefined {
     : undefined;
 }
 
+function readEnvKey(key: string): string | undefined {
+  try {
+    return process.env[key];
+  } catch {
+    return undefined;
+  }
+}
+
 function asNumber(value: unknown): number | undefined {
   return typeof value === "number" && Number.isFinite(value) ? value : undefined;
 }
@@ -297,7 +305,8 @@ export function evaluateTemplateCertificationSlackCredentialState(args: {
   }
 
   const dedicatedBotToken = asString(
-    process.env.TEMPLATE_CERTIFICATION_ALERT_SLACK_BOT_TOKEN,
+    readEnvKey("TEMPLATE_CERT_ALERT_SLACK_BOT_TOKEN")
+    ?? readEnvKey("TEMPLATE_CERTIFICATION_ALERT_SLACK_BOT_TOKEN"),
   );
   const fallbackBotToken = asString(process.env.SLACK_BOT_TOKEN);
   const botToken = dedicatedBotToken || fallbackBotToken;

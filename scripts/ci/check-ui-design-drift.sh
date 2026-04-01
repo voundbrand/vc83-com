@@ -20,7 +20,7 @@ SCOPED_PATHS=(
 )
 
 TOKEN_CONTRACT_DOC="docs/reference_docs/topic_collections/implementation/legacy-style-eradication/l4yercak3-design-token-contract.md"
-DRIFT_PATTERN_DESC="legacy hard-edge utilities, raw color literals outside token files, raw px/radius/shadow values, disallowed utility classes, transition-all usage, and uppercase brand variants"
+DRIFT_PATTERN_DESC="legacy hard-edge utilities, raw color literals outside token files, raw px/radius/shadow values, disallowed utility classes, transition-all usage, window-internal overlay modals, and uppercase brand variants"
 
 CHANGED=()
 if [[ "$USE_WORKTREE" -eq 1 ]]; then
@@ -111,6 +111,21 @@ extract_violations() {
         || lower ~ /transition[[:space:]]*:[^;]*[[:space:]]all([[:space:],;}]|$)/
     }
 
+    function is_window_surface_path(path) {
+      return path ~ /(^|\/)window-content\//
+    }
+
+    function has_window_overlay_modal(text, lower) {
+      if (!is_window_surface_path(file)) {
+        return 0
+      }
+
+      return lower ~ /(^|[^[:alnum:]_-])fixed[[:space:]]+inset-0([^[:alnum:]_-]|$)/ \
+        || lower ~ /(^|[^[:alnum:]_-])inset-0[[:space:]]+fixed([^[:alnum:]_-]|$)/ \
+        || lower ~ /aria-modal[[:space:]]*=/ \
+        || lower ~ /modal-overlay-bg/
+    }
+
     function has_brand_case_violation(text) {
       return text ~ /(L4YERCAK3|L4yercak3|L4YerCak3)/
     }
@@ -162,6 +177,9 @@ extract_violations() {
       }
       if (has_disallowed_transition_all(lower)) {
         report("motion_transition_all", text);
+      }
+      if (has_window_overlay_modal(text, lower)) {
+        report("window_modal_overlay", text);
       }
       if (has_brand_case_violation(text)) {
         report("brand_case", text);
