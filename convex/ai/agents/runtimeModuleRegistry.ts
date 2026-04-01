@@ -134,13 +134,13 @@ export function resolveAgentModuleFromConfig(args: {
   preferredModuleKey?: string | null;
 }): ResolvedAgentModule<KnownRuntimeModuleContract> | null {
   const candidateConfig = withForcedModuleKey(args.config, args.preferredModuleKey);
-  for (const module of resolveModuleAttemptOrder(args.preferredModuleKey)) {
-    const contract = module.resolveContract(candidateConfig);
+  for (const moduleDef of resolveModuleAttemptOrder(args.preferredModuleKey)) {
+    const contract = moduleDef.resolveContract(candidateConfig);
     if (!contract) {
       continue;
     }
     return {
-      module,
+      module: moduleDef,
       contract,
     };
   }
