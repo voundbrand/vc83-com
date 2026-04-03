@@ -41,6 +41,11 @@ interface DayScheduleState {
 
 type WeeklyScheduleState = Record<DayKey, DayScheduleState>
 type OverrideMode = "closed" | "custom_hours"
+type BookingTranslationFn = (
+  key: string,
+  fallback: string,
+  values?: Record<string, string | number>
+) => string
 
 interface ExceptionEditorState {
   clientId: string
@@ -113,6 +118,7 @@ const COMMON_TIMEZONES = [
   "Europe/Berlin",
   "UTC",
 ]
+const SLOT_DURATION_OPTIONS = [15, 30, 45, 60, 90, 120, 150, 180, 240, 300, 360, 480]
 
 function asRecord(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -251,6 +257,175 @@ function sortBlocks(entries: BlockEditorState[]): BlockEditorState[] {
     }
     return compareDateInputs(left.endDate, right.endDate)
   })
+}
+
+function getDayLabel(dayKey: DayKey, tWithFallback: BookingTranslationFn): string {
+  switch (dayKey) {
+    case "sunday":
+      return tWithFallback("ui.app.booking.days.sunday", "Sunday")
+    case "monday":
+      return tWithFallback("ui.app.booking.days.monday", "Monday")
+    case "tuesday":
+      return tWithFallback("ui.app.booking.days.tuesday", "Tuesday")
+    case "wednesday":
+      return tWithFallback("ui.app.booking.days.wednesday", "Wednesday")
+    case "thursday":
+      return tWithFallback("ui.app.booking.days.thursday", "Thursday")
+    case "friday":
+      return tWithFallback("ui.app.booking.days.friday", "Friday")
+    case "saturday":
+      return tWithFallback("ui.app.booking.days.saturday", "Saturday")
+  }
+}
+
+function formatDurationLabel(minutes: number, tWithFallback: BookingTranslationFn): string {
+  const minuteShort = tWithFallback(
+    "ui.app.booking.availability.resource.duration.minute_short",
+    "min"
+  )
+
+  if (minutes < 60) {
+    return tWithFallback(
+      "ui.app.booking.availability.resource.duration.option_minutes_only",
+      "{minutes} {minuteShort}",
+      { minutes, minuteShort }
+    )
+  }
+
+  const hourShort = tWithFallback(
+    "ui.app.booking.availability.resource.duration.hour_short",
+    "h"
+  )
+  const hours = Math.floor(minutes / 60)
+  const remainder = minutes % 60
+  const breakdown =
+    remainder > 0 ? `${hours}${hourShort} ${remainder}${minuteShort}` : `${hours}${hourShort}`
+
+  return tWithFallback(
+    "ui.app.booking.availability.resource.duration.option_with_breakdown",
+    "{minutes} {minuteShort} ({breakdown})",
+    { minutes, minuteShort, breakdown }
+  )
+}
+
+function formatCountLabel(args: {
+  count: number
+  singularKey: string
+  singularFallback: string
+  pluralKey: string
+  pluralFallback: string
+  tWithFallback: BookingTranslationFn
+}): string {
+  if (args.count === 1) {
+    return args.tWithFallback(args.singularKey, args.singularFallback, { count: args.count })
+  }
+  return args.tWithFallback(args.pluralKey, args.pluralFallback, { count: args.count })
+}
+
+function getResourceSubtypeLabel(
+  subtype: string | null | undefined,
+  tWithFallback: BookingTranslationFn
+): string | null {
+  switch (subtype) {
+    case "room":
+      return tWithFallback("ui.app.booking.availability.resource.subtype.room", "Room")
+    case "staff":
+      return tWithFallback("ui.app.booking.availability.resource.subtype.staff", "Staff")
+    case "equipment":
+      return tWithFallback("ui.app.booking.availability.resource.subtype.equipment", "Equipment")
+    case "space":
+      return tWithFallback("ui.app.booking.availability.resource.subtype.space", "Space")
+    case "vehicle":
+      return tWithFallback("ui.app.booking.availability.resource.subtype.vehicle", "Vehicle")
+    case "accommodation":
+      return tWithFallback("ui.app.booking.availability.resource.subtype.accommodation", "Accommodation")
+    case "appointment":
+      return tWithFallback("ui.app.booking.availability.resource.subtype.appointment", "Appointment")
+    case "class":
+      return tWithFallback("ui.app.booking.availability.resource.subtype.class", "Class")
+    case "treatment":
+      return tWithFallback("ui.app.booking.availability.resource.subtype.treatment", "Treatment")
+    default:
+      return normalizeOptionalString(subtype)?.replace(/_/g, " ") || null
+  }
+}
+
+function getResourceStatusLabel(
+  status: string | null | undefined,
+  tWithFallback: BookingTranslationFn
+): string {
+  switch (status) {
+    case "active":
+      return tWithFallback("ui.app.booking.availability.resource.status.active", "Active")
+    case "inactive":
+      return tWithFallback("ui.app.booking.availability.resource.status.inactive", "Inactive")
+    case "archived":
+      return tWithFallback("ui.app.booking.availability.resource.status.archived", "Archived")
+    default:
+      return tWithFallback("ui.app.booking.availability.resource.status.draft", "Draft")
+  }
+}
+
+function getAvailabilityStructureLabel(
+  structureKey: string,
+  fallbackLabel: string,
+  tWithFallback: BookingTranslationFn
+): string {
+  switch (structureKey) {
+    case "resource_time_slot":
+      return tWithFallback(
+        "ui.app.booking.availability.resource.structure.resource_time_slot",
+        fallbackLabel
+      )
+    case "one_on_one_meeting":
+      return tWithFallback(
+        "ui.app.booking.availability.resource.structure.one_on_one_meeting",
+        fallbackLabel
+      )
+    case "course_session":
+      return tWithFallback(
+        "ui.app.booking.availability.resource.structure.course_session",
+        fallbackLabel
+      )
+    case "event_session_seating":
+      return tWithFallback(
+        "ui.app.booking.availability.resource.structure.event_session_seating",
+        fallbackLabel
+      )
+    case "hotel_room":
+      return tWithFallback(
+        "ui.app.booking.availability.resource.structure.hotel_room",
+        fallbackLabel
+      )
+    case "house_rental":
+      return tWithFallback(
+        "ui.app.booking.availability.resource.structure.house_rental",
+        fallbackLabel
+      )
+    case "boat_seat_departure":
+      return tWithFallback(
+        "ui.app.booking.availability.resource.structure.boat_seat_departure",
+        fallbackLabel
+      )
+    case "boat_charter":
+      return tWithFallback(
+        "ui.app.booking.availability.resource.structure.boat_charter",
+        fallbackLabel
+      )
+    case "fleet_departure":
+      return tWithFallback(
+        "ui.app.booking.availability.resource.structure.fleet_departure",
+        fallbackLabel
+      )
+    default:
+      return fallbackLabel
+  }
+}
+
+function buildSlotDurationOptions(currentDuration: number): number[] {
+  return [...new Set([...SLOT_DURATION_OPTIONS, currentDuration])]
+    .filter((duration) => Number.isFinite(duration) && duration > 0)
+    .sort((left, right) => left - right)
 }
 
 function getTimezoneList(): string[] {
@@ -409,7 +584,11 @@ function buildHydratedBlocks(
   return sortBlocks(next)
 }
 
-function validateScheduleState(schedule: WeeklyScheduleState): string | null {
+function validateScheduleState(
+  schedule: WeeklyScheduleState,
+  tWithFallback: BookingTranslationFn,
+  getDayLabelForKey: (dayKey: DayKey) => string
+): string | null {
   for (const day of DAYS_OF_WEEK) {
     const dayState = schedule[day.key]
     if (!dayState.isOpen) {
@@ -417,17 +596,29 @@ function validateScheduleState(schedule: WeeklyScheduleState): string | null {
     }
 
     if (dayState.timeRanges.length === 0) {
-      return `${day.label} needs at least one time range.`
+      return tWithFallback(
+        "ui.app.booking.availability.resource.schedule.validation.range_required",
+        "{day} needs at least one time range.",
+        { day: getDayLabelForKey(day.key) }
+      )
     }
 
     const sorted = sortRanges(dayState.timeRanges)
     for (let index = 0; index < sorted.length; index += 1) {
       const range = sorted[index]
       if (range.startTime >= range.endTime) {
-        return `${day.label} has an invalid time range.`
+        return tWithFallback(
+          "ui.app.booking.availability.resource.schedule.validation.invalid_range",
+          "{day} has an invalid time range.",
+          { day: getDayLabelForKey(day.key) }
+        )
       }
       if (index > 0 && range.startTime < sorted[index - 1].endTime) {
-        return `${day.label} has overlapping time ranges.`
+        return tWithFallback(
+          "ui.app.booking.availability.resource.schedule.validation.overlap",
+          "{day} has overlapping time ranges.",
+          { day: getDayLabelForKey(day.key) }
+        )
       }
     }
   }
@@ -456,14 +647,6 @@ function countConfiguredWindows(schedule: WeeklyScheduleState): number {
     const dayState = schedule[day.key]
     return total + (dayState.isOpen ? dayState.timeRanges.length : 0)
   }, 0)
-}
-
-function formatMinutesLabel(minutes: number): string {
-  if (minutes % 60 === 0) {
-    const hours = minutes / 60
-    return hours === 1 ? "1 hour" : `${hours} hours`
-  }
-  return `${minutes} min`
 }
 
 export function ResourceAvailability({
@@ -501,8 +684,15 @@ export function ResourceAvailability({
   if (!sessionId || !currentOrganization?.id) {
     return (
       <div className="p-4 text-center" style={{ color: "var(--window-document-text)" }}>
-        <p className="font-pixel text-sm">Please log in</p>
-        <p className="mt-2 text-xs opacity-70">Login required to manage availability.</p>
+        <p className="font-pixel text-sm">
+          {tWithFallback("ui.app.booking.auth.login_required_title", "Please log in")}
+        </p>
+        <p className="mt-2 text-xs opacity-70">
+          {tWithFallback(
+            "ui.app.booking.availability.resource.login_required_hint",
+            "Login required to manage resource availability."
+          )}
+        </p>
       </div>
     )
   }
@@ -523,7 +713,10 @@ export function ResourceAvailability({
           className="mt-0.5 text-xs"
           style={{ color: "var(--window-document-text)", opacity: 0.65 }}
         >
-          Configure recurring booking windows, date overrides, and blackout windows directly on each resource.
+          {tWithFallback(
+            "ui.app.booking.availability.resource.subtitle",
+            "Configure recurring booking windows, date overrides, and blackout windows directly on each resource."
+          )}
         </p>
       </div>
 
@@ -534,7 +727,10 @@ export function ResourceAvailability({
               className="font-pixel text-xs"
               style={{ color: "var(--window-document-text)", opacity: 0.5 }}
             >
-              Loading resources...
+              {tWithFallback(
+                "ui.app.booking.availability.resource.loading_resources",
+                "Loading resources..."
+              )}
             </p>
           </div>
         ) : resources.length === 0 ? (
@@ -544,13 +740,19 @@ export function ResourceAvailability({
               className="font-pixel text-sm"
               style={{ color: "var(--window-document-text)" }}
             >
-              No bookable resources found
+              {tWithFallback(
+                "ui.app.booking.availability.resource.empty_title",
+                "No bookable resources found"
+              )}
             </p>
             <p
               className="max-w-xs text-center text-xs"
               style={{ color: "var(--window-document-text)", opacity: 0.6 }}
             >
-              Create or configure a bookable product before managing availability.
+              {tWithFallback(
+                "ui.app.booking.availability.resource.empty_hint",
+                "Create or configure a bookable product before managing availability."
+              )}
             </p>
           </div>
         ) : (
@@ -587,6 +789,7 @@ function ResourceCard({
   sessionId,
 }: ResourceCardProps) {
   const notification = useNotification()
+  const { tWithFallback } = useNamespaceTranslations("ui.app.booking")
   const timezoneList = getTimezoneList()
   const clientIdRef = useRef(0)
 
@@ -626,6 +829,16 @@ function ResourceCard({
   const structureDefinition = getAvailabilityStructureDefinition(
     resolveAvailabilityStructure(resourceProps, bookableConfig)
   )
+  const localizedStructureLabel = getAvailabilityStructureLabel(
+    structureDefinition.key,
+    structureDefinition.label,
+    tWithFallback
+  )
+  const localizedSubtypeLabel = getResourceSubtypeLabel(resource.subtype, tWithFallback)
+  const localizedStatusLabel = getResourceStatusLabel(resource.status, tWithFallback)
+  const getLocalizedDayLabel = (dayKey: DayKey) => getDayLabel(dayKey, tWithFallback)
+  const formatDuration = (minutes: number) => formatDurationLabel(minutes, tWithFallback)
+  const slotDurationOptions = buildSlotDurationOptions(slotDuration)
   const fieldStyle = {
     borderColor: "var(--window-document-border)",
     background: "var(--window-document-bg)",
@@ -635,6 +848,36 @@ function ResourceCard({
     existingAvailability === undefined ? null : countConfiguredWindows(schedule)
   const overrideCount = exceptions.length
   const blackoutCount = blocks.length
+  const weeklyWindowSummary =
+    configuredWindowCount === null
+      ? tWithFallback(
+          "ui.app.booking.availability.resource.summary.loading_schedule",
+          "Loading schedule..."
+        )
+      : formatCountLabel({
+          count: configuredWindowCount,
+          singularKey: "ui.app.booking.availability.resource.summary.weekly_window_singular",
+          singularFallback: "{count} weekly window",
+          pluralKey: "ui.app.booking.availability.resource.summary.weekly_window_plural",
+          pluralFallback: "{count} weekly windows",
+          tWithFallback,
+        })
+  const overrideSummary = formatCountLabel({
+    count: overrideCount,
+    singularKey: "ui.app.booking.availability.resource.summary.override_singular",
+    singularFallback: "{count} override",
+    pluralKey: "ui.app.booking.availability.resource.summary.override_plural",
+    pluralFallback: "{count} overrides",
+    tWithFallback,
+  })
+  const blackoutSummary = formatCountLabel({
+    count: blackoutCount,
+    singularKey: "ui.app.booking.availability.resource.summary.blackout_singular",
+    singularFallback: "{count} blackout window",
+    pluralKey: "ui.app.booking.availability.resource.summary.blackout_plural",
+    pluralFallback: "{count} blackout windows",
+    tWithFallback,
+  })
 
   const setRowPending = (key: string, isPending: boolean) => {
     setPendingRowKeys((current) => {
@@ -783,27 +1026,42 @@ function ResourceCard({
 
   const validateException = (entry: ExceptionEditorState): string | null => {
     if (!entry.date) {
-      return "Choose a date for the override."
+      return tWithFallback(
+        "ui.app.booking.availability.resource.override.validation.date_required",
+        "Choose a date for the override."
+      )
     }
     if (
       exceptions.some(
         (candidate) => candidate.clientId !== entry.clientId && candidate.date === entry.date
       )
     ) {
-      return "Each date can only have one override."
+      return tWithFallback(
+        "ui.app.booking.availability.resource.override.validation.unique_date",
+        "Each date can only have one override."
+      )
     }
     if (entry.mode === "custom_hours" && entry.startTime >= entry.endTime) {
-      return "Override end time must be after start time."
+      return tWithFallback(
+        "ui.app.booking.availability.resource.override.validation.invalid_range",
+        "Override end time must be after start time."
+      )
     }
     return null
   }
 
   const validateBlock = (entry: BlockEditorState): string | null => {
     if (!entry.startDate || !entry.endDate) {
-      return "Choose both the start and end date for the blackout window."
+      return tWithFallback(
+        "ui.app.booking.availability.resource.blackout.validation.dates_required",
+        "Choose both the start and end date for the blackout window."
+      )
     }
     if (entry.endDate < entry.startDate) {
-      return "Blackout end date must be on or after the start date."
+      return tWithFallback(
+        "ui.app.booking.availability.resource.blackout.validation.invalid_range",
+        "Blackout end date must be on or after the start date."
+      )
     }
     return null
   }
@@ -816,13 +1074,28 @@ function ResourceCard({
 
     const validationError = validateException(entry)
     if (validationError) {
-      notification.error("Invalid override", validationError)
+      notification.error(
+        tWithFallback(
+          "ui.app.booking.availability.resource.override.notifications.invalid_title",
+          "Invalid override"
+        ),
+        validationError
+      )
       return
     }
 
     const date = parseDateInput(entry.date)
     if (date === null) {
-      notification.error("Invalid override", "Choose a valid override date.")
+      notification.error(
+        tWithFallback(
+          "ui.app.booking.availability.resource.override.notifications.invalid_title",
+          "Invalid override"
+        ),
+        tWithFallback(
+          "ui.app.booking.availability.resource.override.validation.valid_date",
+          "Choose a valid override date."
+        )
+      )
       return
     }
 
@@ -873,15 +1146,37 @@ function ResourceCard({
       )
 
       notification.success(
-        entry.exceptionId ? "Override updated" : "Override created",
+        entry.exceptionId
+          ? tWithFallback(
+              "ui.app.booking.availability.resource.override.notifications.updated_title",
+              "Override updated"
+            )
+          : tWithFallback(
+              "ui.app.booking.availability.resource.override.notifications.created_title",
+              "Override created"
+            ),
         entry.mode === "closed"
-          ? "The resource is unavailable for that date."
-          : "The date-specific hours have been saved."
+          ? tWithFallback(
+              "ui.app.booking.availability.resource.override.notifications.closed_body",
+              "The resource is unavailable for that date."
+            )
+          : tWithFallback(
+              "ui.app.booking.availability.resource.override.notifications.hours_saved_body",
+              "The date-specific hours have been saved."
+            )
       )
     } catch (error) {
       notification.error(
-        "Override save failed",
-        error instanceof Error ? error.message : "Failed to save the date override."
+        tWithFallback(
+          "ui.app.booking.availability.resource.override.notifications.save_failed_title",
+          "Override save failed"
+        ),
+        error instanceof Error
+          ? error.message
+          : tWithFallback(
+              "ui.app.booking.availability.resource.override.notifications.save_failed_body",
+              "Failed to save the date override."
+            )
       )
     } finally {
       setRowPending(pendingKey, false)
@@ -908,11 +1203,28 @@ function ResourceCard({
         exceptionId: entry.exceptionId,
       })
       setExceptions((current) => current.filter((candidate) => candidate.clientId !== clientId))
-      notification.success("Override removed", "The date-specific override has been deleted.")
+      notification.success(
+        tWithFallback(
+          "ui.app.booking.availability.resource.override.notifications.deleted_title",
+          "Override removed"
+        ),
+        tWithFallback(
+          "ui.app.booking.availability.resource.override.notifications.deleted_body",
+          "The date-specific override has been deleted."
+        )
+      )
     } catch (error) {
       notification.error(
-        "Override delete failed",
-        error instanceof Error ? error.message : "Failed to delete the date override."
+        tWithFallback(
+          "ui.app.booking.availability.resource.override.notifications.delete_failed_title",
+          "Override delete failed"
+        ),
+        error instanceof Error
+          ? error.message
+          : tWithFallback(
+              "ui.app.booking.availability.resource.override.notifications.delete_failed_body",
+              "Failed to delete the date override."
+            )
       )
     } finally {
       setRowPending(pendingKey, false)
@@ -927,19 +1239,36 @@ function ResourceCard({
 
     const validationError = validateBlock(entry)
     if (validationError) {
-      notification.error("Invalid blackout window", validationError)
+      notification.error(
+        tWithFallback(
+          "ui.app.booking.availability.resource.blackout.notifications.invalid_title",
+          "Invalid blackout window"
+        ),
+        validationError
+      )
       return
     }
 
     const startDate = parseDateInput(entry.startDate)
     const endDate = parseDateInput(entry.endDate)
     if (startDate === null || endDate === null) {
-      notification.error("Invalid blackout window", "Choose valid blackout dates.")
+      notification.error(
+        tWithFallback(
+          "ui.app.booking.availability.resource.blackout.notifications.invalid_title",
+          "Invalid blackout window"
+        ),
+        tWithFallback(
+          "ui.app.booking.availability.resource.blackout.validation.valid_dates",
+          "Choose valid blackout dates."
+        )
+      )
       return
     }
 
     const pendingKey = `block:${clientId}`
-    const reason = entry.reason.trim() || "Unavailable"
+    const reason =
+      entry.reason.trim()
+      || tWithFallback("ui.app.booking.availability.editor.unavailable", "Unavailable")
     setRowPending(pendingKey, true)
 
     try {
@@ -975,13 +1304,32 @@ function ResourceCard({
       )
 
       notification.success(
-        entry.blockId ? "Blackout updated" : "Blackout created",
-        "The blackout window has been saved."
+        entry.blockId
+          ? tWithFallback(
+              "ui.app.booking.availability.resource.blackout.notifications.updated_title",
+              "Blackout updated"
+            )
+          : tWithFallback(
+              "ui.app.booking.availability.resource.blackout.notifications.created_title",
+              "Blackout created"
+            ),
+        tWithFallback(
+          "ui.app.booking.availability.resource.blackout.notifications.saved_body",
+          "The blackout window has been saved."
+        )
       )
     } catch (error) {
       notification.error(
-        "Blackout save failed",
-        error instanceof Error ? error.message : "Failed to save the blackout window."
+        tWithFallback(
+          "ui.app.booking.availability.resource.blackout.notifications.save_failed_title",
+          "Blackout save failed"
+        ),
+        error instanceof Error
+          ? error.message
+          : tWithFallback(
+              "ui.app.booking.availability.resource.blackout.notifications.save_failed_body",
+              "Failed to save the blackout window."
+            )
       )
     } finally {
       setRowPending(pendingKey, false)
@@ -1008,11 +1356,28 @@ function ResourceCard({
         blockId: entry.blockId,
       })
       setBlocks((current) => current.filter((candidate) => candidate.clientId !== clientId))
-      notification.success("Blackout removed", "The blackout window has been deleted.")
+      notification.success(
+        tWithFallback(
+          "ui.app.booking.availability.resource.blackout.notifications.deleted_title",
+          "Blackout removed"
+        ),
+        tWithFallback(
+          "ui.app.booking.availability.resource.blackout.notifications.deleted_body",
+          "The blackout window has been deleted."
+        )
+      )
     } catch (error) {
       notification.error(
-        "Blackout delete failed",
-        error instanceof Error ? error.message : "Failed to delete the blackout window."
+        tWithFallback(
+          "ui.app.booking.availability.resource.blackout.notifications.delete_failed_title",
+          "Blackout delete failed"
+        ),
+        error instanceof Error
+          ? error.message
+          : tWithFallback(
+              "ui.app.booking.availability.resource.blackout.notifications.delete_failed_body",
+              "Failed to delete the blackout window."
+            )
       )
     } finally {
       setRowPending(pendingKey, false)
@@ -1020,9 +1385,15 @@ function ResourceCard({
   }
 
   const handleSave = async () => {
-    const validationError = validateScheduleState(schedule)
+    const validationError = validateScheduleState(schedule, tWithFallback, getLocalizedDayLabel)
     if (validationError) {
-      notification.error("Invalid schedule", validationError)
+      notification.error(
+        tWithFallback(
+          "ui.app.booking.availability.resource.schedule.notifications.invalid_title",
+          "Invalid schedule"
+        ),
+        validationError
+      )
       return
     }
 
@@ -1058,11 +1429,28 @@ function ResourceCard({
       })
 
       setIsDirty(false)
-      notification.success("Availability saved", "The resource schedule has been updated.")
+      notification.success(
+        tWithFallback(
+          "ui.app.booking.availability.resource.schedule.notifications.saved_title",
+          "Availability saved"
+        ),
+        tWithFallback(
+          "ui.app.booking.availability.resource.schedule.notifications.saved_body",
+          "The resource schedule has been updated."
+        )
+      )
     } catch (error) {
       notification.error(
-        "Save failed",
-        error instanceof Error ? error.message : "Failed to save resource availability."
+        tWithFallback(
+          "ui.app.booking.availability.resource.schedule.notifications.save_failed_title",
+          "Save failed"
+        ),
+        error instanceof Error
+          ? error.message
+          : tWithFallback(
+              "ui.app.booking.availability.resource.schedule.notifications.save_failed_body",
+              "Failed to save resource availability."
+            )
       )
     } finally {
       setIsSaving(false)
@@ -1086,7 +1474,13 @@ function ResourceCard({
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-            <span className="truncate font-pixel text-sm">{resource.name || "Untitled resource"}</span>
+            <span className="truncate font-pixel text-sm">
+              {resource.name
+                || tWithFallback(
+                  "ui.app.booking.availability.resource.untitled_resource",
+                  "Untitled resource"
+                )}
+            </span>
             <span
               className="rounded px-1.5 py-0.5 text-xs"
               style={{
@@ -1094,7 +1488,7 @@ function ResourceCard({
                 color: "var(--window-document-text)",
               }}
             >
-              {structureDefinition.label}
+              {localizedStructureLabel}
             </span>
             {resource.subtype ? (
               <span
@@ -1104,14 +1498,12 @@ function ResourceCard({
                   color: "var(--window-document-text)",
                 }}
               >
-                {resource.subtype.replace(/_/g, " ")}
+                {localizedSubtypeLabel}
               </span>
             ) : null}
           </div>
           <p className="mt-1 text-xs opacity-65">
-            {configuredWindowCount === null
-              ? "Loading schedule..."
-              : `${configuredWindowCount} weekly window${configuredWindowCount === 1 ? "" : "s"} | ${overrideCount} override${overrideCount === 1 ? "" : "s"} | ${blackoutCount} blackout window${blackoutCount === 1 ? "" : "s"}`}
+            {`${weeklyWindowSummary} | ${overrideSummary} | ${blackoutSummary}`}
           </p>
         </div>
 
@@ -1122,7 +1514,7 @@ function ResourceCard({
             color: "white",
           }}
         >
-          {resource.status || "draft"}
+          {localizedStatusLabel}
         </span>
       </button>
 
@@ -1145,13 +1537,19 @@ function ResourceCard({
                   style={{ borderColor: "var(--window-document-border)" }}
                 >
                   <p className="font-pixel text-xs" style={{ color: "var(--window-document-text)" }}>
-                    Weekly Windows
+                    {tWithFallback(
+                      "ui.app.booking.availability.resource.schedule.title",
+                      "Weekly Windows"
+                    )}
                   </p>
                   <p
                     className="mt-1 text-xs"
                     style={{ color: "var(--window-document-text)", opacity: 0.65 }}
                   >
-                    Recurring booking hours that apply unless a date override or blackout window takes precedence.
+                    {tWithFallback(
+                      "ui.app.booking.availability.resource.schedule.subtitle",
+                      "Recurring booking hours that apply unless a date override or blackout window takes precedence."
+                    )}
                   </p>
                 </div>
                 {DAYS_OF_WEEK.map((day, dayIndex) => (
@@ -1167,7 +1565,7 @@ function ResourceCard({
                           checked={schedule[day.key].isOpen}
                           onChange={(event) => updateDayOpen(day.key, event.target.checked)}
                         />
-                        <span className="text-sm font-medium">{day.label}</span>
+                        <span className="text-sm font-medium">{getLocalizedDayLabel(day.key)}</span>
                       </label>
 
                       <div className="min-w-0 flex-1 space-y-2">
@@ -1184,7 +1582,12 @@ function ResourceCard({
                                   className="rounded-md border px-2 py-1 text-xs"
                                   style={fieldStyle}
                                 />
-                                <span className="text-xs opacity-60">to</span>
+                                <span className="text-xs opacity-60">
+                                  {tWithFallback(
+                                    "ui.app.booking.availability.resource.schedule.range_separator",
+                                    "to"
+                                  )}
+                                </span>
                                 <input
                                   type="time"
                                   value={range.endTime}
@@ -1199,7 +1602,10 @@ function ResourceCard({
                                   className="desktop-interior-button p-1.5"
                                   onClick={() => removeTimeRange(day.key, rangeIndex)}
                                   disabled={schedule[day.key].timeRanges.length === 1}
-                                  title="Remove time range"
+                                  title={tWithFallback(
+                                    "ui.app.booking.availability.editor.remove_time_range",
+                                    "Remove time range"
+                                  )}
                                 >
                                   <X size={12} />
                                 </button>
@@ -1212,11 +1618,19 @@ function ResourceCard({
                               onClick={() => addTimeRange(day.key)}
                             >
                               <Plus size={12} />
-                              Add window
+                              {tWithFallback(
+                                "ui.app.booking.availability.resource.schedule.add_window",
+                                "Add window"
+                              )}
                             </button>
                           </>
                         ) : (
-                          <p className="pt-1 text-xs opacity-55">Closed</p>
+                          <p className="pt-1 text-xs opacity-55">
+                            {tWithFallback(
+                              "ui.app.booking.availability.resource.schedule.closed",
+                              "Closed"
+                            )}
+                          </p>
                         )}
                       </div>
                     </div>
@@ -1238,13 +1652,19 @@ function ResourceCard({
                   >
                     <div>
                       <p className="font-pixel text-xs" style={{ color: "var(--window-document-text)" }}>
-                        Date Overrides
+                        {tWithFallback(
+                          "ui.app.booking.availability.resource.override.title",
+                          "Date Overrides"
+                        )}
                       </p>
                       <p
                         className="mt-1 text-xs"
                         style={{ color: "var(--window-document-text)", opacity: 0.65 }}
                       >
-                        Override a single date with custom hours or mark the date unavailable.
+                        {tWithFallback(
+                          "ui.app.booking.availability.resource.override.subtitle",
+                          "Override a single date with custom hours or mark the date unavailable."
+                        )}
                       </p>
                     </div>
                     <button
@@ -1254,7 +1674,7 @@ function ResourceCard({
                       disabled={existingAvailability === undefined}
                     >
                       <Plus size={12} />
-                      Add override
+                      {tWithFallback("ui.app.booking.availability.editor.add_override", "Add an override")}
                     </button>
                   </div>
 
@@ -1264,7 +1684,10 @@ function ResourceCard({
                         className="text-xs"
                         style={{ color: "var(--window-document-text)", opacity: 0.6 }}
                       >
-                        No date overrides yet.
+                        {tWithFallback(
+                          "ui.app.booking.availability.resource.override.empty",
+                          "No date overrides yet."
+                        )}
                       </p>
                     ) : (
                       exceptions.map((entry) => {
@@ -1279,7 +1702,10 @@ function ResourceCard({
                           >
                             <div className="grid gap-3 md:grid-cols-2">
                               <label className="block text-xs font-medium">
-                                Override date
+                                {tWithFallback(
+                                  "ui.app.booking.availability.resource.override.fields.date",
+                                  "Override date"
+                                )}
                                 <input
                                   type="date"
                                   value={entry.date}
@@ -1293,7 +1719,10 @@ function ResourceCard({
                               </label>
 
                               <label className="block text-xs font-medium">
-                                Override rule
+                                {tWithFallback(
+                                  "ui.app.booking.availability.resource.override.fields.rule",
+                                  "Override rule"
+                                )}
                                 <select
                                   value={entry.mode}
                                   disabled={isPending}
@@ -1307,8 +1736,18 @@ function ResourceCard({
                                   className="mt-1 w-full rounded-md border px-2 py-1.5 text-sm"
                                   style={fieldStyle}
                                 >
-                                  <option value="custom_hours">Custom hours</option>
-                                  <option value="closed">Unavailable all day</option>
+                                  <option value="custom_hours">
+                                    {tWithFallback(
+                                      "ui.app.booking.availability.resource.override.rule.custom_hours",
+                                      "Custom hours"
+                                    )}
+                                  </option>
+                                  <option value="closed">
+                                    {tWithFallback(
+                                      "ui.app.booking.availability.resource.override.rule.closed",
+                                      "Unavailable all day"
+                                    )}
+                                  </option>
                                 </select>
                               </label>
                             </div>
@@ -1316,7 +1755,10 @@ function ResourceCard({
                             {entry.mode === "custom_hours" ? (
                               <div className="mt-3 grid gap-3 md:grid-cols-2">
                                 <label className="block text-xs font-medium">
-                                  Start time
+                                  {tWithFallback(
+                                    "ui.app.booking.availability.resource.override.fields.start_time",
+                                    "Start time"
+                                  )}
                                   <input
                                     type="time"
                                     value={entry.startTime}
@@ -1330,7 +1772,10 @@ function ResourceCard({
                                 </label>
 
                                 <label className="block text-xs font-medium">
-                                  End time
+                                  {tWithFallback(
+                                    "ui.app.booking.availability.resource.override.fields.end_time",
+                                    "End time"
+                                  )}
                                   <input
                                     type="time"
                                     value={entry.endTime}
@@ -1346,7 +1791,10 @@ function ResourceCard({
                             ) : null}
 
                             <label className="mt-3 block text-xs font-medium">
-                              Reason
+                              {tWithFallback(
+                                "ui.app.booking.availability.resource.override.fields.reason",
+                                "Reason"
+                              )}
                               <input
                                 type="text"
                                 value={entry.reason}
@@ -1354,7 +1802,10 @@ function ResourceCard({
                                 onChange={(event) =>
                                   updateExceptionField(entry.clientId, "reason", event.target.value)
                                 }
-                                placeholder="Holiday, special event, staff time-off..."
+                                placeholder={tWithFallback(
+                                  "ui.app.booking.availability.resource.override.fields.reason_placeholder",
+                                  "Holiday, special event, staff time-off..."
+                                )}
                                 className="mt-1 w-full rounded-md border px-2 py-1.5 text-sm"
                                 style={fieldStyle}
                               />
@@ -1369,10 +1820,16 @@ function ResourceCard({
                               >
                                 <Save size={12} />
                                 {isPending
-                                  ? "Saving..."
+                                  ? tWithFallback("ui.app.booking.actions.saving", "Saving...")
                                   : entry.exceptionId
-                                  ? "Update override"
-                                  : "Create override"}
+                                  ? tWithFallback(
+                                      "ui.app.booking.availability.resource.override.actions.update",
+                                      "Update override"
+                                    )
+                                  : tWithFallback(
+                                      "ui.app.booking.availability.resource.override.actions.create",
+                                      "Create override"
+                                    )}
                               </button>
                               <button
                                 type="button"
@@ -1381,7 +1838,15 @@ function ResourceCard({
                                 disabled={isPending}
                               >
                                 <Trash2 size={12} />
-                                {entry.exceptionId ? "Delete override" : "Remove override"}
+                                {entry.exceptionId
+                                  ? tWithFallback(
+                                      "ui.app.booking.availability.resource.override.actions.delete",
+                                      "Delete override"
+                                    )
+                                  : tWithFallback(
+                                      "ui.app.booking.availability.resource.override.actions.remove",
+                                      "Remove override"
+                                    )}
                               </button>
                             </div>
                           </div>
@@ -1404,13 +1869,19 @@ function ResourceCard({
                   >
                     <div>
                       <p className="font-pixel text-xs" style={{ color: "var(--window-document-text)" }}>
-                        Blackout Windows
+                        {tWithFallback(
+                          "ui.app.booking.availability.resource.blackout.title",
+                          "Blackout Windows"
+                        )}
                       </p>
                       <p
                         className="mt-1 text-xs"
                         style={{ color: "var(--window-document-text)", opacity: 0.65 }}
                       >
-                        Block multi-day unavailable windows such as maintenance or travel.
+                        {tWithFallback(
+                          "ui.app.booking.availability.resource.blackout.subtitle",
+                          "Block unavailable windows such as maintenance or travel."
+                        )}
                       </p>
                     </div>
                     <button
@@ -1420,7 +1891,10 @@ function ResourceCard({
                       disabled={existingAvailability === undefined}
                     >
                       <Plus size={12} />
-                      Add blackout
+                      {tWithFallback(
+                        "ui.app.booking.availability.resource.blackout.actions.add",
+                        "Add blackout"
+                      )}
                     </button>
                   </div>
 
@@ -1430,7 +1904,10 @@ function ResourceCard({
                         className="text-xs"
                         style={{ color: "var(--window-document-text)", opacity: 0.6 }}
                       >
-                        No blackout windows yet.
+                        {tWithFallback(
+                          "ui.app.booking.availability.resource.blackout.empty",
+                          "No blackout windows yet."
+                        )}
                       </p>
                     ) : (
                       blocks.map((entry) => {
@@ -1445,7 +1922,10 @@ function ResourceCard({
                           >
                             <div className="grid gap-3 md:grid-cols-2">
                               <label className="block text-xs font-medium">
-                                Start date
+                                {tWithFallback(
+                                  "ui.app.booking.availability.resource.blackout.fields.start_date",
+                                  "Start date"
+                                )}
                                 <input
                                   type="date"
                                   value={entry.startDate}
@@ -1459,7 +1939,10 @@ function ResourceCard({
                               </label>
 
                               <label className="block text-xs font-medium">
-                                End date
+                                {tWithFallback(
+                                  "ui.app.booking.availability.resource.blackout.fields.end_date",
+                                  "End date"
+                                )}
                                 <input
                                   type="date"
                                   value={entry.endDate}
@@ -1474,7 +1957,10 @@ function ResourceCard({
                             </div>
 
                             <label className="mt-3 block text-xs font-medium">
-                              Reason
+                              {tWithFallback(
+                                "ui.app.booking.availability.resource.blackout.fields.reason",
+                                "Reason"
+                              )}
                               <input
                                 type="text"
                                 value={entry.reason}
@@ -1482,7 +1968,10 @@ function ResourceCard({
                                 onChange={(event) =>
                                   updateBlockField(entry.clientId, "reason", event.target.value)
                                 }
-                                placeholder="Maintenance, chartered trip, seasonal closure..."
+                                placeholder={tWithFallback(
+                                  "ui.app.booking.availability.resource.blackout.fields.reason_placeholder",
+                                  "Maintenance, chartered trip, seasonal closure..."
+                                )}
                                 className="mt-1 w-full rounded-md border px-2 py-1.5 text-sm"
                                 style={fieldStyle}
                               />
@@ -1497,10 +1986,16 @@ function ResourceCard({
                               >
                                 <Save size={12} />
                                 {isPending
-                                  ? "Saving..."
+                                  ? tWithFallback("ui.app.booking.actions.saving", "Saving...")
                                   : entry.blockId
-                                  ? "Update blackout"
-                                  : "Create blackout"}
+                                  ? tWithFallback(
+                                      "ui.app.booking.availability.resource.blackout.actions.update",
+                                      "Update blackout"
+                                    )
+                                  : tWithFallback(
+                                      "ui.app.booking.availability.resource.blackout.actions.create",
+                                      "Create blackout"
+                                    )}
                               </button>
                               <button
                                 type="button"
@@ -1509,7 +2004,15 @@ function ResourceCard({
                                 disabled={isPending}
                               >
                                 <Trash2 size={12} />
-                                {entry.blockId ? "Delete blackout" : "Remove blackout"}
+                                {entry.blockId
+                                  ? tWithFallback(
+                                      "ui.app.booking.availability.resource.blackout.actions.delete",
+                                      "Delete blackout"
+                                    )
+                                  : tWithFallback(
+                                      "ui.app.booking.availability.resource.blackout.actions.remove",
+                                      "Remove blackout"
+                                    )}
                               </button>
                             </div>
                           </div>
@@ -1526,10 +2029,10 @@ function ResourceCard({
               >
                 <span className="inline-flex items-center gap-1">
                   <CalendarRange size={12} />
-                  {overrideCount} override{overrideCount === 1 ? "" : "s"}
+                  {overrideSummary}
                 </span>
                 <span>
-                  {blackoutCount} blackout window{blackoutCount === 1 ? "" : "s"}
+                  {blackoutSummary}
                 </span>
               </div>
             </div>
@@ -1543,27 +2046,46 @@ function ResourceCard({
                 }}
               >
                 <p className="font-pixel text-xs" style={{ color: "var(--window-document-text)" }}>
-                  Resource Settings
+                  {tWithFallback(
+                    "ui.app.booking.availability.resource.settings.title",
+                    "Resource Settings"
+                  )}
                 </p>
 
                 <label className="mt-3 block text-xs font-medium">
-                  Slot duration
-                  <input
-                    type="number"
-                    min={15}
-                    step={15}
+                  {tWithFallback(
+                    "ui.app.booking.availability.resource.settings.slot_duration",
+                    "Slot duration"
+                  )}
+                  <select
                     value={slotDuration}
                     onChange={(event) => {
-                      setSlotDuration(Math.max(15, Number.parseInt(event.target.value || "0", 10) || 60))
+                      const nextDuration = Number.parseInt(event.target.value || "0", 10)
+                      setSlotDuration(Number.isFinite(nextDuration) && nextDuration > 0 ? nextDuration : 60)
                       setIsDirty(true)
                     }}
                     className="mt-1 w-full rounded-md border px-2 py-1.5 text-sm"
                     style={fieldStyle}
-                  />
+                  >
+                    {slotDurationOptions.map((durationOption) => (
+                      <option key={durationOption} value={durationOption}>
+                        {formatDuration(durationOption)}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="mt-1 block text-[11px] font-normal opacity-65">
+                    {tWithFallback(
+                      "ui.app.booking.availability.resource.settings.slot_duration_hint",
+                      "Select the booking length in minutes. Each option also shows the hour breakdown."
+                    )}
+                  </span>
                 </label>
 
                 <label className="mt-3 block text-xs font-medium">
-                  Buffer after booking
+                  {tWithFallback(
+                    "ui.app.booking.availability.resource.settings.buffer_after",
+                    "Buffer after booking"
+                  )}
                   <input
                     type="number"
                     min={0}
@@ -1579,7 +2101,7 @@ function ResourceCard({
                 </label>
 
                 <label className="mt-3 block text-xs font-medium">
-                  Timezone
+                  {tWithFallback("ui.app.booking.availability.editor.timezone", "Timezone")}
                   <select
                     value={timezone}
                     onChange={(event) => {
@@ -1598,9 +2120,15 @@ function ResourceCard({
                 </label>
 
                 <div className="mt-4 space-y-1 text-xs opacity-70">
-                  <p>{structureDefinition.description}</p>
                   <p>
-                    Duration: {formatMinutesLabel(slotDuration)}. Buffer: {formatMinutesLabel(bufferTime)}.
+                    {tWithFallback(
+                      "ui.app.booking.availability.resource.settings.summary",
+                      "Duration: {duration}. Buffer: {buffer}.",
+                      {
+                        duration: formatDuration(slotDuration),
+                        buffer: formatDuration(bufferTime),
+                      }
+                    )}
                   </p>
                 </div>
               </div>
@@ -1612,7 +2140,17 @@ function ResourceCard({
                 className="desktop-interior-button desktop-interior-button-primary flex w-full items-center justify-center gap-2 py-2 text-sm"
               >
                 <Save size={14} />
-                {isSaving ? "Saving..." : isDirty ? "Save Changes" : "Saved"}
+                {isSaving
+                  ? tWithFallback("ui.app.booking.actions.saving", "Saving...")
+                  : isDirty
+                  ? tWithFallback(
+                      "ui.app.booking.availability.resource.actions.save_changes",
+                      "Save Changes"
+                    )
+                  : tWithFallback(
+                      "ui.app.booking.availability.resource.actions.saved",
+                      "Saved"
+                    )}
               </button>
             </div>
           </div>

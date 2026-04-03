@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic"
 
 import { NextResponse } from "next/server"
+import { toZonedTime } from "date-fns-tz"
 import type { Id } from "../../../../../../convex/_generated/dataModel"
 import {
   getConvexClient,
@@ -136,16 +137,24 @@ function timeToMinutes(value: string): number | null {
   return Number(match[1]) * 60 + Number(match[2])
 }
 
-function formatDateKey(value: unknown): string | null {
+function formatDateKey(value: unknown, timezone: string): string | null {
   if (typeof value !== "number" || !Number.isFinite(value)) {
     return null
   }
-  return new Date(value).toISOString().slice(0, 10)
+  const zoned = toZonedTime(new Date(value), timezone)
+  const year = zoned.getFullYear().toString().padStart(4, "0")
+  const month = String(zoned.getMonth() + 1).padStart(2, "0")
+  const day = String(zoned.getDate()).padStart(2, "0")
+  return `${year}-${month}-${day}`
 }
 
-function blockIncludesDate(block: { startDate?: unknown; endDate?: unknown }, date: string): boolean {
-  const startDate = formatDateKey(block.startDate)
-  const endDate = formatDateKey(block.endDate)
+function blockIncludesDate(
+  block: { startDate?: unknown; endDate?: unknown },
+  date: string,
+  timezone: string
+): boolean {
+  const startDate = formatDateKey(block.startDate, timezone)
+  const endDate = formatDateKey(block.endDate, timezone)
   if (!startDate || !endDate) {
     return false
   }
@@ -185,19 +194,20 @@ function buildCandidateTimes(args: {
   durationMinutes: number
   fallbackTimes: string[]
   availability: ResourceAvailabilitySnapshot | null
+  timezone: string
 }): string[] {
   if (!hasResourceAvailability(args.availability)) {
     return args.fallbackTimes
   }
 
   for (const block of args.availability!.blocks) {
-    if (blockIncludesDate(block, args.date)) {
+    if (blockIncludesDate(block, args.date, args.timezone)) {
       return []
     }
   }
 
   const matchingException = args.availability!.exceptions.find(
-    (exception) => formatDateKey(exception.date) === args.date
+    (exception) => formatDateKey(exception.date, args.timezone) === args.date
   )
   if (matchingException?.isAvailable === false) {
     return []
@@ -226,7 +236,7 @@ function buildCandidateTimes(args: {
     return []
   }
 
-  const dayOfWeek = new Date(dayStart).getUTCDay()
+  const dayOfWeek = toZonedTime(new Date(dayStart), args.timezone).getDay()
   const scheduleTimes = args.availability!.schedules
     .filter((schedule) => schedule.dayOfWeek === dayOfWeek && schedule.isAvailable !== false)
     .map((schedule) => {
@@ -309,6 +319,7 @@ export async function POST(request: Request) {
       durationMinutes,
       fallbackTimes,
       availability: resourceAvailability,
+      timezone: runtime.timezone,
     })
     const seatInventory = buildSeatInventoryFromBoats({
       boats: runtime.boats,

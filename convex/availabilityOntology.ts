@@ -268,9 +268,9 @@ export const getAvailableSlots = query({
           if (remainingCapacity > 0 && !hasExternalConflict) {
             slots.push({
               resourceId: args.resourceId,
-              date: formatDate(dayTs),
-              startTime: formatTime(slotStart),
-              endTime: formatTime(slotEnd),
+              date: formatDate(dayTs, timezone),
+              startTime: formatTime(slotStart, timezone),
+              endTime: formatTime(slotEnd, timezone),
               startDateTime: slotStart,
               endDateTime: slotEnd,
               isAvailable: true,
@@ -1722,18 +1722,21 @@ function getDayOfWeek(ts: number, timezone = "UTC"): number {
 /**
  * Format timestamp to date string
  */
-function formatDate(ts: number): string {
-  const d = new Date(ts);
-  return d.toISOString().split("T")[0];
+function formatDate(ts: number, timezone = "UTC"): string {
+  const d = toZonedTime(new Date(ts), timezone);
+  const year = d.getFullYear().toString().padStart(4, "0");
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 /**
  * Format timestamp to time string
  */
-function formatTime(ts: number): string {
-  const d = new Date(ts);
-  const hours = d.getUTCHours().toString().padStart(2, "0");
-  const minutes = d.getUTCMinutes().toString().padStart(2, "0");
+function formatTime(ts: number, timezone = "UTC"): string {
+  const d = toZonedTime(new Date(ts), timezone);
+  const hours = d.getHours().toString().padStart(2, "0");
+  const minutes = d.getMinutes().toString().padStart(2, "0");
   return `${hours}:${minutes}`;
 }
 
@@ -2182,9 +2185,9 @@ export const getAvailableSlotsInternal = internalQuery({
           if (remainingCapacity > 0 && !hasExternalConflict) {
             slots.push({
               resourceId: args.resourceId,
-              date: formatDate(dayTs),
-              startTime: formatTime(slotStart),
-              endTime: formatTime(slotEnd),
+              date: formatDate(dayTs, timezone),
+              startTime: formatTime(slotStart, timezone),
+              endTime: formatTime(slotEnd, timezone),
               startDateTime: slotStart,
               endDateTime: slotEnd,
               isAvailable: true,

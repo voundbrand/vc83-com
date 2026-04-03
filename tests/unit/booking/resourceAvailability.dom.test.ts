@@ -20,7 +20,14 @@ vi.mock("@/hooks/use-notification", () => ({
 
 vi.mock("@/hooks/use-namespace-translations", () => ({
   useNamespaceTranslations: () => ({
-    tWithFallback: (_key: string, fallback: string) => fallback,
+    tWithFallback: (
+      _key: string,
+      fallback: string,
+      values?: Record<string, string | number>
+    ) =>
+      fallback.replace(/\{(\w+)\}/g, (_match, token) =>
+        values && token in values ? String(values[token]) : `{${token}}`
+      ),
   }),
 }))
 
@@ -205,7 +212,7 @@ describe("ResourceAvailability override and blackout editor", () => {
 
     renderResourceAvailability()
 
-    fireEvent.click(screen.getByRole("button", { name: "Add override" }))
+    fireEvent.click(screen.getByRole("button", { name: "Add an override" }))
     fireEvent.change(screen.getByLabelText("Override date"), {
       target: { value: "2026-04-15" },
     })
@@ -253,6 +260,44 @@ describe("ResourceAvailability override and blackout editor", () => {
         startDate: Date.UTC(2026, 3, 16),
         endDate: Date.UTC(2026, 3, 16),
         reason: "One-day yard slot",
+      })
+    })
+  })
+
+  it("renders slot duration options with minute and hour breakdowns and saves the selected duration", async () => {
+    renderResourceAvailability()
+
+    const slotDurationSelect = screen.getByRole("combobox", {
+      name: /Slot duration/,
+    }) as HTMLSelectElement
+    expect(slotDurationSelect.value).toBe("60")
+    expect(screen.getByRole("option", { name: "90 min (1h 30min)" })).toBeTruthy()
+    expect(screen.getByRole("option", { name: "120 min (2h)" })).toBeTruthy()
+
+    fireEvent.change(slotDurationSelect, {
+      target: { value: "90" },
+    })
+
+    fireEvent.click(screen.getByRole("button", { name: "Save Changes" }))
+
+    await waitFor(() => {
+      expect(updateProductMock).toHaveBeenCalledWith({
+        sessionId: SESSION_ID,
+        productId: RESOURCE_ID,
+        customProperties: {
+          ...PRODUCTS[0].customProperties,
+          timezone: "Europe/Berlin",
+          minDuration: 90,
+          slotIncrement: 90,
+          bufferAfter: 15,
+          bookableConfig: {
+            ...PRODUCTS[0].customProperties.bookableConfig,
+            timezone: "Europe/Berlin",
+            minDuration: 90,
+            slotIncrement: 90,
+            bufferAfter: 15,
+          },
+        },
       })
     })
   })

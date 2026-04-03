@@ -737,6 +737,7 @@ import type * as translations_seedAIAssistant from "../translations/seedAIAssist
 import type * as translations_seedAddressTranslations from "../translations/seedAddressTranslations.js";
 import type * as translations_seedAgentsWindowI18nCoverage from "../translations/seedAgentsWindowI18nCoverage.js";
 import type * as translations_seedBenefitsWindowTranslations from "../translations/seedBenefitsWindowTranslations.js";
+import type * as translations_seedBookingWindowSettingsSetupPatch from "../translations/seedBookingWindowSettingsSetupPatch.js";
 import type * as translations_seedBookingWindowTranslations from "../translations/seedBookingWindowTranslations.js";
 import type * as translations_seedBrainWindowTranslations from "../translations/seedBrainWindowTranslations.js";
 import type * as translations_seedBuilderI18nCoverage from "../translations/seedBuilderI18nCoverage.js";
@@ -1618,6 +1619,7 @@ declare const fullApi: ApiFromModules<{
   "translations/seedAddressTranslations": typeof translations_seedAddressTranslations;
   "translations/seedAgentsWindowI18nCoverage": typeof translations_seedAgentsWindowI18nCoverage;
   "translations/seedBenefitsWindowTranslations": typeof translations_seedBenefitsWindowTranslations;
+  "translations/seedBookingWindowSettingsSetupPatch": typeof translations_seedBookingWindowSettingsSetupPatch;
   "translations/seedBookingWindowTranslations": typeof translations_seedBookingWindowTranslations;
   "translations/seedBrainWindowTranslations": typeof translations_seedBrainWindowTranslations;
   "translations/seedBuilderI18nCoverage": typeof translations_seedBuilderI18nCoverage;

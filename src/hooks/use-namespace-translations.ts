@@ -7,6 +7,22 @@ const generatedApi: any = require("../../convex/_generated/api");
 
 const missingTranslationWarnings = new Set<string>();
 
+function interpolateTranslation(
+  value: string,
+  params?: Record<string, string | number>,
+): string {
+  if (!params) {
+    return value;
+  }
+
+  let nextValue = value;
+  Object.entries(params).forEach(([paramKey, paramValue]) => {
+    nextValue = nextValue.replace(new RegExp(`\\{${paramKey}\\}`, "g"), String(paramValue));
+  });
+
+  return nextValue;
+}
+
 function warnMissingTranslationOnce(
   fingerprint: string,
   message: string,
@@ -93,13 +109,7 @@ export function useNamespaceTranslations(namespace: string) {
     }
 
     // Interpolate parameters if provided
-    if (params) {
-      Object.entries(params).forEach(([paramKey, paramValue]) => {
-        value = value.replace(new RegExp(`\\{${paramKey}\\}`, 'g'), String(paramValue));
-      });
-    }
-
-    return value;
+    return interpolateTranslation(value, params);
   };
 
   const tWithFallback = (
@@ -108,7 +118,7 @@ export function useNamespaceTranslations(namespace: string) {
     params?: Record<string, string | number>,
   ): string => {
     const translated = t(key, params);
-    return translated === key ? fallback : translated;
+    return translated === key ? interpolateTranslation(fallback, params) : translated;
   };
 
   return {
@@ -175,13 +185,7 @@ export function useMultipleNamespaces(namespaces: string[]) {
     }
 
     // Interpolate parameters if provided
-    if (params) {
-      Object.entries(params).forEach(([paramKey, paramValue]) => {
-        value = value.replace(new RegExp(`\\{${paramKey}\\}`, 'g'), String(paramValue));
-      });
-    }
-
-    return value;
+    return interpolateTranslation(value, params);
   };
 
   const tWithFallback = (
@@ -190,7 +194,7 @@ export function useMultipleNamespaces(namespaces: string[]) {
     params?: Record<string, string | number>,
   ): string => {
     const translated = t(key, params);
-    return translated === key ? fallback : translated;
+    return translated === key ? interpolateTranslation(fallback, params) : translated;
   };
 
   return {

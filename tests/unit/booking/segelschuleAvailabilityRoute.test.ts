@@ -242,6 +242,135 @@ describe("segelschule availability route", () => {
     ])
   })
 
+  it("derives weekday matching in the runtime timezone for Europe/Berlin dates", async () => {
+    const berlinMidnightUtc = Date.parse("2026-04-09T22:00:00.000Z")
+    const slot0900 = Date.parse("2026-04-10T07:00:00.000Z")
+
+    getOrganizationIdMock.mockReturnValue("org_123")
+    getConvexClientMock.mockReturnValue({})
+    resolveSegelschuleRuntimeConfigMock.mockResolvedValue({
+      runtimeConfig: {
+        timezone: "Europe/Berlin",
+        defaultAvailableTimes: ["09:00"],
+        boats: [{ id: "fraukje", name: "Fraukje", seatCount: 4 }],
+        courses: {
+          grund: {
+            courseId: "grund",
+            bookingResourceId: "obj_resource_foundation",
+            bookingDurationMinutes: 480,
+            availableTimes: ["09:00"],
+            isMultiDay: true,
+          },
+        },
+      },
+      source: "backend_surface_binding",
+      bindingId: "binding_surface_1",
+      identity: {
+        appSlug: "segelschule-altwarp",
+        surfaceType: "booking",
+        surfaceKey: "default",
+      },
+      warnings: [],
+    })
+    buildSeatInventoryFromBoatsMock.mockReturnValue({
+      groups: [{ groupId: "fraukje", label: "Fraukje", capacity: 4 }],
+      strictSeatSelection: true,
+    })
+    parseBookingStartTimestampMock.mockImplementation((date: string, time: string) => {
+      if (date !== "2026-04-10") {
+        return null
+      }
+      if (time === "00:00") {
+        return berlinMidnightUtc
+      }
+      if (time === "09:00") {
+        return slot0900
+      }
+      return null
+    })
+
+    queryInternalMock.mockImplementation(async (_convex, _ref, args) => {
+      if (
+        args.organizationId === "org_123"
+        && args.resourceId === "obj_resource_foundation"
+        && !("startDate" in args)
+        && !("startDateTime" in args)
+      ) {
+        return {
+          schedules: [
+            {
+              dayOfWeek: 5,
+              startTime: "09:00",
+              endTime: "17:00",
+              isAvailable: true,
+            },
+          ],
+          exceptions: [],
+          blocks: [],
+        }
+      }
+      if (
+        args.organizationId === "org_123"
+        && args.resourceId === "obj_resource_foundation"
+        && "startDate" in args
+      ) {
+        return [
+          {
+            startTime: "09:00",
+          },
+        ]
+      }
+      if (
+        args.resourceId === "obj_resource_foundation"
+        && args.startDateTime === slot0900
+      ) {
+        return {
+          totalCapacity: 4,
+          bookedParticipants: 0,
+          remainingCapacity: 4,
+          unassignedParticipants: 0,
+          groups: [
+            {
+              groupId: "fraukje",
+              label: "Fraukje",
+              capacity: 4,
+              bookedSeatNumbers: [],
+              availableSeatNumbers: [1, 2, 3, 4],
+            },
+          ],
+        }
+      }
+      throw new Error(`Unexpected queryInternal args: ${JSON.stringify(args)}`)
+    })
+
+    const { POST } = await import(
+      "../../../apps/segelschule-altwarp/app/api/booking/availability/route"
+    )
+    const response = await POST(
+      new Request("http://localhost/api/booking/availability", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          courseId: "grund",
+          date: "2026-04-10",
+          time: "09:00",
+        }),
+      })
+    )
+
+    expect(response.status).toBe(200)
+    const payload = await response.json()
+    expect(payload.ok).toBe(true)
+    expect(payload.availableTimes).toEqual([
+      {
+        time: "09:00",
+        isAvailable: true,
+        availableSeats: 4,
+        totalSeats: 4,
+      },
+    ])
+  })
+
   it("returns 400 for invalid date format", async () => {
     const { POST } = await import(
       "../../../apps/segelschule-altwarp/app/api/booking/availability/route"

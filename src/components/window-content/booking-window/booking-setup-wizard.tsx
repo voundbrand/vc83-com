@@ -402,6 +402,18 @@ export function BookingSetupWizard() {
   const notification = useNotification()
   const { tWithFallback } = useNamespaceTranslations("ui.app.booking")
   const { openWindow } = useWindowManager()
+  const setupText = (
+    suffix: string,
+    fallback: string,
+    params?: Record<string, string | number>
+  ) => tWithFallback(`ui.app.booking.settings.setup.${suffix}`, fallback, params)
+  const getTemplateLabel = (template: SetupTemplate) =>
+    template === "custom"
+      ? setupText("template.option.custom", "Custom")
+      : setupText(
+          "template.option.sailing_school_two_boats",
+          "Sailing school (two boats)"
+        )
 
   const executeConfigureBookingWorkflow = useAction(
     _api?.ai?.tools?.bookingWorkflowTool?.executeConfigureBookingWorkflow
@@ -693,11 +705,17 @@ export function BookingSetupWizard() {
         if (appliedCount > 0) {
           setStatusError(null)
           setStatusMessage(
-            "AI write-back applied. Wizard fields updated from chat."
+            setupText(
+              "status.ai_writeback_applied",
+              "AI write-back applied. Wizard fields updated from chat."
+            )
           )
           notification.success(
-            "Wizard Updated",
-            "Applied AI booking setup updates to this wizard."
+            setupText("notifications.wizard_updated_title", "Wizard updated"),
+            setupText(
+              "notifications.wizard_updated_body",
+              "Applied AI booking setup updates to this wizard."
+            )
           )
         }
       }
@@ -720,7 +738,11 @@ export function BookingSetupWizard() {
     setRequiredSequence([])
     setNextAction(null)
     setStatusMessage(
-      `Template defaults loaded for "${template}".`
+      setupText(
+        "status.template_loaded",
+        'Template defaults loaded for "{template}".',
+        { template: getTemplateLabel(template) }
+      )
     )
     setStatusError(null)
   }
@@ -884,17 +906,23 @@ export function BookingSetupWizard() {
       })
 
       if (!result.success) {
-        throw new Error(result.error || "Setup action failed")
+        throw new Error(
+          result.error || setupText("status.action_failed", "Setup action failed")
+        )
       }
 
       updateFromActionResult(result)
-      setStatusMessage(result.message || "Action completed.")
+      setStatusMessage(
+        result.message || setupText("status.action_completed", "Action completed.")
+      )
       setAppSlug(normalizedAppSlug)
       setSurfaceType(normalizedSurfaceType)
       setSurfaceKey(normalizedSurfaceKey)
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : "Setup action failed"
+        error instanceof Error
+          ? error.message
+          : setupText("status.action_failed", "Setup action failed")
       setStatusError(message)
     } finally {
       setIsRunning(false)
@@ -916,7 +944,12 @@ export function BookingSetupWizard() {
       ? String(currentOrganization.id)
       : null
     if (!sourceOrganizationId) {
-      setStatusError("Organization context is required to start AI chat.")
+      setStatusError(
+        setupText(
+          "organization_context_required",
+          "Organization context is required to start AI chat."
+        )
+      )
       return
     }
 
@@ -973,15 +1006,26 @@ export function BookingSetupWizard() {
       }
     )
 
-    setStatusMessage("AI Assistant opened with booking setup context.")
+    setStatusMessage(
+      setupText(
+        "status.ai_assistant_opened",
+        "AI Assistant opened with booking setup context."
+      )
+    )
   }
 
   async function copyText(value: string, successMessage: string) {
     try {
       await navigator.clipboard.writeText(value)
-      notification.success("Copied", successMessage)
+      notification.success(
+        tWithFallback("ui.app.booking.notifications.success_title", "Success"),
+        successMessage
+      )
     } catch {
-      notification.error("Error", "Copy failed")
+      notification.error(
+        tWithFallback("ui.app.booking.notifications.error_title", "Error"),
+        setupText("notifications.copy_failed", "Copy failed")
+      )
     }
   }
 
@@ -1008,10 +1052,13 @@ export function BookingSetupWizard() {
               className="desktop-interior-button px-2 py-1 text-xs sm:text-xs flex items-center gap-1"
               onClick={openBookingSetupChat}
               disabled={isRunning || !canRun}
-              title="Open AI Assistant for booking setup"
+              title={setupText(
+                "actions.start_chat_title",
+                "Open AI Assistant for booking setup"
+              )}
             >
               <Sparkles size={11} />
-              Start Chat
+              {setupText("actions.start_chat", "Start chat")}
             </button>
           </div>
         </div>
@@ -1062,7 +1109,7 @@ export function BookingSetupWizard() {
         </h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <label className="text-xs flex flex-col gap-1">
-            Template
+            {setupText("fields.template", "Template")}
             <select
               value={setupTemplate}
               onChange={(event) =>
@@ -1075,9 +1122,14 @@ export function BookingSetupWizard() {
                 color: "var(--window-document-text)",
               }}
             >
-              <option value="custom">custom</option>
+              <option value="custom">
+                {setupText("template.option.custom", "Custom")}
+              </option>
               <option value="sailing_school_two_boats">
-                sailing_school_two_boats
+                {setupText(
+                  "template.option.sailing_school_two_boats",
+                  "Sailing school (two boats)"
+                )}
               </option>
             </select>
             <button
@@ -1086,15 +1138,17 @@ export function BookingSetupWizard() {
               onClick={() => applyTemplateDefaults(setupTemplate)}
               disabled={isRunning}
             >
-              Load template defaults
+              {setupText("actions.load_template_defaults", "Load template defaults")}
             </button>
             <span style={{ color: "var(--neutral-gray)" }}>
-              `custom` keeps catalog schema generic. `sailing_school_two_boats`
-              is a preset only.
+              {setupText(
+                "template.help",
+                "`Custom` keeps the catalog schema generic. `Sailing school (two boats)` is a preset only."
+              )}
             </span>
           </label>
           <label className="text-xs flex flex-col gap-1">
-            App Slug
+            {setupText("fields.app_slug", "App slug")}
             <select
               value={appSlugSelectValue}
               onChange={(event) => {
@@ -1119,12 +1173,25 @@ export function BookingSetupWizard() {
                   {slug}
                 </option>
               ))}
-              <option value="__custom__">custom</option>
+              <option value="__custom__">
+                {setupText("template.option.custom", "Custom")}
+              </option>
             </select>
             <span style={{ color: "var(--neutral-gray)" }}>
               {registeredAppSlugs.length > 0
-                ? `${registeredAppSlugs.length} registered app slug${registeredAppSlugs.length === 1 ? "" : "s"}`
-                : "No registered app slugs found yet"}
+                ? setupText(
+                    registeredAppSlugs.length === 1
+                      ? "registered_app_slugs.single"
+                      : "registered_app_slugs.plural",
+                    registeredAppSlugs.length === 1
+                      ? "{count} registered app slug"
+                      : "{count} registered app slugs",
+                    { count: registeredAppSlugs.length }
+                  )
+                : setupText(
+                    "registered_app_slugs.empty",
+                    "No registered app slugs found yet"
+                  )}
             </span>
             {appSlugIsCustom && (
               <input
@@ -1136,12 +1203,15 @@ export function BookingSetupWizard() {
                   background: "var(--window-document-bg)",
                   color: "var(--window-document-text)",
                 }}
-                placeholder="Custom app slug"
+                placeholder={setupText(
+                  "placeholders.custom_app_slug",
+                  "Custom app slug"
+                )}
               />
             )}
           </label>
           <label className="text-xs flex flex-col gap-1">
-            Surface Type
+            {setupText("fields.surface_type", "Surface type")}
             <input
               value={surfaceType}
               onChange={(event) => setSurfaceType(event.target.value.toLowerCase())}
@@ -1154,7 +1224,7 @@ export function BookingSetupWizard() {
             />
           </label>
           <label className="text-xs flex flex-col gap-1">
-            Surface Key
+            {setupText("fields.surface_key", "Surface key")}
             <input
               value={surfaceKey}
               onChange={(event) => setSurfaceKey(event.target.value.toLowerCase())}
@@ -1167,7 +1237,7 @@ export function BookingSetupWizard() {
             />
           </label>
           <label className="text-xs flex flex-col gap-1">
-            Timezone
+            {tWithFallback("ui.app.booking.availability.editor.timezone", "Timezone")}
             <input
               value={timezone}
               onChange={(event) => setTimezone(event.target.value)}
@@ -1180,7 +1250,7 @@ export function BookingSetupWizard() {
             />
           </label>
           <label className="text-xs flex flex-col gap-1">
-            Default Times (CSV)
+            {setupText("fields.default_times_csv", "Default times (CSV)")}
             <input
               value={defaultTimes}
               onChange={(event) => setDefaultTimes(event.target.value)}
@@ -1193,7 +1263,7 @@ export function BookingSetupWizard() {
             />
           </label>
           <label className="text-xs flex flex-col gap-1">
-            Priority
+            {setupText("fields.priority", "Priority")}
             <input
               type="number"
               value={bindingPriority}
@@ -1216,7 +1286,7 @@ export function BookingSetupWizard() {
               checked={bindingEnabled}
               onChange={(event) => setBindingEnabled(event.target.checked)}
             />
-            Binding enabled
+            {setupText("fields.binding_enabled", "Binding enabled")}
           </label>
         </div>
       </div>
@@ -1229,7 +1299,9 @@ export function BookingSetupWizard() {
         }}
       >
         <div className="flex items-center justify-between">
-          <h3 className="font-pixel text-xs">Inventory Groups (Seat/Unit)</h3>
+          <h3 className="font-pixel text-xs">
+            {setupText("inventory_groups.title", "Inventory groups (seat/unit)")}
+          </h3>
           <button
             type="button"
             className="desktop-interior-button px-2 py-1 text-xs flex items-center gap-1"
@@ -1245,7 +1317,7 @@ export function BookingSetupWizard() {
             }
           >
             <Plus size={12} />
-            Add group
+            {setupText("inventory_groups.actions.add", "Add group")}
           </button>
         </div>
         {inventoryGroups.map((group, index) => (
@@ -1261,7 +1333,7 @@ export function BookingSetupWizard() {
                 background: "var(--window-document-bg)",
                 color: "var(--window-document-text)",
               }}
-              placeholder="group id"
+              placeholder={setupText("inventory_groups.placeholders.id", "Group ID")}
             />
             <input
               value={group.label}
@@ -1274,7 +1346,10 @@ export function BookingSetupWizard() {
                 background: "var(--window-document-bg)",
                 color: "var(--window-document-text)",
               }}
-              placeholder="group label"
+              placeholder={setupText(
+                "inventory_groups.placeholders.label",
+                "Group label"
+              )}
             />
             <input
               type="number"
@@ -1301,7 +1376,11 @@ export function BookingSetupWizard() {
                   current.filter((_, i) => i !== index)
                 )
               }
-              aria-label={`remove inventory group ${group.id}`}
+              aria-label={setupText(
+                "inventory_groups.actions.remove_aria",
+                "Remove inventory group {id}",
+                { id: group.id }
+              )}
             >
               <Trash2 size={12} />
             </button>
@@ -1317,7 +1396,9 @@ export function BookingSetupWizard() {
         }}
       >
         <div className="flex items-center justify-between">
-          <h3 className="font-pixel text-xs">Profiles / Products</h3>
+          <h3 className="font-pixel text-xs">
+            {setupText("profiles.title", "Profiles / products")}
+          </h3>
           <button
             type="button"
             className="desktop-interior-button px-2 py-1 text-xs flex items-center gap-1"
@@ -1338,7 +1419,7 @@ export function BookingSetupWizard() {
             }
           >
             <Plus size={12} />
-            Add profile
+            {setupText("profiles.actions.add", "Add profile")}
           </button>
         </div>
         {courses.map((course, index) => (
@@ -1359,7 +1440,7 @@ export function BookingSetupWizard() {
                   background: "var(--window-document-bg)",
                   color: "var(--window-document-text)",
                 }}
-                placeholder="profile id"
+                placeholder={setupText("profiles.placeholders.id", "Profile ID")}
               />
               <input
                 value={course.displayName}
@@ -1372,7 +1453,10 @@ export function BookingSetupWizard() {
                   background: "var(--window-document-bg)",
                   color: "var(--window-document-text)",
                 }}
-                placeholder="display name"
+                placeholder={setupText(
+                  "profiles.placeholders.display_name",
+                  "Display name"
+                )}
               />
               <input
                 type="number"
@@ -1390,7 +1474,10 @@ export function BookingSetupWizard() {
                   background: "var(--window-document-bg)",
                   color: "var(--window-document-text)",
                 }}
-                placeholder="duration"
+                placeholder={setupText(
+                  "profiles.placeholders.duration_minutes",
+                  "Duration (minutes)"
+                )}
               />
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
@@ -1405,7 +1492,10 @@ export function BookingSetupWizard() {
                   background: "var(--window-document-bg)",
                   color: "var(--window-document-text)",
                 }}
-                placeholder="available times CSV"
+                placeholder={setupText(
+                  "profiles.placeholders.available_times_csv",
+                  "Available times (CSV)"
+                )}
               />
               <input
                 value={course.bookingResourceId}
@@ -1420,7 +1510,10 @@ export function BookingSetupWizard() {
                   background: "var(--window-document-bg)",
                   color: "var(--window-document-text)",
                 }}
-                placeholder="bookingResourceId"
+                placeholder={setupText(
+                  "profiles.placeholders.booking_resource_id",
+                  "Booking resource ID"
+                )}
               />
               <input
                 value={course.checkoutProductId}
@@ -1435,7 +1528,10 @@ export function BookingSetupWizard() {
                   background: "var(--window-document-bg)",
                   color: "var(--window-document-text)",
                 }}
-                placeholder="checkoutProductId"
+                placeholder={setupText(
+                  "profiles.placeholders.checkout_product_id",
+                  "Checkout product ID"
+                )}
               />
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 items-center">
@@ -1452,7 +1548,10 @@ export function BookingSetupWizard() {
                   background: "var(--window-document-bg)",
                   color: "var(--window-document-text)",
                 }}
-                placeholder="checkoutPublicUrl (optional)"
+                placeholder={setupText(
+                  "profiles.placeholders.checkout_public_url_optional",
+                  "Checkout public URL (optional)"
+                )}
               />
               <div className="flex items-center justify-between">
                 <label className="text-xs flex items-center gap-2">
@@ -1465,7 +1564,7 @@ export function BookingSetupWizard() {
                       })
                     }
                   />
-                  multi-day
+                  {setupText("profiles.fields.multi_day", "Multi-day")}
                 </label>
                 <button
                   type="button"
@@ -1475,7 +1574,11 @@ export function BookingSetupWizard() {
                       current.filter((_, i) => i !== index)
                     )
                   }
-                  aria-label={`remove course ${course.courseId}`}
+                  aria-label={setupText(
+                    "profiles.actions.remove_aria",
+                    "Remove profile {id}",
+                    { id: course.courseId }
+                  )}
                 >
                   <Trash2 size={12} />
                 </button>
@@ -1495,7 +1598,7 @@ export function BookingSetupWizard() {
           disabled={isRunning || !canRun}
         >
           <RefreshCw size={12} />
-          Generate Blueprint
+          {setupText("actions.generate_blueprint", "Generate blueprint")}
         </button>
         <button
           type="button"
@@ -1506,7 +1609,7 @@ export function BookingSetupWizard() {
           disabled={isRunning || !canRun}
         >
           <Save size={12} />
-          Save Binding
+          {setupText("actions.save_binding", "Save binding")}
         </button>
         <button
           type="button"
@@ -1516,7 +1619,7 @@ export function BookingSetupWizard() {
           }
           disabled={isRunning || !canRun}
         >
-          List Bindings
+          {setupText("actions.list_bindings", "List bindings")}
         </button>
         <button
           type="button"
@@ -1526,7 +1629,7 @@ export function BookingSetupWizard() {
           }
           disabled={isRunning || !canRun}
         >
-          Bootstrap Interview
+          {setupText("actions.bootstrap_interview", "Bootstrap interview")}
         </button>
         <button
           type="button"
@@ -1536,7 +1639,7 @@ export function BookingSetupWizard() {
           }
           disabled={isRunning || !canRun}
         >
-          Bootstrap Execute
+          {setupText("actions.bootstrap_execute", "Bootstrap execute")}
         </button>
       </div>
 
@@ -1571,15 +1674,21 @@ export function BookingSetupWizard() {
             background: "var(--desktop-shell-accent)",
           }}
         >
-          <h3 className="font-pixel text-xs">Interview / Execute Flow</h3>
+          <h3 className="font-pixel text-xs">
+            {setupText("interview.title", "Interview / execute flow")}
+          </h3>
           {requiredSequence.length > 0 && (
             <div className="text-xs" style={{ color: "var(--desktop-menu-text-muted)" }}>
-              sequence: {requiredSequence.join(" -> ")}
+              {setupText(
+                "interview.sequence",
+                "Sequence: {sequence}",
+                { sequence: requiredSequence.join(" -> ") }
+              )}
             </div>
           )}
           {nextAction && (
             <div className="text-xs" style={{ color: "var(--window-document-text)" }}>
-              next: {nextAction}
+              {setupText("interview.next", "Next: {action}", { action: nextAction })}
             </div>
           )}
           {interviewQuestions.length > 0 && (
@@ -1595,17 +1704,32 @@ export function BookingSetupWizard() {
                   </div>
                   <div>{question.description}</div>
                   <div>
-                    field={question.fieldPath} type={question.answerType} required=
-                    {String(question.required)}
+                    {setupText(
+                      "interview.question_meta",
+                      "Field: {field}. Type: {type}. Required: {required}.",
+                      {
+                        field: question.fieldPath,
+                        type: question.answerType,
+                        required: String(question.required),
+                      }
+                    )}
                   </div>
                   {typeof question.defaultValue !== "undefined" && (
                     <div style={{ color: "var(--desktop-menu-text-muted)" }}>
-                      default={JSON.stringify(question.defaultValue)}
+                      {setupText(
+                        "interview.default",
+                        "Default: {value}",
+                        { value: JSON.stringify(question.defaultValue) }
+                      )}
                     </div>
                   )}
                   {Array.isArray(question.options) && question.options.length > 0 && (
                     <div style={{ color: "var(--desktop-menu-text-muted)" }}>
-                      options={question.options.join(", ")}
+                      {setupText(
+                        "interview.options",
+                        "Options: {options}",
+                        { options: question.options.join(", ") }
+                      )}
                     </div>
                   )}
                 </div>
@@ -1614,7 +1738,11 @@ export function BookingSetupWizard() {
           )}
           {interviewHints.length > 0 && (
             <div className="text-xs" style={{ color: "var(--desktop-menu-text-muted)" }}>
-              hints: {interviewHints.join(" | ")}
+              {setupText(
+                "interview.hints",
+                "Hints: {hints}",
+                { hints: interviewHints.join(" | ") }
+              )}
             </div>
           )}
         </div>
@@ -1628,7 +1756,9 @@ export function BookingSetupWizard() {
             background: "var(--desktop-shell-accent)",
           }}
         >
-          <h3 className="font-pixel text-xs">Diagnostics</h3>
+          <h3 className="font-pixel text-xs">
+            {setupText("diagnostics.title", "Diagnostics")}
+          </h3>
           {diagnostics.map((diagnostic) => (
             <div
               key={diagnostic.courseId}
@@ -1636,17 +1766,43 @@ export function BookingSetupWizard() {
               style={{ borderColor: "var(--window-document-border)" }}
             >
               <div className="font-semibold">{diagnostic.displayName}</div>
-              <div>courseId: {diagnostic.courseId}</div>
               <div>
-                bookingResourceId: {diagnostic.bookingResourceId || "(unset)"} |{" "}
-                checkoutProductId: {diagnostic.checkoutProductId || "(unset)"}
+                {setupText("diagnostics.course_id", "Course ID: {value}", {
+                  value: diagnostic.courseId,
+                })}
               </div>
               <div>
-                checkoutPublicUrl: {diagnostic.checkoutPublicUrl || "(optional)"}
+                {setupText(
+                  "diagnostics.resource_and_checkout",
+                  "Booking resource ID: {resourceId} | Checkout product ID: {productId}",
+                  {
+                    resourceId:
+                      diagnostic.bookingResourceId
+                      || setupText("values.unset", "(unset)"),
+                    productId:
+                      diagnostic.checkoutProductId
+                      || setupText("values.unset", "(unset)"),
+                  }
+                )}
+              </div>
+              <div>
+                {setupText(
+                  "diagnostics.checkout_public_url",
+                  "Checkout public URL: {value}",
+                  {
+                    value:
+                      diagnostic.checkoutPublicUrl
+                      || setupText("values.optional", "(optional)"),
+                  }
+                )}
               </div>
               {diagnostic.warnings.length > 0 && (
                 <div className="text-xs" style={{ color: "var(--warning)" }}>
-                  warnings: {diagnostic.warnings.join(", ")}
+                  {setupText(
+                    "diagnostics.warnings",
+                    "Warnings: {warnings}",
+                    { warnings: diagnostic.warnings.join(", ") }
+                  )}
                 </div>
               )}
               <div className="flex flex-wrap gap-2">
@@ -1663,7 +1819,11 @@ export function BookingSetupWizard() {
                       )
                     }
                   >
-                    resource: {candidate.name}
+                    {setupText(
+                      "diagnostics.resource_candidate",
+                      "Resource: {name}",
+                      { name: candidate.name }
+                    )}
                   </button>
                 ))}
               </div>
@@ -1681,7 +1841,11 @@ export function BookingSetupWizard() {
                       )
                     }
                   >
-                    checkout: {candidate.name}
+                    {setupText(
+                      "diagnostics.checkout_candidate",
+                      "Checkout: {name}",
+                      { name: candidate.name }
+                    )}
                   </button>
                 ))}
               </div>
@@ -1699,7 +1863,11 @@ export function BookingSetupWizard() {
                       )
                     }
                   >
-                    checkoutUrl: {candidateUrl}
+                    {setupText(
+                      "diagnostics.checkout_url_candidate",
+                      "Checkout URL: {url}",
+                      { url: candidateUrl }
+                    )}
                   </button>
                 ))}
               </div>
@@ -1720,7 +1888,9 @@ export function BookingSetupWizard() {
           background: "var(--desktop-shell-accent)",
         }}
       >
-        <h3 className="font-pixel text-xs">Env Mapping</h3>
+        <h3 className="font-pixel text-xs">
+          {setupText("env_mapping.title", "Env mapping")}
+        </h3>
         <textarea
           readOnly
           value={
@@ -1744,7 +1914,10 @@ export function BookingSetupWizard() {
                 envMapping.BOOKING_RUNTIME_CONFIG_JSON ||
                   envMapping.SEGELSCHULE_BOOKING_CATALOG_JSON ||
                   bookingCatalogJson,
-                "Copied runtime config JSON"
+                setupText(
+                  "notifications.copied_runtime_config_json",
+                  "Copied runtime config JSON"
+                )
               )
             }
             disabled={
@@ -1754,7 +1927,7 @@ export function BookingSetupWizard() {
             }
           >
             <ClipboardCopy size={12} />
-            Copy catalog JSON
+            {setupText("actions.copy_catalog_json", "Copy catalog JSON")}
           </button>
           <button
             type="button"
@@ -1764,7 +1937,10 @@ export function BookingSetupWizard() {
                 envMapping.BOOKING_COURSE_BINDINGS_JSON ||
                   envMapping.SEGELSCHULE_COURSE_BINDINGS_JSON ||
                   legacyBindingsJson,
-                "Copied course bindings JSON"
+                setupText(
+                  "notifications.copied_course_bindings_json",
+                  "Copied course bindings JSON"
+                )
               )
             }
             disabled={
@@ -1774,7 +1950,7 @@ export function BookingSetupWizard() {
             }
           >
             <ClipboardCopy size={12} />
-            Copy bindings JSON
+            {setupText("actions.copy_bindings_json", "Copy bindings JSON")}
           </button>
         </div>
       </div>
@@ -1787,7 +1963,9 @@ export function BookingSetupWizard() {
             background: "var(--desktop-shell-accent)",
           }}
         >
-          <h3 className="font-pixel text-xs">Saved Bindings</h3>
+          <h3 className="font-pixel text-xs">
+            {setupText("saved_bindings.title", "Saved bindings")}
+          </h3>
           {bindings.map((binding) => (
             <div
               key={binding.bindingId}
@@ -1799,8 +1977,16 @@ export function BookingSetupWizard() {
                 {binding.appSlug}:{binding.surfaceType}:{binding.surfaceKey}
               </div>
               <div>
-                enabled={String(binding.enabled)} priority={binding.priority} status=
-                {binding.status} updated={toLocalDate(binding.updatedAt)}
+                {setupText(
+                  "saved_bindings.meta",
+                  "Enabled: {enabled}. Priority: {priority}. Status: {status}. Updated: {updated}",
+                  {
+                    enabled: String(binding.enabled),
+                    priority: binding.priority,
+                    status: binding.status,
+                    updated: toLocalDate(binding.updatedAt),
+                  }
+                )}
               </div>
             </div>
           ))}
@@ -1815,7 +2001,9 @@ export function BookingSetupWizard() {
             background: "var(--desktop-shell-accent)",
           }}
         >
-          <h3 className="font-pixel text-xs">Google Calendar Readiness</h3>
+          <h3 className="font-pixel text-xs">
+            {setupText("calendar_readiness.title", "Google Calendar readiness")}
+          </h3>
           <textarea
             readOnly
             value={calendarReadinessJson}
@@ -1836,7 +2024,9 @@ export function BookingSetupWizard() {
           background: "var(--desktop-shell-accent)",
         }}
       >
-        <h3 className="font-pixel text-xs">Agent Prompt</h3>
+        <h3 className="font-pixel text-xs">
+          {setupText("agent_prompt.title", "Agent prompt")}
+        </h3>
         <textarea
           readOnly
           value={operatorPrompt}
@@ -1850,10 +2040,18 @@ export function BookingSetupWizard() {
         <button
           type="button"
           className="desktop-interior-button px-2 py-1 text-xs flex items-center gap-1"
-          onClick={() => void copyText(operatorPrompt, "Copied agent setup prompt")}
+          onClick={() =>
+            void copyText(
+              operatorPrompt,
+              setupText(
+                "notifications.copied_agent_setup_prompt",
+                "Copied agent setup prompt"
+              )
+            )
+          }
         >
           <ClipboardCopy size={12} />
-          Copy prompt
+          {setupText("actions.copy_prompt", "Copy prompt")}
         </button>
       </div>
     </div>
