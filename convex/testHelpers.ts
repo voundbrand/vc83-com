@@ -7,6 +7,7 @@
 
 import { mutation } from "./_generated/server";
 import { v } from "convex/values";
+import { calculateTransactionLineAmounts } from "./lib/transactionTaxMath";
 
 /**
  * Create test organization with tax settings
@@ -135,23 +136,13 @@ export const createTestTransaction = mutation({
     const taxRatePercent = args.taxRatePercent || 0;
 
     // Calculate VAT (same logic as transactionOntology.ts:538-567)
-    let unitPriceInCents: number;
-    let taxAmountInCents: number;
-    let totalPriceInCents: number;
-
-    if (taxBehavior === "inclusive" && taxRatePercent > 0) {
-      // INCLUSIVE: args.amountInCents is GROSS (includes VAT)
-      totalPriceInCents = args.amountInCents;
-      const unitGross = Math.round(args.amountInCents / args.quantity);
-      const unitNet = Math.round(unitGross / (1 + taxRatePercent / 100));
-      unitPriceInCents = unitNet;
-      taxAmountInCents = totalPriceInCents - unitNet * args.quantity;
-    } else {
-      // EXCLUSIVE: args.amountInCents is NET (excludes VAT)
-      unitPriceInCents = Math.round(args.amountInCents / args.quantity);
-      taxAmountInCents = Math.round((args.amountInCents * taxRatePercent) / 100);
-      totalPriceInCents = args.amountInCents + taxAmountInCents;
-    }
+    const pricing = calculateTransactionLineAmounts({
+      amountInCents: args.amountInCents,
+      quantity: args.quantity,
+      taxRatePercent,
+      taxBehavior,
+      pricePerUnitInCents: Math.round(args.amountInCents / Math.max(args.quantity, 1)),
+    });
 
     // Create minimal test transaction
     const systemUser = await ctx.db.query("users").first();
@@ -173,9 +164,11 @@ export const createTestTransaction = mutation({
         productId: args.productId,
         productName: args.productName,
         quantity: args.quantity,
-        unitPriceInCents,
-        taxAmountInCents,
-        totalPriceInCents,
+        unitPriceInCents: pricing.unitPriceInCents,
+        subtotalInCents: pricing.subtotalInCents,
+        taxAmountInCents: pricing.taxAmountInCents,
+        totalPriceInCents: pricing.totalPriceInCents,
+        totalInCents: pricing.totalPriceInCents,
         taxRatePercent,
         currency: "EUR",
       },
@@ -183,9 +176,9 @@ export const createTestTransaction = mutation({
 
     return {
       transactionId,
-      unitPriceInCents,
-      taxAmountInCents,
-      totalPriceInCents,
+      unitPriceInCents: pricing.unitPriceInCents,
+      taxAmountInCents: pricing.taxAmountInCents,
+      totalPriceInCents: pricing.totalPriceInCents,
     };
   },
 });

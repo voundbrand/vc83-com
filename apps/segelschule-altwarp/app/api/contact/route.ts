@@ -4,9 +4,9 @@ import { NextResponse } from "next/server"
 import type { Id } from "../../../../../convex/_generated/dataModel"
 import {
   getConvexClient,
-  getOrganizationId,
   mutateInternal,
   actionInternal,
+  resolveSegelschuleOrganizationId,
 } from "@/lib/server-convex"
 import {
   checkRateLimit,
@@ -116,7 +116,9 @@ export async function POST(request: Request) {
     const { data } = validation
 
     // Resolve org
-    const organizationId = getOrganizationId()
+    const organizationId = await resolveSegelschuleOrganizationId({
+      requestHost: request.headers.get("host"),
+    })
     if (!organizationId) {
       return NextResponse.json(
         { error: "Platform organization is not configured" },

@@ -109,6 +109,22 @@ function buildResource(): Row {
   };
 }
 
+function buildBerlinResource(): Row {
+  return {
+    _id: RESOURCE_ID,
+    organizationId: "organizations_availability",
+    type: "product",
+    subtype: "service",
+    status: "active",
+    customProperties: {
+      timezone: "Europe/Berlin",
+      minDuration: 60,
+      slotIncrement: 60,
+      capacity: 1,
+    },
+  };
+}
+
 function buildSchedule(): Row {
   return {
     _id: SCHEDULE_ID,
@@ -261,7 +277,7 @@ describe("availability external busy-time handling", () => {
     });
   });
 
-  it("fails closed when the linked Google connection is missing read scope", async () => {
+  it("falls back to schedule availability when the linked Google connection is missing read scope", async () => {
     const tables = buildBaseTables();
     tables.oauthConnections[0] = buildCalendarConnection(
       GOOGLE_CONNECTION_ID,
@@ -284,11 +300,11 @@ describe("availability external busy-time handling", () => {
       endDateTime: SLOT_START + 60 * 60_000,
     });
 
-    expect(slots).toEqual([]);
-    expect(hasConflict).toBe(true);
+    expect(slots).toHaveLength(4);
+    expect(hasConflict).toBe(false);
   });
 
-  it("fails closed when a linked calendar connection is inactive", async () => {
+  it("falls back to schedule availability when a linked calendar connection is inactive", async () => {
     const tables = buildBaseTables();
     tables.oauthConnections[0] = buildCalendarConnection(
       GOOGLE_CONNECTION_ID,
@@ -311,11 +327,11 @@ describe("availability external busy-time handling", () => {
       endDateTime: SLOT_START + 60 * 60_000,
     });
 
-    expect(slots).toEqual([]);
-    expect(hasConflict).toBe(true);
+    expect(slots).toHaveLength(4);
+    expect(hasConflict).toBe(false);
   });
 
-  it("fails closed when linked calendar sync is disabled", async () => {
+  it("falls back to schedule availability when linked calendar sync is disabled", async () => {
     const tables = buildBaseTables();
     tables.oauthConnections[0] = buildCalendarConnection(
       GOOGLE_CONNECTION_ID,
@@ -340,7 +356,53 @@ describe("availability external busy-time handling", () => {
       endDateTime: SLOT_START + 60 * 60_000,
     });
 
-    expect(slots).toEqual([]);
-    expect(hasConflict).toBe(true);
+    expect(slots).toHaveLength(4);
+    expect(hasConflict).toBe(false);
+  });
+
+  it("serializes slot date and time in the requested timezone", async () => {
+    const berlinDayStart = Date.parse("2026-03-17T23:00:00.000Z");
+    const berlinDayEnd = Date.parse("2026-03-18T22:59:59.999Z");
+    const berlinDayOfWeek = 3;
+    const ctx = createCtx({
+      objects: [
+        buildBerlinResource(),
+        buildSchedule(),
+      ].map((row) =>
+        row._id === SCHEDULE_ID
+          ? {
+              ...row,
+              customProperties: {
+                ...(row.customProperties as Record<string, unknown>),
+                dayOfWeek: berlinDayOfWeek,
+              },
+            }
+          : row
+      ),
+      oauthConnections: [],
+      objectLinks: [
+        {
+          _id: "link_schedule_berlin",
+          fromObjectId: RESOURCE_ID,
+          toObjectId: SCHEDULE_ID,
+          linkType: "has_availability",
+        },
+      ],
+    });
+
+    const slots = await (getAvailableSlots as any)._handler(ctx, {
+      sessionId: "session_availability",
+      resourceId: RESOURCE_ID,
+      startDate: berlinDayStart,
+      endDate: berlinDayEnd,
+      duration: 60,
+      timezone: "Europe/Berlin",
+    });
+
+    expect(slots[0]).toMatchObject({
+      date: "2026-03-18",
+      startTime: "09:00",
+      endTime: "10:00",
+    });
   });
 });

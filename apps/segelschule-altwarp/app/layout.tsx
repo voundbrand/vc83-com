@@ -1,6 +1,6 @@
 import type React from "react"
 import type { Metadata } from "next"
-import { Montserrat } from "next/font/google"
+import { Geist_Mono, Montserrat } from "next/font/google"
 import localFont from "next/font/local"
 import { Analytics } from "@vercel/analytics/next"
 import { LanguageProvider } from "@/lib/language-context"
@@ -11,6 +11,12 @@ const montserrat = Montserrat({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
   variable: "--font-montserrat",
+  display: "swap",
+})
+
+const geistMono = Geist_Mono({
+  subsets: ["latin"],
+  variable: "--font-geist-mono",
   display: "swap",
 })
 
@@ -50,7 +56,7 @@ export default async function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="de" className={`${montserrat.variable} ${romantica.variable}`}>
+    <html lang="de" className={`${montserrat.variable} ${geistMono.variable} ${romantica.variable}`}>
       <body className="font-sans antialiased">
         <LanguageProvider>
           <CmsSiteProvider>{children}</CmsSiteProvider>

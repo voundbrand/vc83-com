@@ -17,6 +17,25 @@ import { getProviderByCode, getConnectedAccountId } from "./paymentProviders";
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const generatedApi: any = require("./_generated/api");
 
+function normalizeFulfillmentType(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const normalized = value.trim().toLowerCase();
+  return normalized.length > 0 ? normalized : null;
+}
+
+function resolveCheckoutFulfillmentType(product: {
+  subtype?: string;
+  customProperties?: Record<string, unknown>;
+}): string {
+  return (
+    normalizeFulfillmentType(product.customProperties?.fulfillmentType)
+    || normalizeFulfillmentType(product.subtype)
+    || "ticket"
+  );
+}
+
 // =========================================
 // MUTATIONS
 // =========================================
@@ -1036,7 +1055,7 @@ export const completeCheckoutAndFulfill = action({
       });
 
       // Determine fulfillment type from product
-      const fulfillmentType = product.subtype || "ticket"; // Default to ticket for backward compatibility
+      const fulfillmentType = resolveCheckoutFulfillmentType(product);
 
       // Extract B2B info from session for purchase_items
       const transactionType = session.customProperties?.transactionType as "B2C" | "B2B" | undefined;
@@ -1223,7 +1242,10 @@ export const completeCheckoutAndFulfill = action({
     // STEP 9: Determine invoice handling based on payment method
     console.log("📋 [STEP 9] Determining invoice handling...");
     const isEmployerBilled = !!crmOrganizationId && behaviorContext?.metadata?.isEmployerBilling === true;
-    const isManualInvoice = args.paymentIntentId.startsWith('inv_') || args.paymentIntentId === 'invoice';
+    const isManualInvoice =
+      paymentMethod === 'invoice'
+      || args.paymentIntentId.startsWith('inv_')
+      || args.paymentIntentId === 'invoice';
     const isFreeRegistration = args.paymentIntentId === 'free' || args.paymentIntentId.startsWith('free_');
 
     // Invoice PDF logic:
@@ -1640,7 +1662,7 @@ export const fulfillCheckoutAsync = internalAction({
 
         if (!product) continue;
 
-        const fulfillmentType = product.subtype || "ticket";
+        const fulfillmentType = resolveCheckoutFulfillmentType(product);
         const transactionType = session.customProperties?.transactionType as "B2C" | "B2B" | undefined;
         const companyName = session.customProperties?.companyName as string | undefined;
         const vatNumber = session.customProperties?.vatNumber as string | undefined;
@@ -1767,7 +1789,10 @@ export const fulfillCheckoutAsync = internalAction({
 
       // Determine invoice handling
       const isEmployerBilled = !!crmOrganizationId && behaviorContext?.metadata?.isEmployerBilling === true;
-      const isManualInvoice = args.paymentIntentId.startsWith('inv_') || args.paymentIntentId === 'invoice';
+      const isManualInvoice =
+        args.paymentMethod === 'invoice'
+        || args.paymentIntentId.startsWith('inv_')
+        || args.paymentIntentId === 'invoice';
       const isFreeRegistration = args.paymentIntentId === 'free' || args.paymentIntentId.startsWith('free_');
 
       let includeInvoicePDF = false;

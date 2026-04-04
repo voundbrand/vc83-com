@@ -11,6 +11,11 @@ import {
   getAvailabilityStructureDefinition,
   resolveAvailabilityStructure,
 } from "../../../../convex/lib/availabilityStructures"
+import { AVAILABILITY_RESOURCE_SUBTYPES } from "../../../../convex/lib/availabilityResources"
+import {
+  buildBookableConfigForSubtype,
+  buildBookableShadowProperties,
+} from "../products-window/bookable-config-section"
 import { useAuth, useCurrentOrganization } from "@/hooks/use-auth"
 import { useNotification } from "@/hooks/use-notification"
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations"
@@ -85,6 +90,25 @@ interface ResourceAvailabilitySnapshot {
   blocks: AvailabilityRecord[]
 }
 
+type BookableSubtype =
+  | "room"
+  | "staff"
+  | "equipment"
+  | "space"
+  | "vehicle"
+  | "accommodation"
+  | "appointment"
+  | "class"
+  | "treatment"
+
+interface NewResourceDraft {
+  name: string
+  subtype: BookableSubtype
+  timezone: string
+  slotDuration: number
+  bufferTime: number
+}
+
 const DEFAULT_TIME_RANGE: TimeRange = { startTime: "09:00", endTime: "17:00" }
 
 const DAYS_OF_WEEK: Array<{ key: DayKey; label: string; dayOfWeek: number }> = [
@@ -96,18 +120,6 @@ const DAYS_OF_WEEK: Array<{ key: DayKey; label: string; dayOfWeek: number }> = [
   { key: "friday", label: "Friday", dayOfWeek: 5 },
   { key: "saturday", label: "Saturday", dayOfWeek: 6 },
 ]
-
-const BOOKABLE_SUBTYPES = new Set([
-  "room",
-  "staff",
-  "equipment",
-  "space",
-  "vehicle",
-  "accommodation",
-  "appointment",
-  "class",
-  "treatment",
-])
 
 const COMMON_TIMEZONES = [
   "America/New_York",
@@ -238,6 +250,16 @@ function createBlockEditorState(clientId: string): BlockEditorState {
     startDate: today,
     endDate: today,
     reason: "",
+  }
+}
+
+function createNewResourceDraft(): NewResourceDraft {
+  return {
+    name: "",
+    subtype: "space",
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
+    slotDuration: 60,
+    bufferTime: 0,
   }
 }
 
@@ -655,10 +677,12 @@ export function ResourceAvailability({
 }: ResourceAvailabilityProps) {
   const { sessionId } = useAuth()
   const currentOrganization = useCurrentOrganization()
+  const notification = useNotification()
   const { tWithFallback } = useNamespaceTranslations("ui.app.booking")
+  const timezoneList = getTimezoneList()
 
-  const products = (useQuery as any)(
-    (api as any).productOntology.getProducts,
+  const resources = (useQuery as any)(
+    (api as any).availabilityOntology.listAvailabilityResources,
     sessionId && currentOrganization?.id
       ? {
           sessionId,
@@ -667,19 +691,85 @@ export function ResourceAvailability({
       : "skip"
   ) as ProductRecord[] | undefined
 
-  const resources = (products as ProductRecord[] | undefined)?.filter((product) => {
-    const resourceProps = asRecord(product.customProperties)
-    return (
-      BOOKABLE_SUBTYPES.has(product.subtype || "")
-      || Object.keys(asRecord(resourceProps.bookableConfig)).length > 0
-      || Boolean(normalizeOptionalString(resourceProps.availabilityStructure))
-    )
-  }).sort((left, right) => {
-    if (left.status === right.status) {
-      return (left.name || "").localeCompare(right.name || "")
+  const createProductMutation = useMutation((api as any).productOntology.createProduct)
+  const [isCreatingResource, setIsCreatingResource] = useState(false)
+  const [isCreatingResourcePending, setIsCreatingResourcePending] = useState(false)
+  const [newResource, setNewResource] = useState<NewResourceDraft>(() => createNewResourceDraft())
+  const newResourceSlotDurationOptions = buildSlotDurationOptions(newResource.slotDuration)
+
+  const handleCreateResource = async () => {
+    if (!sessionId || !currentOrganization?.id) {
+      return
     }
-    return left.status === "active" ? -1 : 1
-  }) || []
+
+    const trimmedName = newResource.name.trim()
+    if (!trimmedName) {
+      notification.error(
+        tWithFallback("ui.app.booking.notifications.error_title", "Error"),
+        tWithFallback(
+          "ui.app.booking.availability.resource.create.validation.name_required",
+          "Enter a resource name before creating it."
+        )
+      )
+      return
+    }
+
+    setIsCreatingResourcePending(true)
+    try {
+      const bookableConfig = buildBookableConfigForSubtype(newResource.subtype, {
+        minDuration: newResource.slotDuration,
+        slotIncrement: newResource.slotDuration,
+        bufferAfter: newResource.bufferTime,
+      })
+      const customProperties = {
+        ...buildBookableShadowProperties(bookableConfig),
+        timezone: newResource.timezone,
+        minDuration: newResource.slotDuration,
+        slotIncrement: newResource.slotDuration,
+        bufferAfter: newResource.bufferTime,
+        bookableConfig: {
+          ...bookableConfig,
+          timezone: newResource.timezone,
+          minDuration: newResource.slotDuration,
+          slotIncrement: newResource.slotDuration,
+          bufferAfter: newResource.bufferTime,
+        },
+      }
+
+      const productId = await createProductMutation({
+        sessionId,
+        organizationId: currentOrganization.id as Id<"organizations">,
+        subtype: newResource.subtype,
+        name: trimmedName,
+        price: 0,
+        currency: "EUR",
+        customProperties,
+      })
+
+      setNewResource(createNewResourceDraft())
+      setIsCreatingResource(false)
+      onSelectResource(productId)
+      notification.success(
+        tWithFallback("ui.app.booking.notifications.success_title", "Success"),
+        tWithFallback(
+          "ui.app.booking.availability.resource.create.notifications.created",
+          "Resource created. You can configure its availability inline."
+        )
+      )
+    } catch (error) {
+      notification.error(
+        tWithFallback("ui.app.booking.notifications.error_title", "Error"),
+        error instanceof Error
+          ? error.message
+          : tWithFallback(
+              "ui.app.booking.availability.resource.create.notifications.failed",
+              "Failed to create the resource."
+            )
+      )
+    } finally {
+      setIsCreatingResourcePending(false)
+    }
+  }
 
   if (!sessionId || !currentOrganization?.id) {
     return (
@@ -703,25 +793,219 @@ export function ResourceAvailability({
         className="border-b px-4 py-3"
         style={{ borderColor: "var(--window-document-border)" }}
       >
-        <h2
-          className="font-pixel text-base"
-          style={{ color: "var(--window-document-text)" }}
-        >
-          {tWithFallback("ui.app.booking.availability.title", "Availability")}
-        </h2>
-        <p
-          className="mt-0.5 text-xs"
-          style={{ color: "var(--window-document-text)", opacity: 0.65 }}
-        >
-          {tWithFallback(
-            "ui.app.booking.availability.resource.subtitle",
-            "Configure recurring booking windows, date overrides, and blackout windows directly on each resource."
-          )}
-        </p>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2
+              className="font-pixel text-base"
+              style={{ color: "var(--window-document-text)" }}
+            >
+              {tWithFallback("ui.app.booking.availability.title", "Availability")}
+            </h2>
+            <p
+              className="mt-0.5 text-xs"
+              style={{ color: "var(--window-document-text)", opacity: 0.65 }}
+            >
+              {tWithFallback(
+                "ui.app.booking.availability.resource.subtitle",
+                "Create and manage booking availability directly on each resource."
+              )}
+            </p>
+          </div>
+          <button
+            type="button"
+            className="desktop-interior-button flex items-center gap-1 text-xs"
+            onClick={() => {
+              setIsCreatingResource((current) => !current)
+              if (isCreatingResource) {
+                setNewResource(createNewResourceDraft())
+              }
+            }}
+          >
+            <Plus size={12} />
+            {isCreatingResource
+              ? tWithFallback("ui.app.booking.actions.cancel", "Cancel")
+              : tWithFallback(
+                  "ui.app.booking.availability.resource.create.actions.new_resource",
+                  "Create resource"
+                )}
+          </button>
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto p-4">
-        {products === undefined ? (
+        {isCreatingResource ? (
+          <div
+            className="mb-4 rounded-xl border p-4"
+            style={{
+              borderColor: "var(--window-document-border)",
+              background: "var(--desktop-shell-accent)",
+            }}
+          >
+            <div className="grid gap-3 lg:grid-cols-2">
+              <label className="block text-xs font-medium">
+                {tWithFallback(
+                  "ui.app.booking.availability.resource.create.fields.name",
+                  "Resource name"
+                )}
+                <input
+                  type="text"
+                  value={newResource.name}
+                  onChange={(event) =>
+                    setNewResource((current) => ({ ...current, name: event.target.value }))
+                  }
+                  className="mt-1 w-full rounded-md border px-2 py-1.5 text-sm"
+                  style={{
+                    borderColor: "var(--window-document-border)",
+                    background: "var(--window-document-bg)",
+                    color: "var(--window-document-text)",
+                  }}
+                  placeholder={tWithFallback(
+                    "ui.app.booking.availability.resource.create.fields.name_placeholder",
+                    "Private room, Dr. Rivera, Event hall..."
+                  )}
+                />
+              </label>
+
+              <label className="block text-xs font-medium">
+                {tWithFallback(
+                  "ui.app.booking.availability.resource.create.fields.type",
+                  "Resource type"
+                )}
+                <select
+                  value={newResource.subtype}
+                  onChange={(event) =>
+                    setNewResource((current) => ({
+                      ...current,
+                      subtype: event.target.value as BookableSubtype,
+                    }))
+                  }
+                  className="mt-1 w-full rounded-md border px-2 py-1.5 text-sm"
+                  style={{
+                    borderColor: "var(--window-document-border)",
+                    background: "var(--window-document-bg)",
+                    color: "var(--window-document-text)",
+                  }}
+                >
+                  {AVAILABILITY_RESOURCE_SUBTYPES.map((subtype) => (
+                    <option key={subtype} value={subtype}>
+                      {getResourceSubtypeLabel(subtype, tWithFallback) || subtype}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="block text-xs font-medium">
+                {tWithFallback(
+                  "ui.app.booking.availability.resource.settings.slot_duration",
+                  "Slot duration"
+                )}
+                <select
+                  value={newResource.slotDuration}
+                  onChange={(event) => {
+                    const nextDuration = Number.parseInt(event.target.value || "0", 10)
+                    setNewResource((current) => ({
+                      ...current,
+                      slotDuration:
+                        Number.isFinite(nextDuration) && nextDuration > 0 ? nextDuration : 60,
+                    }))
+                  }}
+                  className="mt-1 w-full rounded-md border px-2 py-1.5 text-sm"
+                  style={{
+                    borderColor: "var(--window-document-border)",
+                    background: "var(--window-document-bg)",
+                    color: "var(--window-document-text)",
+                  }}
+                >
+                  {newResourceSlotDurationOptions.map((durationOption) => (
+                    <option key={durationOption} value={durationOption}>
+                      {formatDurationLabel(durationOption, tWithFallback)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="block text-xs font-medium">
+                {tWithFallback(
+                  "ui.app.booking.availability.resource.settings.buffer_after",
+                  "Buffer after booking"
+                )}
+                <input
+                  type="number"
+                  min={0}
+                  step={5}
+                  value={newResource.bufferTime}
+                  onChange={(event) =>
+                    setNewResource((current) => ({
+                      ...current,
+                      bufferTime: Math.max(
+                        0,
+                        Number.parseInt(event.target.value || "0", 10) || 0
+                      ),
+                    }))
+                  }
+                  className="mt-1 w-full rounded-md border px-2 py-1.5 text-sm"
+                  style={{
+                    borderColor: "var(--window-document-border)",
+                    background: "var(--window-document-bg)",
+                    color: "var(--window-document-text)",
+                  }}
+                />
+              </label>
+
+              <label className="block text-xs font-medium lg:col-span-2">
+                {tWithFallback("ui.app.booking.availability.editor.timezone", "Timezone")}
+                <select
+                  value={newResource.timezone}
+                  onChange={(event) =>
+                    setNewResource((current) => ({ ...current, timezone: event.target.value }))
+                  }
+                  className="mt-1 w-full rounded-md border px-2 py-1.5 text-sm"
+                  style={{
+                    borderColor: "var(--window-document-border)",
+                    background: "var(--window-document-bg)",
+                    color: "var(--window-document-text)",
+                  }}
+                >
+                  {timezoneList.map((timezoneOption) => (
+                    <option key={timezoneOption} value={timezoneOption}>
+                      {timezoneOption}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                className="desktop-interior-button text-xs"
+                onClick={() => {
+                  setIsCreatingResource(false)
+                  setNewResource(createNewResourceDraft())
+                }}
+                disabled={isCreatingResourcePending}
+              >
+                {tWithFallback("ui.app.booking.actions.cancel", "Cancel")}
+              </button>
+              <button
+                type="button"
+                className="desktop-interior-button desktop-interior-button-primary flex items-center gap-1 text-xs"
+                onClick={handleCreateResource}
+                disabled={isCreatingResourcePending}
+              >
+                <Plus size={12} />
+                {isCreatingResourcePending
+                  ? tWithFallback("ui.app.booking.actions.saving", "Saving...")
+                  : tWithFallback(
+                      "ui.app.booking.availability.resource.create.actions.create_resource",
+                      "Create resource"
+                    )}
+              </button>
+            </div>
+          </div>
+        ) : null}
+
+        {resources === undefined ? (
           <div className="flex items-center justify-center py-12">
             <p
               className="font-pixel text-xs"
@@ -751,9 +1035,20 @@ export function ResourceAvailability({
             >
               {tWithFallback(
                 "ui.app.booking.availability.resource.empty_hint",
-                "Create or configure a bookable product before managing availability."
+                "Create a bookable resource here, then configure its availability inline."
               )}
             </p>
+            <button
+              type="button"
+              className="desktop-interior-button flex items-center gap-1 text-xs"
+              onClick={() => setIsCreatingResource(true)}
+            >
+              <Plus size={12} />
+              {tWithFallback(
+                "ui.app.booking.availability.resource.create.actions.create_resource",
+                "Create resource"
+              )}
+            </button>
           </div>
         ) : (
           <div className="space-y-3">
@@ -801,6 +1096,7 @@ function ResourceCard({
   const [schedule, setSchedule] = useState<WeeklyScheduleState>(() =>
     createClosedWeeklySchedule()
   )
+  const [resourceName, setResourceName] = useState(resource.name || "")
   const [slotDuration, setSlotDuration] = useState(() => resolveTimingSettings(resource).slotDuration)
   const [bufferTime, setBufferTime] = useState(() => resolveTimingSettings(resource).bufferTime)
   const [timezone, setTimezone] = useState(() => resolveTimingSettings(resource).timezone)
@@ -823,6 +1119,7 @@ function ResourceCard({
   const createBlockMutation = useMutation((api as any).availabilityOntology.createBlock)
   const updateBlockMutation = useMutation((api as any).availabilityOntology.updateBlock)
   const deleteBlockMutation = useMutation((api as any).availabilityOntology.deleteBlock)
+  const archiveProductMutation = useMutation((api as any).productOntology.archiveProduct)
 
   const resourceProps = asRecord(resource.customProperties)
   const bookableConfig = asRecord(resourceProps.bookableConfig)
@@ -894,6 +1191,7 @@ function ResourceCard({
     const timingSettings = resolveTimingSettings(resource)
     clientIdRef.current = 0
     setSchedule(createClosedWeeklySchedule())
+    setResourceName(resource.name || "")
     setSlotDuration(timingSettings.slotDuration)
     setBufferTime(timingSettings.bufferTime)
     setTimezone(timingSettings.timezone)
@@ -1425,6 +1723,9 @@ function ResourceCard({
       await updateProductMutation({
         sessionId,
         productId: resource._id,
+        ...(resourceName.trim() !== (resource.name || "")
+          ? { name: resourceName.trim() }
+          : {}),
         customProperties: nextCustomProperties,
       })
 
@@ -1454,6 +1755,41 @@ function ResourceCard({
       )
     } finally {
       setIsSaving(false)
+    }
+  }
+
+  const handleArchiveResource = async () => {
+    if (!window.confirm(
+      tWithFallback(
+        "ui.app.booking.availability.resource.actions.archive_confirm",
+        "Archive this resource? It will be removed from the availability list."
+      )
+    )) {
+      return
+    }
+
+    try {
+      await archiveProductMutation({
+        sessionId,
+        productId: resource._id,
+      })
+      notification.success(
+        tWithFallback("ui.app.booking.notifications.success_title", "Success"),
+        tWithFallback(
+          "ui.app.booking.availability.resource.actions.archived",
+          "Resource archived."
+        )
+      )
+    } catch (error) {
+      notification.error(
+        tWithFallback("ui.app.booking.notifications.error_title", "Error"),
+        error instanceof Error
+          ? error.message
+          : tWithFallback(
+              "ui.app.booking.availability.resource.actions.archive_failed",
+              "Failed to archive the resource."
+            )
+      )
     }
   }
 
@@ -2048,9 +2384,30 @@ function ResourceCard({
                 <p className="font-pixel text-xs" style={{ color: "var(--window-document-text)" }}>
                   {tWithFallback(
                     "ui.app.booking.availability.resource.settings.title",
-                    "Resource Settings"
+                    "Edit Resource"
                   )}
                 </p>
+
+                <label className="mt-3 block text-xs font-medium">
+                  {tWithFallback(
+                    "ui.app.booking.availability.resource.settings.resource_name",
+                    "Resource name"
+                  )}
+                  <input
+                    type="text"
+                    value={resourceName}
+                    onChange={(event) => {
+                      setResourceName(event.target.value)
+                      setIsDirty(true)
+                    }}
+                    className="mt-1 w-full rounded-md border px-2 py-1.5 text-sm"
+                    style={fieldStyle}
+                    placeholder={tWithFallback(
+                      "ui.app.booking.availability.resource.settings.resource_name_placeholder",
+                      "Enter a resource name"
+                    )}
+                  />
+                </label>
 
                 <label className="mt-3 block text-xs font-medium">
                   {tWithFallback(
@@ -2149,8 +2506,20 @@ function ResourceCard({
                     )
                   : tWithFallback(
                       "ui.app.booking.availability.resource.actions.saved",
-                      "Saved"
-                    )}
+                    "Saved"
+                  )}
+              </button>
+
+              <button
+                type="button"
+                onClick={handleArchiveResource}
+                className="desktop-interior-button desktop-interior-button-danger flex w-full items-center justify-center gap-2 py-2 text-sm"
+              >
+                <Trash2 size={14} />
+                {tWithFallback(
+                  "ui.app.booking.availability.resource.actions.archive_resource",
+                  "Archive Resource"
+                )}
               </button>
             </div>
           </div>

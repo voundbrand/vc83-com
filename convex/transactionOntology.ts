@@ -455,6 +455,7 @@ export const getTransactionInvoice = query({
 
 import { internalMutation, internalQuery } from "./_generated/server";
 const generatedApi: any = require("./_generated/api");
+import { calculateTransactionLineAmounts } from "./lib/transactionTaxMath";
 
 /**
  * CREATE TRANSACTION (INTERNAL)
@@ -660,21 +661,16 @@ export const createTransactionInternal = internalMutation({
       const taxRatePercent = args.taxRatePercent || 0;
 
       // Calculate financial details based on tax behavior
-      let unitPriceInCents: number;
-      let taxAmountInCents: number;
-      let totalPriceInCents: number;
-
-      if (taxBehavior === "inclusive" && taxRatePercent > 0) {
-        totalPriceInCents = args.amountInCents || 0;
-        const unitGrossPriceInCents = Math.round(totalPriceInCents / (args.quantity || 1));
-        const unitNetPriceInCents = Math.round(unitGrossPriceInCents / (1 + taxRatePercent / 100));
-        unitPriceInCents = unitNetPriceInCents;
-        taxAmountInCents = totalPriceInCents - (unitNetPriceInCents * (args.quantity || 1));
-      } else {
-        unitPriceInCents = Math.round((args.amountInCents || 0) / (args.quantity || 1));
-        taxAmountInCents = Math.round(((args.amountInCents || 0) * taxRatePercent) / 100);
-        totalPriceInCents = (args.amountInCents || 0) + taxAmountInCents;
-      }
+      const pricing = calculateTransactionLineAmounts({
+        amountInCents: args.amountInCents || 0,
+        quantity: args.quantity || 1,
+        taxRatePercent,
+        taxBehavior,
+        pricePerUnitInCents:
+          args.amountInCents && args.quantity
+            ? Math.round(args.amountInCents / args.quantity)
+            : args.amountInCents || 0,
+      });
 
       // Create legacy transaction
       const transactionId = await ctx.db.insert("objects", {
@@ -700,10 +696,12 @@ export const createTransactionInternal = internalMutation({
           ticketId: args.ticketId,
           amountInCents: args.amountInCents,
           quantity: args.quantity,
-          unitPriceInCents,
-          totalPriceInCents,
+          unitPriceInCents: pricing.unitPriceInCents,
+          subtotalInCents: pricing.subtotalInCents,
+          totalPriceInCents: pricing.totalPriceInCents,
+          totalInCents: pricing.totalPriceInCents,
           taxRatePercent,
-          taxAmountInCents,
+          taxAmountInCents: pricing.taxAmountInCents,
 
           // Common fields
           checkoutSessionId: args.checkoutSessionId,

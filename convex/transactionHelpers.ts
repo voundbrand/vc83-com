@@ -24,6 +24,7 @@ const generatedApi: any = require("./_generated/api");
 import type { ActionCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { proxyMapUrl, proxyStorageUrl } from "./lib/emailUrlHelpers";
+import { calculateTransactionLineAmounts } from "./lib/transactionTaxMath";
 import type {
   CheckoutSessionObject,
   CrmOrganizationObject,
@@ -475,20 +476,13 @@ export async function createTransactionsForPurchase(
       const productTaxBehavior = product.customProperties?.taxBehavior as "inclusive" | "exclusive" | "automatic" | undefined;
       const orgTaxBehavior = params.taxInfo?.taxBehavior || "inclusive";
       const taxBehavior = productTaxBehavior || orgTaxBehavior;
-
-      let unitPriceInCents: number;
-      let totalPriceInCents: number;
-      let taxAmountInCents: number;
-
-      if (taxBehavior === "inclusive") {
-        totalPriceInCents = item.totalPrice;
-        taxAmountInCents = Math.round((item.totalPrice * taxRatePercent) / (100 + taxRatePercent));
-        unitPriceInCents = Math.round((item.pricePerUnit * 100) / (100 + taxRatePercent));
-      } else {
-        taxAmountInCents = Math.round((item.totalPrice * taxRatePercent) / 100);
-        totalPriceInCents = item.totalPrice + taxAmountInCents;
-        unitPriceInCents = item.pricePerUnit;
-      }
+      const pricing = calculateTransactionLineAmounts({
+        amountInCents: item.totalPrice,
+        quantity: item.quantity,
+        taxRatePercent,
+        taxBehavior,
+        pricePerUnitInCents: item.pricePerUnit,
+      });
 
       // 5.6. Build complete line item
       return {
@@ -499,10 +493,10 @@ export async function createTransactionsForPurchase(
         productSubtype: product.subtype,
         quantity: item.quantity,
         // Pricing
-        unitPriceInCents,
-        totalPriceInCents,
+        unitPriceInCents: pricing.unitPriceInCents,
+        totalPriceInCents: pricing.totalPriceInCents,
         taxRatePercent,
-        taxAmountInCents,
+        taxAmountInCents: pricing.taxAmountInCents,
         taxBehavior,
         // Ticket
         ticketId: item.ticketId,
@@ -534,9 +528,9 @@ export async function createTransactionsForPurchase(
   // ========================================================================
   // 6. CALCULATE AGGREGATE TOTALS
   // ========================================================================
-  const subtotalInCents = validLineItems.reduce((sum, item) => sum + (item.unitPriceInCents * item.quantity), 0);
+  const subtotalInCents = validLineItems.reduce((sum, item) => sum + item.totalPriceInCents - item.taxAmountInCents, 0);
   const taxAmountInCents = validLineItems.reduce((sum, item) => sum + item.taxAmountInCents, 0);
-  const totalInCents = subtotalInCents + taxAmountInCents;
+  const totalInCents = validLineItems.reduce((sum, item) => sum + item.totalPriceInCents, 0);
 
   console.log(`💰 Transaction Totals:`);
   console.log(`   Subtotal: €${(subtotalInCents / 100).toFixed(2)}`);

@@ -18,6 +18,7 @@ import { mutation, query, internalMutation, internalQuery, internalAction } from
 import { Id } from "./_generated/dataModel";
 import { requireAuthenticatedUser, checkPermission } from "./rbacHelpers";
 import { getLicenseInternal, checkMonthlyResourceLimit, checkFeatureAccess } from "./licensing/helpers";
+import { deriveInvoiceFromTransaction } from "./lib/invoiceFromTransaction";
 
 const generatedApi: any = require("./_generated/api");
 
@@ -1830,86 +1831,29 @@ export const createSimpleInvoiceFromCheckout = internalMutation({
 
     console.log(`📋 [createSimpleInvoiceFromCheckout] Using transaction ${transactionId} for invoice`);
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const txProps = transaction.customProperties as any;
+    const txProps = (transaction.customProperties || {}) as any
 
-    // 3. Extract line items from transaction
-    // Transaction now has lineItems array OR legacy single-product structure
-    let lineItems: InvoiceLineItem[];
-    let subtotalInCents: number;
-    let taxInCents: number;
-    let totalInCents: number;
-    let currency: string;
+    const derivedInvoice = deriveInvoiceFromTransaction({
+      transactionId: transaction._id,
+      transactionProps: txProps,
+      customerInfo: args.customerInfo,
+    })
 
-    if (txProps?.lineItems && Array.isArray(txProps.lineItems)) {
-      // NEW STRUCTURE: Transaction has lineItems array
-      console.log(`✅ [createSimpleInvoiceFromCheckout] Using NEW transaction structure with ${txProps.lineItems.length} line items`);
+    const lineItems: InvoiceLineItem[] = derivedInvoice.lineItems
+    const subtotalInCents = derivedInvoice.subtotalInCents
+    const taxInCents = derivedInvoice.taxInCents
+    const totalInCents = derivedInvoice.totalInCents
+    const currency = derivedInvoice.currency || args.currency
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      lineItems = txProps.lineItems.map((item: any) => ({
-        transactionId: transaction._id,
-        ticketId: item.ticketId,
-        productId: item.productId,
-        description: item.productName
-          ? `${item.productName}${item.eventName ? ` - ${item.eventName}` : ""}`
-          : "Product",
-        productName: item.productName,
-        eventName: item.eventName,
-        eventLocation: item.eventLocation,
-        customerName: args.customerInfo.name,
-        customerEmail: args.customerInfo.email,
-        customerId: txProps.customerId,
-        quantity: item.quantity,
-        unitPriceInCents: item.unitPriceInCents,
-        totalPriceInCents: item.totalPriceInCents,
-        taxRatePercent: item.taxRatePercent,
-        taxAmountInCents: item.taxAmountInCents,
-        canEdit: false,
-        canRemove: false,
-      }));
-
-      // Use aggregate totals from transaction
-      subtotalInCents = txProps.subtotalInCents;
-      taxInCents = txProps.taxAmountInCents;
-      totalInCents = txProps.totalInCents;
-      currency = txProps.currency;
-
-      console.log(`   Subtotal: €${(subtotalInCents / 100).toFixed(2)}`);
-      console.log(`   Tax: €${(taxInCents / 100).toFixed(2)}`);
-      console.log(`   Total: €${(totalInCents / 100).toFixed(2)}`);
-
+    if (derivedInvoice.source === "line_items") {
+      console.log(`✅ [createSimpleInvoiceFromCheckout] Derived invoice totals from transaction line items (${lineItems.length})`)
     } else {
-      // LEGACY STRUCTURE: Transaction has single product fields
-      console.log(`⚠️ [createSimpleInvoiceFromCheckout] Using LEGACY single-product transaction structure`);
-
-      lineItems = [{
-        transactionId: transaction._id,
-        ticketId: txProps.ticketId,
-        productId: txProps.productId,
-        description: txProps.productName
-          ? `${txProps.productName}${txProps.eventName ? ` - ${txProps.eventName}` : ""}`
-          : "Product",
-        productName: txProps.productName,
-        eventName: txProps.eventName,
-        eventLocation: txProps.eventLocation,
-        customerName: args.customerInfo.name,
-        customerEmail: args.customerInfo.email,
-        customerId: txProps.customerId,
-        quantity: txProps.quantity || 1,
-        unitPriceInCents: txProps.unitPriceInCents || 0,
-        totalPriceInCents: txProps.totalPriceInCents || 0,
-        taxRatePercent: txProps.taxRatePercent || 0,
-        taxAmountInCents: txProps.taxAmountInCents || 0,
-        canEdit: false,
-        canRemove: false,
-      }];
-
-      // Calculate totals from single transaction
-      subtotalInCents = lineItems[0].unitPriceInCents * lineItems[0].quantity;
-      taxInCents = lineItems[0].taxAmountInCents;
-      totalInCents = lineItems[0].totalPriceInCents;
-      currency = txProps.currency || args.currency;
+      console.log(`⚠️ [createSimpleInvoiceFromCheckout] Using LEGACY single-product transaction structure`)
     }
+
+    console.log(`   Subtotal: €${(subtotalInCents / 100).toFixed(2)}`)
+    console.log(`   Tax: €${(taxInCents / 100).toFixed(2)}`)
+    console.log(`   Total: €${(totalInCents / 100).toFixed(2)}`)
 
     // 5. Get organization's invoice settings (SINGLE SOURCE OF TRUTH)
     // These settings are configured in Payments → Invoice Settings

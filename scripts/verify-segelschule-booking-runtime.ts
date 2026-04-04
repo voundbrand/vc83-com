@@ -1,9 +1,7 @@
-import path from "node:path"
-
 import { ConvexHttpClient } from "convex/browser"
-import { config as loadEnv } from "dotenv"
 
 import * as generatedApiModule from "../convex/_generated/api.js"
+import { loadWorkspaceEnvCascade } from "./lib/load-workspace-env"
 import {
   buildReminderTrackingKey,
   isBookingReminderDue,
@@ -164,8 +162,7 @@ async function listOrgObjectsByType(
 
 async function main() {
   const envPath = getArg("--env") || "apps/segelschule-altwarp/.env.local"
-  const resolvedEnvPath = path.resolve(process.cwd(), envPath)
-  loadEnv({ path: resolvedEnvPath, override: false })
+  const { resolvedEnvPath, loadedEnvPaths } = loadWorkspaceEnvCascade(envPath)
 
   const convexUrl = required(
     process.env.NEXT_PUBLIC_CONVEX_URL,
@@ -178,8 +175,10 @@ async function main() {
   const organizationId = required(
     getArg("--organization-id")
     || process.env.ORG_ID
+    || process.env.PLATFORM_ORG_ID
+    || process.env.NEXT_PUBLIC_PLATFORM_ORG_ID
     || process.env.NEXT_PUBLIC_ORG_ID,
-    "Pass --organization-id or set ORG_ID/NEXT_PUBLIC_ORG_ID."
+    "Pass --organization-id or set ORG_ID/PLATFORM_ORG_ID/NEXT_PUBLIC_PLATFORM_ORG_ID/NEXT_PUBLIC_ORG_ID."
   )
   const requestedBookingId = normalizeOptionalString(getArg("--booking-id"))
   const includeInvoicePdf = hasFlag("--include-invoice-pdf")
@@ -197,6 +196,7 @@ async function main() {
     bookings,
     tickets,
     invoices,
+    transactions,
     checkoutSessions,
     contacts,
     surfaceBindings,
@@ -206,6 +206,7 @@ async function main() {
     listOrgObjectsByType(client, organizationId, "booking"),
     listOrgObjectsByType(client, organizationId, "ticket"),
     listOrgObjectsByType(client, organizationId, "invoice"),
+    listOrgObjectsByType(client, organizationId, "transaction"),
     listOrgObjectsByType(client, organizationId, "checkout_session"),
     listOrgObjectsByType(client, organizationId, "organization_contact"),
     client.query(internal.frontendSurfaceBindings.listBookingSurfaceBindingsInternal, {
@@ -270,6 +271,23 @@ async function main() {
       || String(invoice.customProperties?.checkoutSessionId || "")
         === String(linkedCheckoutSession?._id || "")
   ) || null
+  const linkedTransactions = transactions
+    .filter((transaction) => {
+      const props = transaction.customProperties || {}
+      return (
+        String(props.checkoutSessionId || "") === String(linkedCheckoutSession?._id || "")
+        || linkedTickets.some(
+          (ticket) =>
+            String(ticket.customProperties?.transactionId || "")
+            === String(transaction._id)
+        )
+      )
+    })
+    .sort(
+      (left, right) =>
+        Number(right.updatedAt || right.createdAt || 0)
+        - Number(left.updatedAt || left.createdAt || 0)
+    )
 
   let invoicePdfSummary: Record<string, unknown> | null = null
   if (includeInvoicePdf && linkedCheckoutSession?._id) {
@@ -305,7 +323,11 @@ async function main() {
         ? (workflowProps.nodes as Array<Record<string, unknown>>)
         : []
       const triggerNode =
-        nodes.find((node) => node.type === "trigger_schedule") || null
+        nodes.find(
+          (node) =>
+            node.type === "trigger_schedule"
+            || node.type === "trigger_booking_created"
+        ) || null
       const reminderNode =
         nodes.find((node) => node.type === "lc_booking_notifications") || null
 
@@ -334,6 +356,7 @@ async function main() {
     JSON.stringify(
       {
         envPath: resolvedEnvPath,
+        loadedEnvPaths,
         inspectedAt: now,
         organizationId,
         surfaceBindings,
@@ -360,6 +383,7 @@ async function main() {
             normalizeOptionalString(ticket.customProperties?.sourceBookingId)
           ).length,
           invoices: invoices.length,
+          transactions: transactions.length,
           checkoutSessions: checkoutSessions.length,
         },
         latestSegelschuleBooking: latestBooking
@@ -373,6 +397,7 @@ async function main() {
         linkedTickets: linkedTickets.map((ticket) => ({
           id: String(ticket._id),
           status: ticket.status || null,
+          productId: normalizeOptionalString(ticket.customProperties?.productId),
           ticketCode: normalizeOptionalString(ticket.customProperties?.ticketCode),
           holderEmail: normalizeOptionalString(ticket.customProperties?.holderEmail),
           ticketLookupUrl: normalizeOptionalString(ticket.customProperties?.ticketLookupUrl),
@@ -399,11 +424,35 @@ async function main() {
               emailTemplateCode: normalizeOptionalString(
                 linkedCheckoutSession.customProperties?.emailTemplateCode
               ),
+              selectedProducts: Array.isArray(
+                linkedCheckoutSession.customProperties?.selectedProducts
+              )
+                ? linkedCheckoutSession.customProperties?.selectedProducts
+                : [],
               sourceBookingId: normalizeOptionalString(
                 linkedCheckoutSession.customProperties?.sourceBookingId
               ),
             }
           : null,
+        linkedTransactions: linkedTransactions.map((transaction) => ({
+          id: String(transaction._id),
+          status: transaction.status || null,
+          subtype: transaction.subtype || null,
+          checkoutSessionId: normalizeOptionalString(
+            transaction.customProperties?.checkoutSessionId
+          ),
+          lineItems: Array.isArray(transaction.customProperties?.lineItems)
+            ? (transaction.customProperties?.lineItems as Array<Record<string, unknown>>).map(
+                (lineItem) => ({
+                  productId: normalizeOptionalString(lineItem.productId),
+                  productName: normalizeOptionalString(lineItem.productName),
+                  productSubtype: normalizeOptionalString(lineItem.productSubtype),
+                  quantity: normalizeNumber(lineItem.quantity),
+                  ticketId: normalizeOptionalString(lineItem.ticketId),
+                })
+              )
+            : [],
+        })),
         linkedInvoice: linkedInvoice
           ? {
               id: String(linkedInvoice._id),

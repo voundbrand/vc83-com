@@ -13,6 +13,7 @@ import { getTaxCodesForCountry } from "@/lib/tax-calculator";
 import { AddonManager } from "./addon-manager";
 import { ProductAddon } from "@/types/product-addons";
 import { InvoicingConfigSection, InvoiceConfig } from "./invoicing-config-section";
+import { ProductAvailabilityConnection } from "./product-availability-connection";
 import {
   BookableConfigSection,
   BookableConfig,
@@ -30,6 +31,12 @@ import {
   normalizeAvailabilityStructure,
 } from "../../../../convex/lib/availabilityStructures";
 import type { AvailabilityModel } from "../../../../convex/lib/availabilityModels";
+import {
+  buildAvailabilitySemanticsReset,
+  getShadowAvailabilityResourceId,
+  hasAvailabilityCapability,
+  shouldSuggestAvailabilityDefaultsForSubtype,
+} from "../../../../convex/lib/availabilityResources";
 
 /**
  * Helper: Derive default category label from subtype
@@ -53,17 +60,6 @@ function getDefaultCategoryLabel(subtype: string): string {
     treatment: "Treatment / Spa Service",
   };
   return labels[subtype] || "Product";
-}
-
-/**
- * Helper: Check if subtype is a bookable type
- */
-function isBookableSubtype(subtype: string): boolean {
-  const bookableTypes = [
-    "room", "staff", "equipment", "space", "vehicle", "accommodation",
-    "appointment", "class", "treatment"
-  ];
-  return bookableTypes.includes(subtype);
 }
 
 function buildBookableConfigFromProperties(
@@ -107,6 +103,22 @@ function buildBookableConfigFromProperties(
     resourceTopologyProfile:
       (props.resourceTopologyProfile as BookableConfig["resourceTopologyProfile"] | undefined)
       ?? existingConfig.resourceTopologyProfile,
+  });
+}
+
+function resolveAvailabilityEnabledState(args: {
+  productId: Id<"objects"> | null;
+  subtype: string;
+  customProperties: Record<string, unknown>;
+}): boolean {
+  const explicitAvailabilityResourceId = getShadowAvailabilityResourceId(args.customProperties);
+  return hasAvailabilityCapability({
+    subtype: args.subtype,
+    customProperties: args.customProperties,
+    explicitAvailabilityResourceId:
+      explicitAvailabilityResourceId && explicitAvailabilityResourceId !== args.productId
+        ? explicitAvailabilityResourceId
+        : null,
   });
 }
 
@@ -259,8 +271,10 @@ export function ProductForm({
     templateSetId: "" as string, // Template set ID for unified branding
     // NEW: Ticket Template Override (legacy - for ticket subtype only)
     ticketTemplateId: "" as string, // Template ID for ticket PDF generation (overrides template set)
-    // NEW: Bookable Configuration (for bookable subtypes)
+    // NEW: Availability Configuration
+    availabilityEnabled: false,
     bookableConfig: null as BookableConfig | null,
+    availabilityResourceId: "",
   });
   const [saving, setSaving] = useState(false);
   const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);
@@ -300,6 +314,13 @@ export function ProductForm({
       : "skip"
   );
 
+  const availabilityResources = useQuery(
+    apiAny.availabilityOntology.listAvailabilityResources,
+    sessionId
+      ? { sessionId, organizationId }
+      : "skip"
+  ) as Array<{ _id: Id<"objects">; name?: string; subtype?: string; status?: string }> | undefined;
+
   // Get selected form template to extract field IDs for addon mapping and invoicing config
   const selectedFormTemplate = useQuery(
     apiAny.formsOntology.getPublicForm,
@@ -319,6 +340,11 @@ export function ProductForm({
     if (existingProduct) {
       const props = existingProduct.customProperties || {};
       const subtype = existingProduct.subtype || "ticket";
+      const availabilityEnabled = resolveAvailabilityEnabledState({
+        productId,
+        subtype,
+        customProperties: props,
+      });
       setFormData({
         subtype,
         categoryLabel: (props.categoryLabel as string) || getDefaultCategoryLabel(subtype),
@@ -386,10 +412,12 @@ export function ProductForm({
         templateSetId: (props.templateSetId as string) || "",
         // Ticket Template (legacy)
         ticketTemplateId: (props.ticketTemplateId as string) || "",
-        // Bookable Configuration
-        bookableConfig: isBookableSubtype(subtype)
+        // Availability Configuration
+        availabilityEnabled,
+        bookableConfig: availabilityEnabled
           ? buildBookableConfigFromProperties(subtype, props)
           : null,
+        availabilityResourceId: (props.availabilityResourceId as string) || "",
       });
     }
   }, [existingProduct]);
@@ -453,11 +481,22 @@ export function ProductForm({
         customProperties.ticketTemplateId = formData.ticketTemplateId;
       }
 
-      // Bookable Configuration (for bookable resource/service types)
-      if (isBookableSubtype(formData.subtype) && formData.bookableConfig) {
-        const bc = formData.bookableConfig;
-        customProperties.bookableConfig = bc;
-        Object.assign(customProperties, buildBookableShadowProperties(bc));
+      customProperties.availabilityEnabled = formData.availabilityEnabled;
+
+      const availabilityResourceIdValue =
+        formData.availabilityEnabled && formData.availabilityResourceId
+          ? (formData.availabilityResourceId as Id<"objects">)
+          : null;
+      const isSelfManagedAvailability =
+        formData.availabilityEnabled && !availabilityResourceIdValue;
+
+      if (isSelfManagedAvailability) {
+        const availabilityConfig =
+          formData.bookableConfig || buildBookableConfigForSubtype(formData.subtype);
+        customProperties.bookableConfig = availabilityConfig;
+        Object.assign(customProperties, buildBookableShadowProperties(availabilityConfig));
+      } else if (productId) {
+        Object.assign(customProperties, buildAvailabilitySemanticsReset());
       }
 
       // Form linking (generalized - works for all product types)
@@ -544,6 +583,9 @@ export function ProductForm({
           currency: formData.currency, // Include currency in update
           inventory: inventory || undefined,
           eventId: formData.eventId ? (formData.eventId as Id<"objects">) : null,
+          availabilityResourceId: formData.availabilityEnabled
+            ? availabilityResourceIdValue
+            : null,
           customProperties,
           invoiceConfig: formData.invoiceConfig || undefined,
         });
@@ -574,6 +616,9 @@ export function ProductForm({
           currency: formData.currency,
           inventory: inventory || undefined,
           eventId: formData.eventId ? (formData.eventId as Id<"objects">) : undefined,
+          availabilityResourceId: formData.availabilityEnabled
+            ? availabilityResourceIdValue
+            : undefined,
           customProperties,
         });
 
@@ -631,6 +676,8 @@ export function ProductForm({
   const defaultTaxCodeLabel = orgDefaultTaxCode
     ? availableTaxCodes?.codes.find(c => c.value === orgDefaultTaxCode)?.label || orgDefaultTaxCode
     : "Not set";
+  const hasLinkedAvailabilitySelection =
+    formData.availabilityEnabled && formData.availabilityResourceId.length > 0;
 
   return (
     <form onSubmit={handleSubmit} className="p-6 space-y-4 relative">
@@ -657,17 +704,25 @@ export function ProductForm({
           value={formData.subtype}
           onChange={(e) => {
             const newSubtype = e.target.value;
-            setFormData({
-              ...formData,
-              subtype: newSubtype,
-              // Auto-update categoryLabel to default when subtype changes (only if not manually edited)
-              categoryLabel: formData.categoryLabel === getDefaultCategoryLabel(formData.subtype)
-                ? getDefaultCategoryLabel(newSubtype)
-                : formData.categoryLabel,
-              // Auto-apply bookable preset when switching to a bookable type
-              bookableConfig: isBookableSubtype(newSubtype)
-                ? buildBookableConfigForSubtype(newSubtype)
-                : null
+            setFormData((current) => {
+              const shouldEnableAvailabilityByDefault =
+                !current.availabilityEnabled &&
+                shouldSuggestAvailabilityDefaultsForSubtype(newSubtype);
+
+              return {
+                ...current,
+                subtype: newSubtype,
+                // Auto-update categoryLabel to default when subtype changes (only if not manually edited)
+                categoryLabel: current.categoryLabel === getDefaultCategoryLabel(current.subtype)
+                  ? getDefaultCategoryLabel(newSubtype)
+                  : current.categoryLabel,
+                availabilityEnabled:
+                  current.availabilityEnabled || shouldEnableAvailabilityByDefault,
+                bookableConfig:
+                  current.availabilityEnabled || shouldEnableAvailabilityByDefault
+                    ? current.bookableConfig || buildBookableConfigForSubtype(newSubtype)
+                    : null,
+              };
             });
           }}
           disabled={!!productId}
@@ -1119,24 +1174,94 @@ export function ProductForm({
         availableFormFields={availableFormFields}
       />
 
-      {/* BOOKABLE CONFIGURATION - Only show for bookable subtypes */}
-      {isBookableSubtype(formData.subtype) && (
-        <BookableConfigSection
-          config={formData.bookableConfig || DEFAULT_BOOKABLE_CONFIG}
-          onChange={(bookableConfig) => setFormData({ ...formData, bookableConfig })}
-          subtype={formData.subtype}
-          onSuggestedSubtypeChange={(nextSubtype) =>
-            setFormData((current) => ({
-              ...current,
-              subtype: nextSubtype,
-              categoryLabel:
-                current.categoryLabel === getDefaultCategoryLabel(current.subtype)
-                  ? getDefaultCategoryLabel(nextSubtype)
-                  : current.categoryLabel,
-            }))
-          }
-        />
-      )}
+      <div className="space-y-4 p-4 border-2 rounded" style={{ borderColor: "var(--shell-border)", background: "var(--shell-surface-elevated)" }}>
+        <h3 className="text-sm font-bold" style={{ color: "var(--shell-text)" }}>
+          {tx("ui.products.form.availability.title", "Availability")}
+        </h3>
+        <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+          {tx(
+            "ui.products.form.availability.description",
+            "Enable this when the product should manage its own availability or resolve through another availability resource."
+          )}
+        </p>
+
+        <div className="flex items-center justify-between p-3 border-2 rounded" style={{ borderColor: "var(--shell-border)", background: "var(--shell-input-surface)" }}>
+          <div className="flex-1">
+            <label className="block text-sm font-semibold" style={{ color: "var(--shell-text)" }}>
+              {tx("ui.products.form.availability.enabled_label", "Availability enabled")}
+            </label>
+            <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
+              {formData.availabilityEnabled
+                ? tx(
+                    "ui.products.form.availability.enabled_help_on",
+                    "This product can participate in booking availability."
+                  )
+                : tx(
+                    "ui.products.form.availability.enabled_help_off",
+                    "Enable to configure self-managed availability or link to an existing availability resource."
+                  )}
+            </p>
+          </div>
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={formData.availabilityEnabled}
+              onChange={(e) => {
+                const nextEnabled = e.target.checked;
+                setFormData((current) => ({
+                  ...current,
+                  availabilityEnabled: nextEnabled,
+                  availabilityResourceId: nextEnabled ? current.availabilityResourceId : "",
+                  bookableConfig: nextEnabled
+                    ? current.bookableConfig || buildBookableConfigForSubtype(current.subtype)
+                    : null,
+                }));
+              }}
+              className="w-5 h-5"
+            />
+            <span className="text-sm font-bold" style={{ color: formData.availabilityEnabled ? "var(--success)" : "var(--neutral-gray)" }}>
+              {formData.availabilityEnabled
+                ? tx("ui.products.form.availability.enabled_on", "On")
+                : tx("ui.products.form.availability.enabled_off", "Off")}
+            </span>
+          </label>
+        </div>
+
+        {formData.availabilityEnabled && (
+          <>
+            <ProductAvailabilityConnection
+              sessionId={sessionId}
+              productId={productId}
+              selectedResourceId={formData.availabilityResourceId}
+              onSelectedResourceIdChange={(availabilityResourceId) =>
+                setFormData((current) => ({
+                  ...current,
+                  availabilityResourceId,
+                  bookableConfig: availabilityResourceId
+                    ? current.bookableConfig
+                    : current.bookableConfig || buildBookableConfigForSubtype(current.subtype),
+                }))
+              }
+              resourceOptions={availabilityResources || []}
+            />
+
+            {!hasLinkedAvailabilitySelection ? (
+              <BookableConfigSection
+                config={formData.bookableConfig || DEFAULT_BOOKABLE_CONFIG}
+                onChange={(bookableConfig) => setFormData({ ...formData, bookableConfig })}
+                subtype={formData.subtype}
+              />
+            ) : (
+              <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+                {tx(
+                  "ui.products.form.availability.linked_help",
+                  "This product currently resolves availability through a separate resource. Clear the resource selection above if this product should manage its own availability."
+                )}
+              </p>
+            )}
+          </>
+        )}
+      </div>
 
       {/* B2B INVOICING CONFIGURATION - Only show if form is linked */}
       {formData.formId && (

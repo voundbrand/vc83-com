@@ -1,12 +1,12 @@
 #!/usr/bin/env npx tsx
 
-import path from "node:path"
 import { randomBytes } from "node:crypto"
 
 import { ConvexHttpClient } from "convex/browser"
-import { config as loadEnv } from "dotenv"
+import { Resend } from "resend"
 
 import * as generatedApiModule from "../convex/_generated/api.js"
+import { loadWorkspaceEnvCascade } from "./lib/load-workspace-env"
 import { localDateTimeToTimestamp } from "../src/lib/timezone-utils"
 
 const generated =
@@ -26,25 +26,42 @@ type RouterObjectRecord = {
   customProperties?: Record<string, unknown>
 }
 
-const COURSE_FIXTURE_CONFIG: Record<
-  string,
-  { title: string; price: number; isMultiDay: boolean }
-> = {
-  schnupper: {
-    title: "Schnupperkurs",
-    price: 129,
-    isMultiDay: false,
-  },
-  grund: {
-    title: "Grundkurs",
-    price: 299,
-    isMultiDay: true,
-  },
-  intensiv: {
-    title: "Intensivkurs",
-    price: 349,
-    isMultiDay: true,
-  },
+type FixtureEmailMode = "capture" | "redirect" | "live"
+
+type DeliveryStatusSummary = {
+  id: string
+  lastEvent: string | null
+  to: string[]
+  subject: string | null
+  createdAt: string | null
+}
+
+type BoatSeatAvailability = {
+  boatId: string
+  boatName: string
+  totalSeats: number
+  availableSeats: number
+  seats: Array<{
+    seatNumber: number
+    status: string
+  }>
+}
+
+type CatalogCoursePayload = {
+  courseId: string
+  aliases?: string[]
+  title?: string | null
+  description?: string | null
+  durationLabel?: string | null
+  durationMinutes?: number | null
+  priceInCents?: number | null
+  currency?: string | null
+  isMultiDay?: boolean
+}
+
+type CatalogApiPayload = {
+  ok?: boolean
+  courses?: CatalogCoursePayload[]
 }
 
 function getArg(flag: string): string | undefined {
@@ -57,6 +74,18 @@ function getArg(flag: string): string | undefined {
 
 function hasFlag(flag: string): boolean {
   return process.argv.includes(flag)
+}
+
+function getCommaSeparatedArg(flag: string): string[] {
+  const raw = getArg(flag)
+  if (!raw) {
+    return []
+  }
+
+  return raw
+    .split(",")
+    .map((entry) => normalizeOptionalString(entry))
+    .filter((entry): entry is string => Boolean(entry))
 }
 
 function required(value: string | undefined, message: string): string {
@@ -72,6 +101,97 @@ function normalizeOptionalString(value: unknown): string | null {
   }
   const normalized = value.trim()
   return normalized.length > 0 ? normalized : null
+}
+
+function findCatalogCourse(
+  courses: CatalogCoursePayload[],
+  requestedCourseId: string | null
+): CatalogCoursePayload | null {
+  if (!requestedCourseId) {
+    return null
+  }
+
+  return (
+    courses.find(
+      (course) =>
+        course.courseId === requestedCourseId
+        || (Array.isArray(course.aliases) && course.aliases.includes(requestedCourseId))
+    ) || null
+  )
+}
+
+function resolveFixtureEmailMode(value: string | undefined): FixtureEmailMode {
+  return value === "live" || value === "redirect" ? value : "capture"
+}
+
+function collectDeliveryMessageIds(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return []
+  }
+
+  return value
+    .map((entry) =>
+      normalizeOptionalString(
+        (entry as { messageId?: unknown } | null | undefined)?.messageId
+      )
+    )
+    .filter((entry): entry is string => Boolean(entry))
+}
+
+async function fetchResendDeliveryStatus(args: {
+  resendApiKey: string
+  messageId: string
+}): Promise<DeliveryStatusSummary> {
+  const resend = new Resend(args.resendApiKey)
+  const result = await resend.emails.get(args.messageId)
+  if (result.error || !result.data) {
+    throw new Error(
+      result.error?.message
+      || `Unable to fetch Resend delivery status for ${args.messageId}`
+    )
+  }
+
+  return {
+    id: result.data.id,
+    lastEvent: normalizeOptionalString(result.data.last_event),
+    to: Array.isArray(result.data.to) ? result.data.to : [],
+    subject: normalizeOptionalString(result.data.subject),
+    createdAt: normalizeOptionalString(result.data.created_at),
+  }
+}
+
+async function pollResendDeliveryStatuses(args: {
+  resendApiKey: string
+  messageIds: string[]
+  timeoutMs: number
+  intervalMs: number
+}): Promise<DeliveryStatusSummary[]> {
+  const uniqueIds = Array.from(new Set(args.messageIds))
+  const deadline = Date.now() + args.timeoutMs
+  const statuses = new Map<string, DeliveryStatusSummary>()
+
+  while (Date.now() <= deadline) {
+    for (const messageId of uniqueIds) {
+      const status = await fetchResendDeliveryStatus({
+        resendApiKey: args.resendApiKey,
+        messageId,
+      })
+      statuses.set(messageId, status)
+    }
+
+    const pending = Array.from(statuses.values()).some((status) =>
+      ["queued", "scheduled", "sent"].includes(status.lastEvent || "")
+    )
+    if (!pending) {
+      break
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, args.intervalMs))
+  }
+
+  return uniqueIds
+    .map((messageId) => statuses.get(messageId))
+    .filter((status): status is DeliveryStatusSummary => Boolean(status))
 }
 
 function formatDateInTimezone(date: Date, timezone: string): string {
@@ -95,6 +215,63 @@ function addDays(date: Date, days: number): Date {
   return new Date(date.getTime() + days * 24 * 60 * 60 * 1000)
 }
 
+function selectAvailableSeats(args: {
+  selectedBoatAvailability: unknown
+  participants: number
+}): Array<{
+  boatId: string
+  boatName: string
+  seatNumbers: number[]
+}> {
+  if (!Array.isArray(args.selectedBoatAvailability)) {
+    throw new Error("Selected boat availability is not available for seat allocation.")
+  }
+
+  let remainingParticipants = args.participants
+  const selections: Array<{
+    boatId: string
+    boatName: string
+    seatNumbers: number[]
+  }> = []
+
+  for (const boat of args.selectedBoatAvailability as BoatSeatAvailability[]) {
+    const availableSeatNumbers = Array.isArray(boat.seats)
+      ? boat.seats
+          .filter((seat) => seat?.status === "available")
+          .map((seat) => seat.seatNumber)
+          .filter((seatNumber) => Number.isFinite(seatNumber))
+      : []
+
+    if (availableSeatNumbers.length === 0) {
+      continue
+    }
+
+    const allocatedSeatNumbers = availableSeatNumbers.slice(0, remainingParticipants)
+    if (allocatedSeatNumbers.length === 0) {
+      continue
+    }
+
+    selections.push({
+      boatId: boat.boatId,
+      boatName: boat.boatName,
+      seatNumbers: allocatedSeatNumbers,
+    })
+    remainingParticipants -= allocatedSeatNumbers.length
+
+    if (remainingParticipants <= 0) {
+      break
+    }
+  }
+
+  if (remainingParticipants > 0) {
+    throw new Error(
+      `Unable to allocate ${args.participants} seat(s) from selected boat availability.`
+    )
+  }
+
+  return selections
+}
+
 async function listOrgObjectsByType(
   client: ConvexHttpClient,
   organizationId: string,
@@ -108,16 +285,19 @@ async function listOrgObjectsByType(
 
 async function main() {
   const envPath = getArg("--env") || "apps/segelschule-altwarp/.env.local"
-  const resolvedEnvPath = path.resolve(process.cwd(), envPath)
-  loadEnv({ path: resolvedEnvPath, override: false })
+  const { resolvedEnvPath, loadedEnvPaths } = loadWorkspaceEnvCascade(envPath)
 
   const organizationId = required(
     getArg("--organization-id")
     || process.env.ORG_ID
+    || process.env.PLATFORM_ORG_ID
+    || process.env.NEXT_PUBLIC_PLATFORM_ORG_ID
     || process.env.NEXT_PUBLIC_ORG_ID,
-    "Pass --organization-id or set ORG_ID/NEXT_PUBLIC_ORG_ID."
+    "Pass --organization-id or set ORG_ID/PLATFORM_ORG_ID/NEXT_PUBLIC_PLATFORM_ORG_ID/NEXT_PUBLIC_ORG_ID."
   )
   process.env.ORG_ID = organizationId
+  process.env.PLATFORM_ORG_ID = organizationId
+  process.env.NEXT_PUBLIC_PLATFORM_ORG_ID = organizationId
 
   const convexUrl = required(
     process.env.NEXT_PUBLIC_CONVEX_URL,
@@ -137,6 +317,19 @@ async function main() {
   const searchDays = Number.parseInt(getArg("--search-days") || "21", 10)
   const language = getArg("--language") || "de"
   const ignoreOutsideAvailability = hasFlag("--ignore-outside-availability")
+  const emailMode = resolveFixtureEmailMode(getArg("--email-mode"))
+  const capturePreviews = hasFlag("--no-capture-previews") ? false : true
+  const customerRecipients = getCommaSeparatedArg("--customer-recipient")
+  const operatorRecipients = getCommaSeparatedArg("--operator-recipient")
+  const pollEmailDelivery = hasFlag("--poll-email-delivery")
+  const deliveryTimeoutMs = Number.parseInt(
+    getArg("--delivery-timeout-ms") || "30000",
+    10
+  )
+  const deliveryIntervalMs = Number.parseInt(
+    getArg("--delivery-poll-interval-ms") || "2000",
+    10
+  )
   const fixtureKey = getArg("--fixture-key")
     || `segelschule-live-fixture-${Date.now()}`
   const fixtureLabel =
@@ -152,7 +345,6 @@ async function main() {
     || `segelschule.fixture+${Date.now()}@example.com`
   const customerName = getArg("--customer-name") || "Codex Live Fixture"
   const customerPhone = getArg("--customer-phone") || "+49 170 000000"
-  const seatNumbers = Array.from({ length: participants }, (_, index) => index + 1)
   const fixtureToken = randomBytes(18).toString("hex")
   process.env.SEGELSCHULE_BOOKING_FIXTURE_TOKEN = fixtureToken
 
@@ -162,17 +354,51 @@ async function main() {
   }
   maybeAdminClient.setAdminAuth?.(deployKey)
 
+  const catalogRoute = await import(
+    "../apps/segelschule-altwarp/app/api/booking/catalog/route"
+  )
   const availabilityRoute = await import(
     "../apps/segelschule-altwarp/app/api/booking/availability/route"
   )
+  const catalogResponse = await catalogRoute.GET(
+    new Request(
+      `http://localhost/api/booking/catalog?lang=${encodeURIComponent(language)}`
+    )
+  )
+  const catalogPayload = (await catalogResponse.json()) as CatalogApiPayload
+  if (!catalogResponse.ok || catalogPayload.ok !== true) {
+    throw new Error(
+      `Booking catalog lookup failed: ${JSON.stringify(catalogPayload)}`
+    )
+  }
+
+  const catalogCourses = Array.isArray(catalogPayload.courses)
+    ? catalogPayload.courses
+    : []
+  if (catalogCourses.length === 0) {
+    throw new Error("Booking catalog returned no courses.")
+  }
+
+  const requestedCatalogCourse =
+    requestedCourseId === "auto"
+      ? null
+      : findCatalogCourse(catalogCourses, requestedCourseId)
+  if (requestedCourseId !== "auto" && !requestedCatalogCourse) {
+    throw new Error(
+      `Requested course '${requestedCourseId}' is not available in the backend booking catalog.`
+    )
+  }
+
   const courseCandidates =
     requestedCourseId === "auto"
-      ? Object.keys(COURSE_FIXTURE_CONFIG)
-      : [requestedCourseId]
+      ? catalogCourses.map((course) => course.courseId)
+      : [requestedCatalogCourse!.courseId]
+  let selectedCourse: CatalogCoursePayload | null = null
   let selectedCourseId: string | null = null
   let selectedDate: string | null = null
   let availabilityPayload: Record<string, any> | null = null
   let selectedTime: string | null = null
+  let selectedSeatAvailability: Record<string, any> | null = null
 
   for (let dayOffset = 0; dayOffset <= searchDays; dayOffset += 1) {
     const candidateDate = formatDateInTimezone(
@@ -188,7 +414,7 @@ async function main() {
           body: JSON.stringify({
             courseId,
             date: candidateDate,
-            timezone,
+            language,
           }),
         })
       )
@@ -213,26 +439,41 @@ async function main() {
         continue
       }
 
-      selectedCourseId = courseId
+      const resolvedCourseId =
+        normalizeOptionalString(nextAvailabilityPayload.courseId) || courseId
+      selectedCourseId = resolvedCourseId
+      selectedCourse = findCatalogCourse(catalogCourses, resolvedCourseId)
       selectedDate = candidateDate
       availabilityPayload = nextAvailabilityPayload
       selectedTime = String(availableTimeEntry.time)
       break
     }
 
-    if (selectedCourseId && availabilityPayload && selectedTime && selectedDate) {
+    if (
+      selectedCourseId
+      && selectedCourse
+      && availabilityPayload
+      && selectedTime
+      && selectedDate
+    ) {
       break
     }
   }
 
   if (
-    (!selectedCourseId || !availabilityPayload || !selectedTime || !selectedDate)
+    (!selectedCourseId
+      || !selectedCourse
+      || !availabilityPayload
+      || !selectedTime
+      || !selectedDate)
     && ignoreOutsideAvailability
   ) {
-    selectedCourseId =
-      requestedCourseId !== "auto"
-        ? requestedCourseId
-        : (courseCandidates.includes("grund") ? "grund" : courseCandidates[0] || null)
+    selectedCourse =
+      requestedCatalogCourse
+      || findCatalogCourse(catalogCourses, "grund")
+      || catalogCourses[0]
+      || null
+    selectedCourseId = selectedCourse?.courseId || null
     selectedDate = requestedDate
     selectedTime = requestedTime
     availabilityPayload = {
@@ -244,17 +485,55 @@ async function main() {
     }
   }
 
-  if (!selectedCourseId || !availabilityPayload || !selectedTime || !selectedDate) {
+  if (
+    !selectedCourseId
+    || !selectedCourse
+    || !availabilityPayload
+    || !selectedTime
+    || !selectedDate
+  ) {
     throw new Error(
       `No available Segelschule slot found from ${requestedDate} through +${searchDays}d across courses: ${courseCandidates.join(", ")}.`
     )
   }
 
-  const selectedCourseConfig = COURSE_FIXTURE_CONFIG[selectedCourseId] || {
-    title: selectedCourseId,
-    price: 129,
-    isMultiDay: false,
+  if (availabilityPayload?.ok === true && selectedTime && selectedDate) {
+    const seatAvailabilityResponse = await availabilityRoute.POST(
+      new Request("http://localhost/api/booking/availability", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          courseId: selectedCourseId,
+          date: selectedDate,
+          time: selectedTime,
+          language,
+        }),
+      })
+    )
+
+    const nextSeatAvailabilityPayload = await seatAvailabilityResponse.json()
+    if (!seatAvailabilityResponse.ok || nextSeatAvailabilityPayload.ok !== true) {
+      throw new Error(
+        `Seat availability lookup failed for ${selectedCourseId} ${selectedDate} ${selectedTime}: ${JSON.stringify(nextSeatAvailabilityPayload)}`
+      )
+    }
+    selectedSeatAvailability = nextSeatAvailabilityPayload
   }
+
+  const seatSelections =
+    selectedSeatAvailability?.selectedBoatAvailability
+      ? selectAvailableSeats({
+          selectedBoatAvailability: selectedSeatAvailability.selectedBoatAvailability,
+          participants,
+        })
+      : [
+          {
+            boatId: "fraukje",
+            boatName: "Fraukje",
+            seatNumbers: Array.from({ length: participants }, (_, index) => index + 1),
+          },
+        ]
+
   const todayLocalDate = formatDateInTimezone(now, timezone)
   const reminderDaysBeforeStart = Math.max(
     0,
@@ -277,21 +556,10 @@ async function main() {
         "x-segelschule-fixture-token": fixtureToken,
       },
       body: JSON.stringify({
-        course: {
-          id: selectedCourseId,
-          title: selectedCourseConfig.title,
-          price: `EUR ${selectedCourseConfig.price.toFixed(2)}`,
-          isMultiDay: selectedCourseConfig.isMultiDay,
-        },
+        courseId: selectedCourseId,
         date: selectedDate,
         time: selectedTime,
-        seats: [
-          {
-            boatId: "fraukje",
-            boatName: "Fraukje",
-            seatNumbers,
-          },
-        ],
+        seats: seatSelections,
         totalSeats: participants,
         termsAccepted: true,
         formData: {
@@ -301,11 +569,16 @@ async function main() {
           message: `${fixtureLabel} (${fixtureKey})`,
         },
         paymentMethod: "invoice",
-        totalAmount: selectedCourseConfig.price * participants,
         language,
         emailExecutionControl: {
-          mode: "capture",
-          capturePreviews: true,
+          mode: emailMode,
+          capturePreviews,
+          ...(customerRecipients.length > 0
+            ? { customerRecipients }
+            : {}),
+          ...(operatorRecipients.length > 0
+            ? { operatorRecipients }
+            : {}),
           fixtureKey,
           fixtureLabel,
         },
@@ -379,9 +652,15 @@ async function main() {
             bookingIds: [bookingId],
             daysBeforeStart: reminderDaysBeforeStart,
             emailExecutionControl: {
-              mode: "capture",
-              capturePreviews: true,
+              mode: emailMode,
+              capturePreviews,
               markAsSent: true,
+              ...(customerRecipients.length > 0
+                ? { customerRecipients }
+                : {}),
+              ...(operatorRecipients.length > 0
+                ? { operatorRecipients }
+                : {}),
               fixtureKey,
               fixtureLabel,
             },
@@ -402,9 +681,15 @@ async function main() {
             bookingIds: [bookingId],
             daysBeforeStart: reminderDaysBeforeStart,
             emailExecutionControl: {
-              mode: "capture",
+              mode: emailMode,
               capturePreviews: false,
               markAsSent: true,
+              ...(customerRecipients.length > 0
+                ? { customerRecipients }
+                : {}),
+              ...(operatorRecipients.length > 0
+                ? { operatorRecipients }
+                : {}),
               fixtureKey,
               fixtureLabel,
             },
@@ -426,25 +711,63 @@ async function main() {
     }
   }
 
+  const routeDeliveryIds = collectDeliveryMessageIds(
+    (bookingPayload as { emailDispatch?: { deliveries?: unknown } }).emailDispatch?.deliveries
+  )
+  const reminderDeliveryIds = Object.values(reminderResults).flatMap((result) => {
+    if (!result || typeof result !== "object") {
+      return []
+    }
+    const record = result as {
+      firstRun?: { data?: { deliveries?: unknown } }
+      secondRun?: { data?: { deliveries?: unknown } }
+    }
+    return [
+      ...collectDeliveryMessageIds(record.firstRun?.data?.deliveries),
+      ...collectDeliveryMessageIds(record.secondRun?.data?.deliveries),
+    ]
+  })
+  const deliveryStatuses =
+    pollEmailDelivery && emailMode !== "capture"
+      ? await pollResendDeliveryStatuses({
+          resendApiKey: required(
+            process.env.RESEND_API_KEY,
+            `RESEND_API_KEY is required to poll delivery status. Checked ${resolvedEnvPath}.`
+          ),
+          messageIds: [...routeDeliveryIds, ...reminderDeliveryIds],
+          timeoutMs: deliveryTimeoutMs,
+          intervalMs: deliveryIntervalMs,
+        })
+      : []
+
   console.log(
     JSON.stringify(
       {
         envPath: resolvedEnvPath,
+        loadedEnvPaths,
         organizationId,
         fixtureKey,
         fixtureLabel,
         selectedCourseId,
-        selectedCourseTitle: selectedCourseConfig.title,
+        selectedCourseTitle: selectedCourse.title || selectedCourse.courseId,
+        selectedCoursePriceInCents: selectedCourse.priceInCents || null,
+        selectedCourseDurationMinutes: selectedCourse.durationMinutes || null,
         requestedDate,
         selectedDate,
         requestedTime,
         selectedTime,
         reminderDaysBeforeStart,
         participants,
+        emailMode,
+        customerRecipients,
+        operatorRecipients,
+        seatSelections,
         bookingId,
         availability: availabilityPayload,
+        selectedSeatAvailability,
         bookingResponse: bookingPayload,
         reminderResults,
+        deliveryStatuses,
       },
       null,
       2

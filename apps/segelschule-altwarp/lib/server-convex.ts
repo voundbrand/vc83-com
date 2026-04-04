@@ -90,8 +90,11 @@ export function getConvexClient(): ConvexHttpClient {
 export function getOrganizationId(): string | null {
   return (
     process.env.ORG_ID ||
-    process.env.TEST_ORG_ID ||
+    process.env.PLATFORM_ORG_ID ||
+    process.env.NEXT_PUBLIC_PLATFORM_ORG_ID ||
+    process.env.L4YERCAK3_ORGANIZATION_ID ||
     process.env.NEXT_PUBLIC_ORG_ID ||
+    process.env.TEST_ORG_ID ||
     null
   );
 }
@@ -155,7 +158,7 @@ export async function resolveSegelschuleOrganizationId(
 
   const requestHost = normalizeRequestHost(scope.requestHost);
   if (!requestHost) {
-    return null;
+    return getOrganizationId();
   }
 
   // Dynamic require avoids excessively deep Convex API type instantiation.
@@ -191,7 +194,7 @@ export async function resolveSegelschuleOrganizationId(
     );
   }
 
-  return null;
+  return getOrganizationId();
 }
 
 export async function getSegelschuleOidcIntegrationConfig(

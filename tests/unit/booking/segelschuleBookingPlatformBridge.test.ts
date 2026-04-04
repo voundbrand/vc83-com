@@ -5,6 +5,8 @@ import {
   getSegelschuleBookingRuntimeConfig,
   normalizeSeatSelections,
   parseBookingStartTimestamp,
+  resolveSegelschuleBookingCatalog,
+  resolveSegelschuleBookingCourse,
   resolveSegelschuleRuntimeConfig,
   resolveCourseBookingDurationMinutes,
 } from "../../../apps/segelschule-altwarp/lib/booking-platform-bridge"
@@ -207,6 +209,607 @@ describe("segelschule booking platform bridge", () => {
     expect(resolution.runtimeConfig.courses.schnupper.bookingResourceId).toBe(
       "resource_env_schnupper"
     )
+  })
+
+  it("builds a backend-authoritative booking catalog, ignores surface-only courses, and resolves distinct checkout/resource links", async () => {
+    const queryInternalFn = vi.fn(async (_convex, queryRef, args) => {
+      if (queryRef === "resolver_ref") {
+        return {
+          bindingId: "binding_catalog_1",
+          runtimeConfig: {
+            timezone: "Europe/Berlin",
+            defaultAvailableTimes: ["09:00"],
+            inventoryGroups: [
+              { id: "fraukje", label: "Fraukje", capacity: 4 },
+            ],
+            courses: [
+              {
+                courseId: "grund",
+                bookingDurationMinutes: 480,
+                availableTimes: ["09:00"],
+                bookingResourceId: "resource_grund",
+                checkoutProductId: "resource_grund",
+              },
+              {
+                courseId: "intensiv",
+                bookingDurationMinutes: 480,
+                availableTimes: ["11:00"],
+                bookingResourceId: "resource_intensiv",
+                checkoutProductId: "resource_intensiv",
+              },
+            ],
+          },
+          legacyBindings: null,
+        }
+      }
+
+      if (queryRef === "list_products_ref") {
+        return [
+          {
+            _id: "resource_grund",
+            type: "product",
+            subtype: "class",
+            name: "Grundkurs Resource",
+            status: "active",
+            customProperties: {
+              segelschuleCourseId: "grund",
+              bookingSurface: "segelschule-altwarp",
+              bookingType: "class_enrollment",
+              fulfillmentType: "ticket",
+              bookingDurationMinutes: 480,
+              priceInCents: 19_900,
+              currency: "eur",
+              isMultiDay: true,
+              catalogContent: {
+                aliases: ["wochenende"],
+                title: {
+                  de: "Wochenendkurs",
+                  en: "Weekend Course",
+                },
+                description: {
+                  de: "Zwei Tage Segelpraxis",
+                  en: "Two full days on the water",
+                },
+                durationLabel: {
+                  de: "2 Tage",
+                  en: "2 days",
+                },
+              },
+            },
+          },
+          {
+            _id: "checkout_grund",
+            type: "product",
+            subtype: "ticket",
+            name: "Grundkurs Checkout",
+            status: "active",
+            customProperties: {
+              availabilityResourceId: "resource_grund",
+              fulfillmentType: "ticket",
+              price: 19_900,
+              currency: "eur",
+            },
+          },
+        ]
+      }
+
+      if (queryRef === "links_ref") {
+        return []
+      }
+
+      if (args.objectId === "checkout_grund") {
+        return {
+          _id: "checkout_grund",
+          type: "product",
+          subtype: "ticket",
+          name: "Grundkurs Checkout",
+          customProperties: {
+            fulfillmentType: "ticket",
+            availabilityResourceId: "resource_grund",
+            price: 19_900,
+            currency: "eur",
+          },
+        }
+      }
+
+      if (args.objectId === "resource_grund") {
+        return {
+          _id: "resource_grund",
+          type: "product",
+          subtype: "class",
+          name: "Grundkurs Resource",
+          customProperties: {
+            segelschuleCourseId: "grund",
+            bookingSurface: "segelschule-altwarp",
+            bookingType: "class_enrollment",
+            fulfillmentType: "ticket",
+            bookingDurationMinutes: 480,
+            priceInCents: 19_900,
+            currency: "eur",
+            isMultiDay: true,
+            catalogContent: {
+              aliases: ["wochenende"],
+              title: {
+                de: "Wochenendkurs",
+                en: "Weekend Course",
+              },
+              description: {
+                de: "Zwei Tage Segelpraxis",
+                en: "Two full days on the water",
+              },
+              durationLabel: {
+                de: "2 Tage",
+                en: "2 days",
+              },
+            },
+          },
+        }
+      }
+
+      return null
+    })
+
+    const catalog = await resolveSegelschuleBookingCatalog({
+      convex: {},
+      queryInternalFn,
+      generatedInternalApi: {
+        frontendSurfaceBindings: {
+          resolveBookingSurfaceBindingInternal: "resolver_ref",
+        },
+        channels: {
+          router: {
+            getObjectByIdInternal: "get_object_ref",
+            listObjectsByOrgTypeInternal: "list_products_ref",
+          },
+        },
+        objectLinksInternal: {
+          getLinksFromObject: "links_ref",
+        },
+      },
+      organizationId: "org_123",
+      language: "de",
+    })
+
+    expect(catalog.runtimeResolution.source).toBe("backend_surface_binding")
+    expect(catalog.courses.map((course) => course.courseId)).toEqual(["grund"])
+    const grundCourse = catalog.courses.find((course) => course.courseId === "grund")
+    expect(grundCourse).toBeTruthy()
+    expect(grundCourse?.warnings).toContain(
+      "runtime_checkout_product_mismatch_with_backend"
+    )
+    expect(grundCourse).toMatchObject({
+      courseId: "grund",
+      aliases: ["grund", "wochenende"],
+      title: "Wochenendkurs",
+      description: "Zwei Tage Segelpraxis",
+      durationLabel: "2 Tage",
+      durationMinutes: 480,
+      priceInCents: 19_900,
+      currency: "EUR",
+      isMultiDay: true,
+      checkoutProductId: "checkout_grund",
+      bookingResourceId: "resource_grund",
+      fulfillmentType: "ticket",
+    })
+
+    const courseResolution = await resolveSegelschuleBookingCourse({
+      convex: {},
+      queryInternalFn,
+      generatedInternalApi: {
+        frontendSurfaceBindings: {
+          resolveBookingSurfaceBindingInternal: "resolver_ref",
+        },
+        channels: {
+          router: {
+            getObjectByIdInternal: "get_object_ref",
+            listObjectsByOrgTypeInternal: "list_products_ref",
+          },
+        },
+        objectLinksInternal: {
+          getLinksFromObject: "links_ref",
+        },
+      },
+      organizationId: "org_123",
+      courseId: "wochenende",
+      language: "en",
+    })
+
+    expect(courseResolution.requestedCourseId).toBe("wochenende")
+    expect(courseResolution.resolvedCourseId).toBe("grund")
+    expect(courseResolution.course).toMatchObject({
+      courseId: "grund",
+      title: "Weekend Course",
+      description: "Two full days on the water",
+      durationLabel: "2 days",
+    })
+  })
+
+  it("discovers backend courses even when the surface payload does not enumerate them", async () => {
+    const queryInternalFn = vi.fn(async (_convex, queryRef, args) => {
+      if (queryRef === "resolver_ref") {
+        return {
+          bindingId: "binding_catalog_2",
+          runtimeConfig: {
+            timezone: "Europe/Berlin",
+            defaultAvailableTimes: ["09:00"],
+            inventoryGroups: [
+              { id: "fraukje", label: "Fraukje", capacity: 4 },
+            ],
+            courses: [
+              {
+                courseId: "intensiv",
+                bookingDurationMinutes: 480,
+                availableTimes: ["11:00"],
+                bookingResourceId: "resource_intensiv",
+                checkoutProductId: "resource_intensiv",
+              },
+            ],
+          },
+          legacyBindings: null,
+        }
+      }
+
+      if (queryRef === "list_products_ref") {
+        return [
+          {
+            _id: "checkout_grund",
+            type: "product",
+            subtype: "ticket",
+            status: "active",
+            name: "Grundkurs Checkout",
+            customProperties: {
+              segelschuleCourseId: "grund",
+              bookingSurface: "segelschule-altwarp",
+              fulfillmentType: "ticket",
+              availabilityResourceId: "resource_grund",
+              priceInCents: 19_900,
+              currency: "eur",
+            },
+          },
+          {
+            _id: "resource_grund",
+            type: "product",
+            subtype: "class",
+            status: "active",
+            name: "Grundkurs Resource",
+            customProperties: {
+              segelschuleCourseId: "grund",
+              bookingSurface: "segelschule-altwarp",
+              bookingType: "class_enrollment",
+              fulfillmentType: "ticket",
+              bookingDurationMinutes: 480,
+              priceInCents: 19_900,
+              currency: "eur",
+              isMultiDay: true,
+              catalogContent: {
+                title: {
+                  de: "Grundkurs",
+                },
+              },
+            },
+          },
+        ]
+      }
+
+      if (queryRef === "links_ref") {
+        return []
+      }
+
+      if (args.objectId === "checkout_grund") {
+        return {
+          _id: "checkout_grund",
+          type: "product",
+          subtype: "ticket",
+          name: "Grundkurs Checkout",
+          customProperties: {
+            segelschuleCourseId: "grund",
+            bookingSurface: "segelschule-altwarp",
+            fulfillmentType: "ticket",
+            availabilityResourceId: "resource_grund",
+            priceInCents: 19_900,
+            currency: "eur",
+          },
+        }
+      }
+
+      if (args.objectId === "resource_grund") {
+        return {
+          _id: "resource_grund",
+          type: "product",
+          subtype: "class",
+          name: "Grundkurs Resource",
+          customProperties: {
+            segelschuleCourseId: "grund",
+            bookingSurface: "segelschule-altwarp",
+            bookingType: "class_enrollment",
+            fulfillmentType: "ticket",
+            bookingDurationMinutes: 480,
+            priceInCents: 19_900,
+            currency: "eur",
+            isMultiDay: true,
+            catalogContent: {
+              title: {
+                de: "Grundkurs",
+              },
+            },
+          },
+        }
+      }
+
+      return null
+    })
+
+    const catalog = await resolveSegelschuleBookingCatalog({
+      convex: {},
+      queryInternalFn,
+      generatedInternalApi: {
+        frontendSurfaceBindings: {
+          resolveBookingSurfaceBindingInternal: "resolver_ref",
+        },
+        channels: {
+          router: {
+            getObjectByIdInternal: "get_object_ref",
+            listObjectsByOrgTypeInternal: "list_products_ref",
+          },
+        },
+        objectLinksInternal: {
+          getLinksFromObject: "links_ref",
+        },
+      },
+      organizationId: "org_123",
+      language: "de",
+    })
+
+    expect(catalog.courses.map((course) => course.courseId)).toEqual(["grund"])
+    expect(catalog.courses[0]).toMatchObject({
+      courseId: "grund",
+      title: "Grundkurs",
+      checkoutProductId: "checkout_grund",
+      bookingResourceId: "resource_grund",
+    })
+  })
+
+  it("keeps commercial pricing authoritative on the checkout product instead of the booking resource", async () => {
+    const queryInternalFn = vi.fn(async (_convex, queryRef, args) => {
+      if (queryRef === "resolver_ref") {
+        return {
+          bindingId: "binding_catalog_2b",
+          runtimeConfig: {
+            timezone: "Europe/Berlin",
+            defaultAvailableTimes: ["09:00"],
+            inventoryGroups: [
+              { id: "fraukje", label: "Fraukje", capacity: 4 },
+            ],
+          },
+          legacyBindings: null,
+        }
+      }
+
+      if (queryRef === "list_products_ref") {
+        return [
+          {
+            _id: "checkout_grund",
+            type: "product",
+            subtype: "ticket",
+            status: "active",
+            name: "Grundkurs Checkout",
+            customProperties: {
+              segelschuleCourseId: "grund",
+              bookingSurface: "segelschule-altwarp",
+              fulfillmentType: "ticket",
+              availabilityResourceId: "resource_grund",
+              currency: "eur",
+            },
+          },
+          {
+            _id: "resource_grund",
+            type: "product",
+            subtype: "class",
+            status: "active",
+            name: "Grundkurs Resource",
+            customProperties: {
+              segelschuleCourseId: "grund",
+              bookingSurface: "segelschule-altwarp",
+              bookingType: "class_enrollment",
+              fulfillmentType: "ticket",
+              bookingDurationMinutes: 480,
+              priceInCents: 19_900,
+              currency: "eur",
+              isMultiDay: true,
+              catalogContent: {
+                title: {
+                  de: "Grundkurs",
+                },
+              },
+            },
+          },
+        ]
+      }
+
+      if (queryRef === "links_ref") {
+        return []
+      }
+
+      if (args.objectId === "checkout_grund") {
+        return {
+          _id: "checkout_grund",
+          type: "product",
+          subtype: "ticket",
+          name: "Grundkurs Checkout",
+          customProperties: {
+            segelschuleCourseId: "grund",
+            bookingSurface: "segelschule-altwarp",
+            fulfillmentType: "ticket",
+            availabilityResourceId: "resource_grund",
+            currency: "eur",
+          },
+        }
+      }
+
+      if (args.objectId === "resource_grund") {
+        return {
+          _id: "resource_grund",
+          type: "product",
+          subtype: "class",
+          name: "Grundkurs Resource",
+          customProperties: {
+            segelschuleCourseId: "grund",
+            bookingSurface: "segelschule-altwarp",
+            bookingType: "class_enrollment",
+            fulfillmentType: "ticket",
+            bookingDurationMinutes: 480,
+            priceInCents: 19_900,
+            currency: "eur",
+            isMultiDay: true,
+            catalogContent: {
+              title: {
+                de: "Grundkurs",
+              },
+            },
+          },
+        }
+      }
+
+      return null
+    })
+
+    const catalog = await resolveSegelschuleBookingCatalog({
+      convex: {},
+      queryInternalFn,
+      generatedInternalApi: {
+        frontendSurfaceBindings: {
+          resolveBookingSurfaceBindingInternal: "resolver_ref",
+        },
+        channels: {
+          router: {
+            getObjectByIdInternal: "get_object_ref",
+            listObjectsByOrgTypeInternal: "list_products_ref",
+          },
+        },
+        objectLinksInternal: {
+          getLinksFromObject: "links_ref",
+        },
+      },
+      organizationId: "org_123",
+      language: "de",
+    })
+
+    expect(catalog.courses).toHaveLength(1)
+    expect(catalog.courses[0]).toMatchObject({
+      courseId: "grund",
+      checkoutProductId: "checkout_grund",
+      bookingResourceId: "resource_grund",
+      priceInCents: 0,
+    })
+    expect(catalog.courses[0]?.warnings).toContain("course_price_missing")
+  })
+
+  it("returns an empty catalog when only course resources exist and no commercial products are linked", async () => {
+    const queryInternalFn = vi.fn(async (_convex, queryRef, args) => {
+      if (queryRef === "resolver_ref") {
+        return {
+          bindingId: "binding_catalog_3",
+          runtimeConfig: {
+            timezone: "Europe/Berlin",
+            defaultAvailableTimes: ["09:00"],
+            inventoryGroups: [
+              { id: "fraukje", label: "Fraukje", capacity: 4 },
+            ],
+            courses: [
+              {
+                courseId: "grund",
+                bookingDurationMinutes: 480,
+                availableTimes: ["09:00"],
+                bookingResourceId: "resource_grund",
+                checkoutProductId: "resource_grund",
+              },
+            ],
+          },
+          legacyBindings: null,
+        }
+      }
+
+      if (queryRef === "list_products_ref") {
+        return [
+          {
+            _id: "resource_grund",
+            type: "product",
+            subtype: "class",
+            status: "active",
+            name: "Grundkurs Resource",
+            customProperties: {
+              segelschuleCourseId: "grund",
+              bookingSurface: "segelschule-altwarp",
+              bookingType: "class_enrollment",
+              fulfillmentType: "ticket",
+              bookingDurationMinutes: 480,
+              priceInCents: 19_900,
+              currency: "eur",
+              isMultiDay: true,
+              catalogContent: {
+                title: {
+                  de: "Grundkurs",
+                },
+              },
+            },
+          },
+        ]
+      }
+
+      if (queryRef === "links_ref") {
+        return []
+      }
+
+      if (args.objectId === "resource_grund") {
+        return {
+          _id: "resource_grund",
+          type: "product",
+          subtype: "class",
+          name: "Grundkurs Resource",
+          customProperties: {
+            segelschuleCourseId: "grund",
+            bookingSurface: "segelschule-altwarp",
+            bookingType: "class_enrollment",
+            fulfillmentType: "ticket",
+            bookingDurationMinutes: 480,
+            priceInCents: 19_900,
+            currency: "eur",
+            isMultiDay: true,
+            catalogContent: {
+              title: {
+                de: "Grundkurs",
+              },
+            },
+          },
+        }
+      }
+
+      return null
+    })
+
+    const catalog = await resolveSegelschuleBookingCatalog({
+      convex: {},
+      queryInternalFn,
+      generatedInternalApi: {
+        frontendSurfaceBindings: {
+          resolveBookingSurfaceBindingInternal: "resolver_ref",
+        },
+        channels: {
+          router: {
+            getObjectByIdInternal: "get_object_ref",
+            listObjectsByOrgTypeInternal: "list_products_ref",
+          },
+        },
+        objectLinksInternal: {
+          getLinksFromObject: "links_ref",
+        },
+      },
+      organizationId: "org_123",
+      language: "de",
+    })
+
+    expect(catalog.courses).toEqual([])
+    expect(catalog.runtimeResolution.warnings).toContain("backend_catalog_empty")
   })
 
   it("builds surface binding identity from env with sane defaults", () => {

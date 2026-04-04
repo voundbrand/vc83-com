@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
-const getOrganizationIdMock = vi.fn()
+const resolveSegelschuleOrganizationIdMock = vi.fn()
 const getConvexClientMock = vi.fn()
 const queryInternalMock = vi.fn()
 const mutateInternalMock = vi.fn()
@@ -14,15 +14,14 @@ const escapeHtmlMock = vi.fn()
 const buildBookingConfirmationHtmlMock = vi.fn()
 const buildBookingNotificationHtmlMock = vi.fn()
 
-const resolveSegelschuleRuntimeConfigMock = vi.fn()
+const resolveSegelschuleBookingCourseMock = vi.fn()
 const normalizeSeatSelectionsMock = vi.fn()
 const parseBookingStartTimestampMock = vi.fn()
-
-const buildSeatInventoryFromBoatsMock = vi.fn()
+const resolveSlotSeatInventoryMock = vi.fn()
 const mapToResourceSeatSelectionsMock = vi.fn()
 
 vi.mock("@/lib/server-convex", () => ({
-  getOrganizationId: getOrganizationIdMock,
+  resolveSegelschuleOrganizationId: resolveSegelschuleOrganizationIdMock,
   getConvexClient: getConvexClientMock,
   queryInternal: queryInternalMock,
   mutateInternal: mutateInternalMock,
@@ -39,14 +38,17 @@ vi.mock("@/lib/email", () => ({
 }))
 
 vi.mock("@/lib/booking-platform-bridge", () => ({
-  resolveSegelschuleRuntimeConfig: resolveSegelschuleRuntimeConfigMock,
+  resolveSegelschuleBookingCourse: resolveSegelschuleBookingCourseMock,
   normalizeSeatSelections: normalizeSeatSelectionsMock,
   parseBookingStartTimestamp: parseBookingStartTimestampMock,
 }))
 
 vi.mock("@/lib/booking-runtime-contracts", () => ({
-  buildSeatInventoryFromBoats: buildSeatInventoryFromBoatsMock,
   mapToResourceSeatSelections: mapToResourceSeatSelectionsMock,
+}))
+
+vi.mock("@/lib/seat-group-availability", () => ({
+  resolveSlotSeatInventory: resolveSlotSeatInventoryMock,
 }))
 
 const basePayload = {
@@ -80,11 +82,116 @@ function createBookingRequest(payload: Record<string, unknown>) {
   })
 }
 
+function buildCourseResolution(args?: {
+  courseId?: string
+  aliases?: string[]
+  title?: string
+  description?: string
+  durationLabel?: string
+  durationMinutes?: number
+  priceInCents?: number
+  currency?: string
+  isMultiDay?: boolean
+  checkoutProductId?: string
+  bookingResourceId?: string
+  fulfillmentType?: string
+  availableTimes?: string[]
+  runtimeWarnings?: string[]
+  courseWarnings?: string[]
+  bindingId?: string
+}) {
+  const courseId = args?.courseId || "schnupper"
+  const availableTimes = args?.availableTimes || ["09:00", "13:00"]
+  const runtimeBoats = [
+    { id: "fraukje", name: "Fraukje", seatCount: 4 },
+    { id: "rose", name: "Rose", seatCount: 4 },
+  ]
+
+  return {
+    runtimeResolution: {
+      runtimeConfig: {
+        timezone: "Europe/Berlin",
+        defaultAvailableTimes: availableTimes,
+        boats: runtimeBoats,
+        courses: {},
+      },
+      source: "backend_surface_binding",
+      bindingId: args?.bindingId || "binding_surface_1",
+      identity: {
+        appSlug: "segelschule-altwarp",
+        surfaceType: "booking",
+        surfaceKey: "default",
+      },
+      warnings: args?.runtimeWarnings || [],
+    },
+    boats: runtimeBoats,
+    courses: [],
+    requestedCourseId: courseId,
+    resolvedCourseId: courseId,
+    course: {
+      courseId,
+      aliases: args?.aliases || [courseId],
+      title: args?.title || "Schnupperkurs",
+      description: args?.description || "Erster Einstieg auf dem Wasser.",
+      durationLabel: args?.durationLabel || "3 Stunden",
+      durationMinutes: args?.durationMinutes || 180,
+      priceInCents: args?.priceInCents || 12_900,
+      currency: args?.currency || "EUR",
+      isMultiDay: args?.isMultiDay || false,
+      checkoutProductId: args?.checkoutProductId || "product_seed_ticket",
+      bookingResourceId: args?.bookingResourceId || "resource_course_1",
+      bookingResourceName: args?.title || "Schnupperkurs",
+      bookingResourceSubtype: "class",
+      fulfillmentType: args?.fulfillmentType || "ticket",
+      availableTimes,
+      checkoutPublicUrl: "https://checkout.example/public",
+      warnings: args?.courseWarnings || [],
+    },
+  }
+}
+
+function buildTransactionRecord(args: {
+  id: string
+  checkoutSessionId: string
+  productId?: string
+  productName?: string
+  quantity?: number
+  totalInCents?: number
+  currency?: string
+  status?: string
+  subtype?: string
+}) {
+  const quantity = args.quantity || 2
+  const totalInCents = args.totalInCents || 25_800
+
+  return {
+    _id: args.id,
+    organizationId: "org_123",
+    type: "transaction",
+    subtype: args.subtype || "ticket_purchase",
+    status: args.status || "completed",
+    customProperties: {
+      checkoutSessionId: args.checkoutSessionId,
+      totalInCents,
+      currency: args.currency || "EUR",
+      lineItems: [
+        {
+          productId: args.productId || "product_seed_ticket",
+          productName: args.productName || "Schnupperkurs",
+          productSubtype: "ticket",
+          quantity,
+          totalPriceInCents: totalInCents,
+        },
+      ],
+    },
+  }
+}
+
 describe("segelschule booking route", () => {
   beforeEach(() => {
     vi.resetModules()
     delete process.env.SEGELSCHULE_BOOKING_FIXTURE_TOKEN
-    getOrganizationIdMock.mockReset()
+    resolveSegelschuleOrganizationIdMock.mockReset()
     getConvexClientMock.mockReset()
     queryInternalMock.mockReset()
     mutateInternalMock.mockReset()
@@ -95,13 +202,13 @@ describe("segelschule booking route", () => {
     escapeHtmlMock.mockReset()
     buildBookingConfirmationHtmlMock.mockReset()
     buildBookingNotificationHtmlMock.mockReset()
-    resolveSegelschuleRuntimeConfigMock.mockReset()
+    resolveSegelschuleBookingCourseMock.mockReset()
     normalizeSeatSelectionsMock.mockReset()
     parseBookingStartTimestampMock.mockReset()
-    buildSeatInventoryFromBoatsMock.mockReset()
+    resolveSlotSeatInventoryMock.mockReset()
     mapToResourceSeatSelectionsMock.mockReset()
 
-    getOrganizationIdMock.mockReturnValue("org_123")
+    resolveSegelschuleOrganizationIdMock.mockResolvedValue("org_123")
     getConvexClientMock.mockReturnValue({})
     checkRateLimitMock.mockReturnValue(true)
     resolveClientIpMock.mockReturnValue("127.0.0.1")
@@ -109,41 +216,16 @@ describe("segelschule booking route", () => {
     buildBookingConfirmationHtmlMock.mockReturnValue("<p>ok</p>")
     buildBookingNotificationHtmlMock.mockReturnValue("<p>ok</p>")
     resendSendMock.mockReset()
-    resendSendMock.mockResolvedValue(undefined)
+    resendSendMock.mockResolvedValue({
+      data: { id: "re_msg_default" },
+      error: null,
+    })
     createResendClientMock.mockReturnValue({
       emails: {
         send: resendSendMock,
       },
     })
-    resolveSegelschuleRuntimeConfigMock.mockResolvedValue({
-      runtimeConfig: {
-        timezone: "Europe/Berlin",
-        defaultAvailableTimes: ["09:00", "13:00"],
-        boats: [
-          { id: "fraukje", name: "Fraukje", seatCount: 4 },
-          { id: "rose", name: "Rose", seatCount: 4 },
-        ],
-        courses: {
-          schnupper: {
-            courseId: "schnupper",
-            bookingResourceId: "resource_course_1",
-            checkoutProductId: "product_seed_ticket",
-            checkoutPublicUrl: "https://checkout.example/public",
-            bookingDurationMinutes: 180,
-            availableTimes: ["09:00", "13:00"],
-            isMultiDay: false,
-          },
-        },
-      },
-      source: "backend_surface_binding",
-      bindingId: "binding_surface_1",
-      identity: {
-        appSlug: "segelschule-altwarp",
-        surfaceType: "booking",
-        surfaceKey: "default",
-      },
-      warnings: [],
-    })
+    resolveSegelschuleBookingCourseMock.mockResolvedValue(buildCourseResolution())
     normalizeSeatSelectionsMock.mockReturnValue({
       selections: [
         { boatId: "fraukje", boatName: "Fraukje", seatNumbers: [1, 2] },
@@ -152,12 +234,21 @@ describe("segelschule booking route", () => {
       errors: [],
     })
     parseBookingStartTimestampMock.mockReturnValue(1_760_000_000_000)
-    buildSeatInventoryFromBoatsMock.mockReturnValue({
-      groups: [
-        { groupId: "fraukje", label: "Fraukje", capacity: 4 },
-        { groupId: "rose", label: "Rose", capacity: 4 },
+    resolveSlotSeatInventoryMock.mockResolvedValue({
+      availableBoats: [
+        { id: "fraukje", name: "Fraukje", seatCount: 4 },
+        { id: "rose", name: "Rose", seatCount: 4 },
       ],
-      strictSeatSelection: true,
+      seatInventory: {
+        groups: [
+          { groupId: "fraukje", label: "Fraukje", capacity: 4 },
+          { groupId: "rose", label: "Rose", capacity: 4 },
+        ],
+        strictSeatSelection: true,
+      },
+      availableGroupIds: ["fraukje", "rose"],
+      unavailableGroupIds: [],
+      hasLinkedAvailabilityGroups: true,
     })
     mapToResourceSeatSelectionsMock.mockImplementation((selections) =>
       (selections as Array<{ boatId: string; seatNumbers: number[] }>).map(
@@ -167,6 +258,79 @@ describe("segelschule booking route", () => {
         })
       )
     )
+  })
+
+  it("rejects checkout when the selected boat is unavailable for the slot", async () => {
+    const bookingId = "booking_local_unavailable_boat"
+
+    normalizeSeatSelectionsMock.mockReturnValue({
+      selections: [
+        { boatId: "rose", boatName: "Rose", seatNumbers: [1, 2] },
+      ],
+      totalSeats: 2,
+      errors: [],
+    })
+    resolveSlotSeatInventoryMock.mockResolvedValue({
+      availableBoats: [{ id: "fraukje", name: "Fraukje", seatCount: 4 }],
+      seatInventory: {
+        groups: [{ groupId: "fraukje", label: "Fraukje", capacity: 4 }],
+        strictSeatSelection: true,
+      },
+      availableGroupIds: ["fraukje"],
+      unavailableGroupIds: ["rose"],
+      hasLinkedAvailabilityGroups: true,
+    })
+
+    queryInternalMock.mockImplementation(async (_convex, _ref, args) => {
+      if (args.objectId === "product_seed_ticket") {
+        return {
+          _id: "product_seed_ticket",
+          organizationId: "org_123",
+          type: "product",
+          subtype: "ticket",
+          status: "active",
+          customProperties: {
+            priceInCents: 12_900,
+            currency: "eur",
+          },
+        }
+      }
+      throw new Error(`Unexpected queryInternal args: ${JSON.stringify(args)}`)
+    })
+
+    mutateInternalMock.mockImplementation(async (_convex, _ref, args) => {
+      if (args.type === "booking") {
+        return bookingId
+      }
+      if (args.type === "crm_contact") {
+        return "contact_local_unavailable_boat"
+      }
+      if (args.email && args.firstName && args.organizationId && !args.userId) {
+        return "frontend_user_unavailable_boat"
+      }
+      if (args.userId && args.email && args.organizationId) {
+        return { success: true }
+      }
+      if (args.objectId === bookingId && args.status === "cancelled") {
+        return { success: true }
+      }
+      throw new Error(`Unexpected mutateInternal args: ${JSON.stringify(args)}`)
+    })
+
+    const { POST } = await import(
+      "../../../apps/segelschule-altwarp/app/api/booking/route"
+    )
+    const response = await POST(createBookingRequest(basePayload))
+
+    expect(response.status).toBe(409)
+    const payload = await response.json()
+    expect(payload.error).toBe("Rose is not available for the selected date/time.")
+    expect(payload.bookingId).toBe(bookingId)
+
+    const cancelCall = mutateInternalMock.mock.calls.find(
+      (call) => call[2]?.objectId === bookingId && call[2]?.status === "cancelled"
+    )
+    expect(cancelCall).toBeTruthy()
   })
 
   it("completes fulfillment-backed checkout and preserves compatibility payload keys", async () => {
@@ -236,6 +400,14 @@ describe("segelschule booking route", () => {
             currency: "eur",
           },
         }
+      }
+      if (args.organizationId === "org_123" && args.type === "transaction") {
+        return [
+          buildTransactionRecord({
+            id: "transaction_checkout_1",
+            checkoutSessionId,
+          }),
+        ]
       }
       if (args.organizationId === "org_123" && args.checkoutSessionId === checkoutSessionId) {
         return {
@@ -316,6 +488,21 @@ describe("segelschule booking route", () => {
           apiKey: "re_test_123",
         }
       }
+      if (args.checkoutSessionId === checkoutSessionId && Array.isArray(args.transactionIds)) {
+        return {
+          ok: true,
+          checkedAt: 1_760_000_060_000,
+          triggerType: "booking_created",
+          dispatchedWorkflows: 1,
+          workflows: [
+            {
+              workflowId: "workflow_booking_created_1",
+              workflowName: "Booking Created",
+              triggerNodeIds: ["trigger_booking_created_1"],
+            },
+          ],
+        }
+      }
       if (args.checkoutSessionId && args.paymentIntentId && args.paymentMethod) {
         return {
           success: true,
@@ -370,12 +557,45 @@ describe("segelschule booking route", () => {
       frontendUserId: frontendUserId,
       completedInApi: true,
     })
+    expect(payload.course).toEqual({
+      requestedCourseId: "schnupper",
+      courseId: "schnupper",
+      title: "Schnupperkurs",
+      description: "Erster Einstieg auf dem Wasser.",
+      durationLabel: "3 Stunden",
+      durationMinutes: 180,
+      priceInCents: 12_900,
+      currency: "EUR",
+      isMultiDay: false,
+      bookingResourceId: "resource_course_1",
+      fulfillmentType: "ticket",
+    })
     expect(payload.ticket).toEqual({
       ticketId: "ticket_checkout_1",
       ticketCode: "SA-ABC1234",
       holderEmail: "ada@example.com",
       holderName: "Ada Lovelace",
       lookupUrl: "http://localhost/ticket?code=SA-ABC1234&email=ada%40example.com",
+    })
+    expect(payload.transactions).toEqual([
+      {
+        transactionId: "transaction_checkout_1",
+        status: "completed",
+        subtype: "ticket_purchase",
+      },
+    ])
+    expect(payload.workflowDispatch).toEqual({
+      ok: true,
+      checkedAt: 1_760_000_060_000,
+      triggerType: "booking_created",
+      dispatchedWorkflows: 1,
+      workflows: [
+        {
+          workflowId: "workflow_booking_created_1",
+          workflowName: "Booking Created",
+          triggerNodeIds: ["trigger_booking_created_1"],
+        },
+      ],
     })
     expect(payload.invoice).toEqual({
       invoiceId: "invoice_1",
@@ -410,23 +630,204 @@ describe("segelschule booking route", () => {
       skipSalesNotificationEmail: true,
     })
 
-    const customerEmailCall = resendSendMock.mock.calls.find(
-      (call) => call[0]?.to === "ada@example.com"
+    expect(resendSendMock).not.toHaveBeenCalled()
+  })
+
+  it("accepts a course product as the checkout product when ticket fulfillment is explicit", async () => {
+    resolveSegelschuleBookingCourseMock.mockResolvedValueOnce(
+      buildCourseResolution({
+        checkoutProductId: "resource_course_1",
+        bindingId: "binding_surface_course_product",
+      })
     )
-    expect(customerEmailCall?.[0]).toMatchObject({
-      attachments: [
-        {
-          filename: "invoice-sa-1001.pdf",
-          content: "YmFzZTY0",
-          contentType: "application/pdf",
-        },
-      ],
+
+    const bookingId = "booking_course_product_1"
+    const contactId = "contact_course_product_1"
+    const frontendUserId = "frontend_course_product_1"
+    const platformBookingId = "platform_booking_course_product_1"
+    const checkoutSessionId = "checkout_session_course_product_1"
+
+    mutateInternalMock.mockImplementation(async (_convex, _ref, args) => {
+      if (args.type === "booking") return bookingId
+      if (args.type === "crm_contact") return contactId
+      if (args.email && args.firstName && args.organizationId && !args.userId) {
+        return frontendUserId
+      }
+      if (args.userId && args.email && args.organizationId) {
+        return { success: true }
+      }
+      if (args.resourceId && args.startDateTime && args.endDateTime) {
+        return { bookingId: platformBookingId, calendarDiagnostics: null }
+      }
+      if (args.customerEmail && args.preferredLanguage) {
+        return { checkoutSessionId }
+      }
+      if (args.checkoutSessionId && args.updates) {
+        return { success: true }
+      }
+      if (args.objectId && args.customProperties) {
+        return { success: true }
+      }
+      throw new Error(`Unexpected mutateInternal args: ${JSON.stringify(args)}`)
     })
 
-    const operatorEmailCall = resendSendMock.mock.calls.find(
-      (call) => Array.isArray(call[0]?.to) && call[0].to.includes("team@example.com")
+    queryInternalMock.mockImplementation(async (_convex, _ref, args) => {
+      if (args.objectId === "resource_course_1") {
+        return {
+          _id: "resource_course_1",
+          organizationId: "org_123",
+          type: "product",
+          subtype: "class",
+          status: "active",
+          name: "Segelschule Schnupperkurs",
+          customProperties: {
+            fulfillmentType: "ticket",
+            priceInCents: 12_900,
+            currency: "EUR",
+          },
+        }
+      }
+      if (args.organizationId === "org_123" && args.type === "transaction") {
+        return [
+          buildTransactionRecord({
+            id: "transaction_course_product_1",
+            checkoutSessionId,
+            productId: "resource_course_1",
+          }),
+        ]
+      }
+      if (args.organizationId === "org_123" && args.checkoutSessionId === checkoutSessionId) {
+        return {
+          _id: "invoice_course_product_1",
+          organizationId: "org_123",
+          type: "invoice",
+          subtype: "manual_b2c",
+          status: "sent",
+          customProperties: {
+            invoiceNumber: "SA-3001",
+            pdfUrl: "https://example.com/invoices/sa-3001.pdf",
+            crmContactId: "crm_contact_course_product_1",
+          },
+        }
+      }
+      if (args.checkoutSessionId === checkoutSessionId) {
+        return {
+          _id: checkoutSessionId,
+          customProperties: {
+            totalAmount: 25_800,
+            currency: "EUR",
+            expiresAt: 1_760_086_400_123,
+          },
+        }
+      }
+      if (args.organizationId === "org_123" && args.type === "organization_contact") {
+        return []
+      }
+      if (args.organizationId === "org_123" && !args.type && !args.objectId) {
+        return {
+          _id: "booking_notifications_course_product_1",
+          organizationId: "org_123",
+          type: "organization_settings",
+          subtype: "booking_notifications",
+          status: "active",
+          customProperties: {
+            operatorEmails: ["team@example.com"],
+          },
+        }
+      }
+      if (args.type === "ticket" && args.organizationId === "org_123") {
+        return [
+          {
+            _id: "ticket_course_product_1",
+            organizationId: "org_123",
+            type: "ticket",
+            subtype: "standard",
+            status: "issued",
+            customProperties: {
+              productId: "resource_course_1",
+              checkoutSessionId,
+              holderEmail: "ada@example.com",
+              holderName: "Ada Lovelace",
+              ticketCode: "SA-COURSE1",
+            },
+          },
+        ]
+      }
+      if (
+        args.objectId === bookingId
+        || args.objectId === platformBookingId
+        || args.objectId === checkoutSessionId
+        || args.objectId === "ticket_course_product_1"
+      ) {
+        return { customProperties: { existing: true } }
+      }
+      throw new Error(`Unexpected queryInternal args: ${JSON.stringify(args)}`)
+    })
+
+    actionInternalMock.mockImplementation(async (_convex, _ref, args) => {
+      if (args.organizationId === "org_123" && !args.checkoutSessionId) {
+        return {
+          apiKey: "re_test_course_product",
+        }
+      }
+      if (args.checkoutSessionId === checkoutSessionId && Array.isArray(args.transactionIds)) {
+        return {
+          ok: true,
+          checkedAt: 1_760_000_060_001,
+          paymentProvider: "lc_checkout",
+          dispatchedWorkflows: 1,
+          workflows: [
+            {
+              workflowId: "workflow_payment_received_course_product",
+              workflowName: "Payment Received",
+              triggerNodeIds: ["trigger_payment_course_product"],
+            },
+          ],
+        }
+      }
+      if (args.checkoutSessionId && args.paymentIntentId && args.paymentMethod) {
+        return {
+          success: true,
+          purchasedItemIds: ["purchase_item_course_product_1", "purchase_item_course_product_2"],
+          crmContactId: "crm_contact_course_product_1",
+          paymentId: args.paymentIntentId,
+          amount: 25_800,
+          currency: "EUR",
+          isGuestRegistration: true,
+          frontendUserId,
+          invoiceType: "manual_b2c",
+        }
+      }
+      if (args.checkoutSessionId === checkoutSessionId && !args.paymentIntentId) {
+        return {
+          filename: "invoice-sa-3001.pdf",
+          content: "YmFzZTY0",
+          contentType: "application/pdf",
+        }
+      }
+      throw new Error(`Unexpected actionInternal args: ${JSON.stringify(args)}`)
+    })
+
+    const { POST } = await import(
+      "../../../apps/segelschule-altwarp/app/api/booking/route"
     )
-    expect(operatorEmailCall?.[0]?.replyTo).toBe("ada@example.com")
+    const response = await POST(createBookingRequest(basePayload))
+
+    expect(response.status).toBe(200)
+    const payload = await response.json()
+    expect(payload.checkoutProductId).toBe("resource_course_1")
+    expect(payload.warnings).not.toContain("checkout_product_not_ticket_subtype")
+
+    const updateSessionCall = mutateInternalMock.mock.calls.find(
+      (call) =>
+        typeof call[2]?.checkoutSessionId === "string"
+        && Boolean(call[2]?.updates?.selectedProducts)
+    )
+    expect(updateSessionCall?.[2]?.updates?.selectedProducts?.[0]).toMatchObject({
+      productId: "resource_course_1",
+      quantity: 2,
+      totalPrice: 25_800,
+    })
   })
 
   it("rejects fixture email control requests without the configured secret", async () => {
@@ -499,6 +900,14 @@ describe("segelschule booking route", () => {
             currency: "eur",
           },
         }
+      }
+      if (args.organizationId === "org_123" && args.type === "transaction") {
+        return [
+          buildTransactionRecord({
+            id: "transaction_fixture_1",
+            checkoutSessionId,
+          }),
+        ]
       }
       if (args.organizationId === "org_123" && args.checkoutSessionId === checkoutSessionId) {
         return {
@@ -579,6 +988,21 @@ describe("segelschule booking route", () => {
           apiKey: "re_test_fixture",
         }
       }
+      if (args.checkoutSessionId === checkoutSessionId && Array.isArray(args.transactionIds)) {
+        return {
+          ok: true,
+          checkedAt: 1_760_000_060_002,
+          paymentProvider: "lc_checkout",
+          dispatchedWorkflows: 1,
+          workflows: [
+            {
+              workflowId: "workflow_payment_received_fixture",
+              workflowName: "Payment Received",
+              triggerNodeIds: ["trigger_payment_fixture"],
+            },
+          ],
+        }
+      }
       if (args.checkoutSessionId && args.paymentIntentId && args.paymentMethod) {
         return {
           success: true,
@@ -654,35 +1078,228 @@ describe("segelschule booking route", () => {
       html: "<p>ok</p>",
       attachments: [],
     })
+    expect(payload.emailDispatch.deliveries).toEqual([])
     expect(resendSendMock).not.toHaveBeenCalled()
+    expect(
+      actionInternalMock.mock.calls.find((call) =>
+        Array.isArray(call[2]?.transactionIds)
+      )
+    ).toBeUndefined()
   })
 
-  it("falls back to first ticket product when configured checkout product is not a ticket", async () => {
-    resolveSegelschuleRuntimeConfigMock.mockResolvedValueOnce({
-      runtimeConfig: {
-        timezone: "Europe/Berlin",
-        defaultAvailableTimes: ["09:00"],
-        boats: [{ id: "fraukje", name: "Fraukje", seatCount: 4 }],
-        courses: {
-          schnupper: {
-            courseId: "schnupper",
-            bookingResourceId: "resource_course_1",
-            checkoutProductId: "product_wrong_kind",
-            bookingDurationMinutes: 180,
-            availableTimes: ["09:00"],
-            isMultiDay: false,
-          },
-        },
-      },
-      source: "backend_surface_binding",
-      bindingId: "binding_surface_1",
-      identity: {
-        appSlug: "segelschule-altwarp",
-        surfaceType: "booking",
-        surfaceKey: "default",
-      },
-      warnings: [],
+  it("returns delivery evidence for authorized redirect-mode fixture sends", async () => {
+    process.env.SEGELSCHULE_BOOKING_FIXTURE_TOKEN = "fixture-secret"
+
+    const frontendUserId = "frontend_user_fixture_redirect"
+    const bookingId = "booking_fixture_redirect"
+    const platformBookingId = "platform_booking_fixture_redirect"
+    const checkoutSessionId = "checkout_session_fixture_redirect"
+
+    mutateInternalMock.mockImplementation(async (_convex, _ref, args) => {
+      if (args.type === "booking") return bookingId
+      if (args.type === "crm_contact") return "crm_contact_fixture_redirect"
+      if (args.email && args.firstName && args.organizationId && !args.userId) {
+        return frontendUserId
+      }
+      if (args.userId && args.email && args.organizationId) {
+        return { success: true }
+      }
+      if (args.resourceId && args.startDateTime && args.endDateTime) {
+        return { bookingId: platformBookingId, calendarDiagnostics: null }
+      }
+      if (args.customerEmail && args.preferredLanguage) {
+        return { checkoutSessionId }
+      }
+      if (args.checkoutSessionId && args.updates) {
+        return { success: true }
+      }
+      if (args.objectId && args.customProperties) {
+        return { success: true }
+      }
+      throw new Error(`Unexpected mutateInternal args: ${JSON.stringify(args)}`)
     })
+
+    queryInternalMock.mockImplementation(async (_convex, _ref, args) => {
+      if (args.objectId === "product_seed_ticket") {
+        return {
+          _id: "product_seed_ticket",
+          organizationId: "org_123",
+          type: "product",
+          subtype: "ticket",
+          status: "active",
+          customProperties: {
+            priceInCents: 12_900,
+            currency: "eur",
+          },
+        }
+      }
+      if (args.organizationId === "org_123" && args.type === "transaction") {
+        return [
+          buildTransactionRecord({
+            id: "transaction_fixture_redirect",
+            checkoutSessionId,
+          }),
+        ]
+      }
+      if (args.organizationId === "org_123" && args.checkoutSessionId === checkoutSessionId) {
+        return {
+          _id: "invoice_fixture_redirect",
+          organizationId: "org_123",
+          type: "invoice",
+          subtype: "manual_b2c",
+          status: "sent",
+          customProperties: {
+            invoiceNumber: "SA-2002",
+            pdfUrl: "https://example.com/invoices/sa-2002.pdf",
+          },
+        }
+      }
+      if (args.checkoutSessionId === checkoutSessionId) {
+        return {
+          _id: checkoutSessionId,
+          customProperties: {
+            totalAmount: 25_800,
+            currency: "EUR",
+            expiresAt: 1_760_086_400_000,
+            checkoutUrl: null,
+            paymentMethod: "invoice",
+            sourceBookingId: bookingId,
+          },
+        }
+      }
+      if (args.organizationId === "org_123" && args.type === "ticket") {
+        return []
+      }
+      if (args.organizationId === "org_123" && args.type === "organization_contact") {
+        return [
+          {
+            _id: "org_contact_fixture_redirect",
+            organizationId: "org_123",
+            type: "organization_contact",
+            status: "active",
+            customProperties: {
+              contactEmail: "team@example.com",
+            },
+          },
+        ]
+      }
+      if (args.objectId === bookingId || args.objectId === platformBookingId || args.objectId === checkoutSessionId) {
+        return { customProperties: { existing: true } }
+      }
+      throw new Error(`Unexpected queryInternal args: ${JSON.stringify(args)}`)
+    })
+
+    actionInternalMock.mockImplementation(async (_convex, _ref, args) => {
+      if (args.organizationId === "org_123" && !args.checkoutSessionId) {
+        return {
+          apiKey: "re_test_fixture",
+        }
+      }
+      if (args.checkoutSessionId === checkoutSessionId && Array.isArray(args.transactionIds)) {
+        return {
+          ok: true,
+          checkedAt: 1_760_000_060_003,
+          paymentProvider: "lc_checkout",
+          dispatchedWorkflows: 1,
+          workflows: [
+            {
+              workflowId: "workflow_payment_received_redirect",
+              workflowName: "Payment Received",
+              triggerNodeIds: ["trigger_payment_redirect"],
+            },
+          ],
+        }
+      }
+      if (args.checkoutSessionId && args.paymentIntentId && args.paymentMethod) {
+        return {
+          success: true,
+          purchasedItemIds: [],
+          crmContactId: "crm_contact_fixture_redirect",
+          paymentId: args.paymentIntentId,
+          amount: 25_800,
+          currency: "EUR",
+          isGuestRegistration: true,
+          frontendUserId,
+          invoiceType: "manual_b2c",
+        }
+      }
+      if (args.checkoutSessionId === checkoutSessionId && !args.paymentIntentId) {
+        return {
+          filename: "invoice-sa-2002.pdf",
+          content: "YmFzZTY0",
+          contentType: "application/pdf",
+        }
+      }
+      throw new Error(`Unexpected actionInternal args: ${JSON.stringify(args)}`)
+    })
+
+    resendSendMock
+      .mockResolvedValueOnce({
+        data: { id: "re_msg_customer" },
+        error: null,
+      })
+      .mockResolvedValueOnce({
+        data: { id: "re_msg_operator" },
+        error: null,
+      })
+
+    const { POST } = await import(
+      "../../../apps/segelschule-altwarp/app/api/booking/route"
+    )
+    const response = await POST(
+      new Request("http://localhost/api/booking", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-segelschule-fixture-token": "fixture-secret",
+        },
+        body: JSON.stringify({
+          ...basePayload,
+          emailExecutionControl: {
+            mode: "redirect",
+            capturePreviews: true,
+            customerRecipients: ["delivered+customer@resend.dev"],
+            operatorRecipients: ["delivered+operator@resend.dev"],
+            fixtureKey: "fixture-redirect",
+            fixtureLabel: "Codex redirect fixture",
+          },
+        }),
+      })
+    )
+
+    expect(response.status).toBe(200)
+    const payload = await response.json()
+    expect(payload.ok).toBe(true)
+    expect(payload.emailDispatch.previews).toHaveLength(2)
+    expect(payload.emailDispatch.deliveries).toEqual([
+      {
+        kind: "customer_confirmation",
+        to: ["delivered+customer@resend.dev"],
+        subject: "Buchungsbestätigung - Schnupperkurs",
+        transport: "resend_direct",
+        success: true,
+        messageId: "re_msg_customer",
+        error: null,
+      },
+      {
+        kind: "operator_notification",
+        to: ["delivered+operator@resend.dev"],
+        subject: "New Booking: Ada Lovelace - Schnupperkurs",
+        transport: "resend_direct",
+        success: true,
+        messageId: "re_msg_operator",
+        error: null,
+      },
+    ])
+  })
+
+  it("returns 503 when the resolved checkout product is not a valid commercial ticket product", async () => {
+    resolveSegelschuleBookingCourseMock.mockResolvedValueOnce(
+      buildCourseResolution({
+        checkoutProductId: "product_wrong_kind",
+        availableTimes: ["09:00"],
+      })
+    )
 
     mutateInternalMock.mockImplementation(async (_convex, _ref, args) => {
       if (args.type === "booking") return "booking_local_2"
@@ -719,67 +1336,6 @@ describe("segelschule booking route", () => {
           customProperties: {},
         }
       }
-      if (args.type === "product" && args.organizationId === "org_123") {
-        return [
-          {
-            _id: "product_wrong_kind",
-            organizationId: "org_123",
-            type: "product",
-            subtype: "digital",
-            status: "active",
-            customProperties: {},
-          },
-          {
-            _id: "product_ticket_fallback",
-            organizationId: "org_123",
-            type: "product",
-            subtype: "ticket",
-            status: "active",
-            customProperties: {
-              currency: "eur",
-            },
-          },
-        ]
-      }
-      if (args.organizationId === "org_123" && args.checkoutSessionId === "checkout_session_2") {
-        return {
-          _id: "invoice_2",
-          organizationId: "org_123",
-          type: "invoice",
-          subtype: "manual_b2c",
-          status: "sent",
-          customProperties: {
-            invoiceNumber: "SA-1002",
-          },
-        }
-      }
-      if (args.checkoutSessionId === "checkout_session_2") {
-        return {
-          _id: "checkout_session_2",
-          customProperties: {
-            totalAmount: 25_800,
-            currency: "eur",
-            expiresAt: 1_760_086_400_001,
-          },
-        }
-      }
-      if (args.type === "ticket" && args.organizationId === "org_123") {
-        return [
-          {
-            _id: "ticket_checkout_2",
-            organizationId: "org_123",
-            type: "ticket",
-            subtype: "standard",
-            status: "issued",
-            customProperties: {
-              checkoutSessionId: "checkout_session_2",
-              holderEmail: "ada@example.com",
-              holderName: "Ada Lovelace",
-              ticketCode: "SA-FALLB42",
-            },
-          },
-        ]
-      }
       if (args.organizationId === "org_123" && args.type === "organization_contact") {
         return []
       }
@@ -796,6 +1352,21 @@ describe("segelschule booking route", () => {
       if (args.organizationId === "org_123" && !args.checkoutSessionId) {
         return {
           apiKey: "re_test_234",
+        }
+      }
+      if (args.checkoutSessionId === "checkout_session_2" && Array.isArray(args.transactionIds)) {
+        return {
+          ok: true,
+          checkedAt: 1_760_000_060_004,
+          paymentProvider: "lc_checkout",
+          dispatchedWorkflows: 1,
+          workflows: [
+            {
+              workflowId: "workflow_payment_received_fallback",
+              workflowName: "Payment Received",
+              triggerNodeIds: ["trigger_payment_fallback"],
+            },
+          ],
         }
       }
       if (args.checkoutSessionId && args.paymentIntentId && args.paymentMethod) {
@@ -824,21 +1395,14 @@ describe("segelschule booking route", () => {
     )
     const response = await POST(createBookingRequest(basePayload))
 
-    expect(response.status).toBe(200)
+    expect(response.status).toBe(503)
     const payload = await response.json()
-    expect(payload.checkoutProductId).toBe("product_ticket_fallback")
-    expect(payload.ticket?.ticketCode).toBe("SA-FALLB42")
+    expect(payload.error).toBe(
+      "Selected course is missing its commercial checkout product."
+    )
     expect(payload.warnings).toContain("checkout_product_not_ticket_subtype")
-    expect(payload.warnings).toContain("checkout_product_fallback_to_ticket")
-
-    const updateSessionCall = mutateInternalMock.mock.calls.find(
-      (call) =>
-        typeof call[2]?.checkoutSessionId === "string"
-        && Boolean(call[2]?.updates?.selectedProducts)
-    )
-    expect(updateSessionCall?.[2]?.updates?.selectedProducts?.[0]?.productId).toBe(
-      "product_ticket_fallback"
-    )
+    expect(payload.warnings).not.toContain("checkout_product_fallback_to_ticket")
+    expect(mutateInternalMock).not.toHaveBeenCalled()
   })
 
   it("returns calendar readiness diagnostics as warnings without failing booking", async () => {
@@ -891,6 +1455,14 @@ describe("segelschule booking route", () => {
           status: "active",
           customProperties: {},
         }
+      }
+      if (args.type === "transaction" && args.organizationId === "org_123") {
+        return [
+          buildTransactionRecord({
+            id: "transaction_cal_1",
+            checkoutSessionId: "checkout_session_cal_1",
+          }),
+        ]
       }
       if (args.organizationId === "org_123" && args.checkoutSessionId === "checkout_session_cal_1") {
         return {
@@ -947,6 +1519,21 @@ describe("segelschule booking route", () => {
       if (args.organizationId === "org_123" && !args.checkoutSessionId) {
         return {
           apiKey: "re_test_345",
+        }
+      }
+      if (args.checkoutSessionId === "checkout_session_cal_1" && Array.isArray(args.transactionIds)) {
+        return {
+          ok: true,
+          checkedAt: 1_760_000_060_005,
+          paymentProvider: "lc_checkout",
+          dispatchedWorkflows: 1,
+          workflows: [
+            {
+              workflowId: "workflow_payment_received_cal",
+              workflowName: "Payment Received",
+              triggerNodeIds: ["trigger_payment_cal"],
+            },
+          ],
         }
       }
       if (args.checkoutSessionId && args.paymentIntentId && args.paymentMethod) {
@@ -1023,6 +1610,14 @@ describe("segelschule booking route", () => {
           customProperties: {},
         }
       }
+      if (args.type === "transaction" && args.organizationId === "org_123") {
+        return [
+          buildTransactionRecord({
+            id: "transaction_link_fail_1",
+            checkoutSessionId: "checkout_session_3",
+          }),
+        ]
+      }
       if (args.organizationId === "org_123" && args.checkoutSessionId === "checkout_session_3") {
         return {
           _id: "invoice_3",
@@ -1078,6 +1673,21 @@ describe("segelschule booking route", () => {
       if (args.organizationId === "org_123" && !args.checkoutSessionId) {
         return {
           apiKey: "re_test_456",
+        }
+      }
+      if (args.checkoutSessionId === "checkout_session_3" && Array.isArray(args.transactionIds)) {
+        return {
+          ok: true,
+          checkedAt: 1_760_000_060_006,
+          paymentProvider: "lc_checkout",
+          dispatchedWorkflows: 1,
+          workflows: [
+            {
+              workflowId: "workflow_payment_received_link_fail",
+              workflowName: "Payment Received",
+              triggerNodeIds: ["trigger_payment_link_fail"],
+            },
+          ],
         }
       }
       if (args.checkoutSessionId && args.paymentIntentId && args.paymentMethod) {
@@ -1164,6 +1774,14 @@ describe("segelschule booking route", () => {
           customProperties: {},
         }
       }
+      if (args.type === "transaction" && args.organizationId === "org_123") {
+        return [
+          buildTransactionRecord({
+            id: "transaction_default_invoice_1",
+            checkoutSessionId: "checkout_session_4",
+          }),
+        ]
+      }
       if (args.organizationId === "org_123" && args.checkoutSessionId === "checkout_session_4") {
         return {
           _id: "invoice_4",
@@ -1221,6 +1839,21 @@ describe("segelschule booking route", () => {
           apiKey: "re_test_567",
         }
       }
+      if (args.checkoutSessionId === "checkout_session_4" && Array.isArray(args.transactionIds)) {
+        return {
+          ok: true,
+          checkedAt: 1_760_000_060_007,
+          paymentProvider: "lc_checkout",
+          dispatchedWorkflows: 1,
+          workflows: [
+            {
+              workflowId: "workflow_payment_received_default_invoice",
+              workflowName: "Payment Received",
+              triggerNodeIds: ["trigger_payment_default_invoice"],
+            },
+          ],
+        }
+      }
       if (args.checkoutSessionId && args.paymentIntentId && args.paymentMethod) {
         return {
           success: true,
@@ -1263,6 +1896,195 @@ describe("segelschule booking route", () => {
     expect(completionCall?.[2]).toMatchObject({
       paymentMethod: "invoice",
       paymentIntentId: "on_site_booking_local_4",
+    })
+  })
+
+  it("ignores client-authored course labels and totals in favor of backend commercial state", async () => {
+    const checkoutSessionId = "checkout_session_tampered_1"
+
+    mutateInternalMock.mockImplementation(async (_convex, _ref, args) => {
+      if (args.type === "booking") return "booking_local_tampered_1"
+      if (args.type === "crm_contact") return "contact_local_tampered_1"
+      if (args.email && args.firstName && args.organizationId && !args.userId) {
+        return "frontend_user_tampered_1"
+      }
+      if (args.userId && args.email && args.organizationId) {
+        return { success: true }
+      }
+      if (args.resourceId && args.startDateTime && args.endDateTime) {
+        return { bookingId: "platform_booking_tampered_1" }
+      }
+      if (args.customerEmail && args.preferredLanguage) {
+        return { checkoutSessionId }
+      }
+      if (args.checkoutSessionId && args.updates) {
+        return { success: true }
+      }
+      if (args.objectId && args.customProperties) {
+        return { success: true }
+      }
+      throw new Error(`Unexpected mutateInternal args: ${JSON.stringify(args)}`)
+    })
+
+    queryInternalMock.mockImplementation(async (_convex, _ref, args) => {
+      if (args.objectId === "product_seed_ticket") {
+        return {
+          _id: "product_seed_ticket",
+          organizationId: "org_123",
+          type: "product",
+          subtype: "ticket",
+          status: "active",
+          customProperties: {
+            priceInCents: 12_900,
+            currency: "EUR",
+          },
+        }
+      }
+      if (args.type === "transaction" && args.organizationId === "org_123") {
+        return [
+          buildTransactionRecord({
+            id: "transaction_tampered_1",
+            checkoutSessionId,
+          }),
+        ]
+      }
+      if (args.organizationId === "org_123" && args.checkoutSessionId === checkoutSessionId) {
+        return {
+          _id: "invoice_tampered_1",
+          organizationId: "org_123",
+          type: "invoice",
+          subtype: "manual_b2c",
+          status: "sent",
+          customProperties: {
+            invoiceNumber: "SA-1999",
+          },
+        }
+      }
+      if (args.checkoutSessionId === checkoutSessionId) {
+        return {
+          _id: checkoutSessionId,
+          customProperties: {
+            totalAmount: 25_800,
+            currency: "EUR",
+            expiresAt: 1_760_086_499_999,
+          },
+        }
+      }
+      if (args.type === "ticket" && args.organizationId === "org_123") {
+        return [
+          {
+            _id: "ticket_tampered_1",
+            organizationId: "org_123",
+            type: "ticket",
+            subtype: "standard",
+            status: "issued",
+            customProperties: {
+              checkoutSessionId,
+              holderEmail: "ada@example.com",
+              holderName: "Ada Lovelace",
+              ticketCode: "SA-TMPRD99",
+            },
+          },
+        ]
+      }
+      if (args.type === "organization_contact" && args.organizationId === "org_123") {
+        return []
+      }
+      if (args.organizationId === "org_123" && !args.type && !args.objectId) {
+        return null
+      }
+      if (args.objectId) {
+        return { customProperties: {} }
+      }
+      throw new Error(`Unexpected queryInternal args: ${JSON.stringify(args)}`)
+    })
+
+    actionInternalMock.mockImplementation(async (_convex, _ref, args) => {
+      if (args.organizationId === "org_123" && !args.checkoutSessionId) {
+        return {
+          apiKey: "re_test_tampered",
+        }
+      }
+      if (args.checkoutSessionId === checkoutSessionId && Array.isArray(args.transactionIds)) {
+        return {
+          ok: true,
+          checkedAt: 1_760_000_060_008,
+          paymentProvider: "lc_checkout",
+          dispatchedWorkflows: 1,
+          workflows: [
+            {
+              workflowId: "workflow_payment_received_tampered",
+              workflowName: "Payment Received",
+              triggerNodeIds: ["trigger_payment_tampered"],
+            },
+          ],
+        }
+      }
+      if (args.checkoutSessionId && args.paymentIntentId && args.paymentMethod) {
+        return {
+          success: true,
+          purchasedItemIds: ["purchase_item_tampered_1", "purchase_item_tampered_2"],
+          paymentId: args.paymentIntentId,
+          amount: 25_800,
+          currency: "EUR",
+          isGuestRegistration: false,
+          invoiceType: "manual_b2c",
+        }
+      }
+      if (args.checkoutSessionId === checkoutSessionId && !args.paymentIntentId) {
+        return {
+          filename: "invoice-sa-1999.pdf",
+          content: "YmFzZTY0",
+          contentType: "application/pdf",
+        }
+      }
+      throw new Error(`Unexpected actionInternal args: ${JSON.stringify(args)}`)
+    })
+
+    const { POST } = await import(
+      "../../../apps/segelschule-altwarp/app/api/booking/route"
+    )
+    const response = await POST(
+      createBookingRequest({
+        ...basePayload,
+        course: {
+          id: "schnupper",
+          title: "Hacked Course",
+          price: "€1",
+          isMultiDay: true,
+        },
+        totalAmount: 2,
+      })
+    )
+
+    expect(response.status).toBe(200)
+    const payload = await response.json()
+    expect(payload.course).toMatchObject({
+      courseId: "schnupper",
+      title: "Schnupperkurs",
+      priceInCents: 12_900,
+      isMultiDay: false,
+    })
+
+    const bookingInsertCall = mutateInternalMock.mock.calls.find(
+      (call) => call[2]?.type === "booking"
+    )
+    expect(bookingInsertCall?.[2]?.customProperties).toMatchObject({
+      courseName: "Schnupperkurs",
+      coursePriceInCents: 12_900,
+      courseCurrency: "EUR",
+      isMultiDay: false,
+    })
+
+    const updateSessionCall = mutateInternalMock.mock.calls.find(
+      (call) =>
+        typeof call[2]?.checkoutSessionId === "string"
+        && Boolean(call[2]?.updates?.selectedProducts)
+    )
+    expect(updateSessionCall?.[2]?.updates?.selectedProducts?.[0]).toMatchObject({
+      productId: "product_seed_ticket",
+      pricePerUnit: 12_900,
+      totalPrice: 25_800,
     })
   })
 })

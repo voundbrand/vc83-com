@@ -4,8 +4,8 @@ import { NextResponse } from "next/server"
 import type { Id } from "../../../../../convex/_generated/dataModel"
 import {
   getConvexClient,
-  getOrganizationId,
   queryInternal,
+  resolveSegelschuleOrganizationId,
 } from "@/lib/server-convex"
 import { checkRateLimit, resolveClientIp } from "@/lib/email"
 
@@ -22,6 +22,7 @@ interface RouterObjectRecord {
   _id: Id<"objects">
   organizationId?: Id<"organizations"> | string
   status?: string
+  subtype?: string
   createdAt?: number
   updatedAt?: number
   customProperties?: Record<string, unknown>
@@ -58,6 +59,16 @@ function normalizeTicketCode(value: unknown): string | null {
   return TICKET_CODE_RE.test(upper) ? upper : null
 }
 
+function normalizeStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return []
+  }
+
+  return value
+    .map((entry) => normalizeOptionalString(entry))
+    .filter((entry): entry is string => Boolean(entry))
+}
+
 function toLookupInput(payload: {
   code: unknown
   email: unknown
@@ -74,6 +85,13 @@ function safeNumber(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value) ? value : null
 }
 
+function asRecord(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {}
+  }
+  return value as Record<string, unknown>
+}
+
 async function withLookupDelay<T>(startedAt: number, value: T): Promise<T> {
   const elapsedMs = Date.now() - startedAt
   if (elapsedMs < MIN_LOOKUP_RESPONSE_MS) {
@@ -82,6 +100,43 @@ async function withLookupDelay<T>(startedAt: number, value: T): Promise<T> {
     )
   }
   return value
+}
+
+async function getObjectById(args: {
+  convex: ReturnType<typeof getConvexClient>
+  objectId: string | null
+}): Promise<RouterObjectRecord | null> {
+  if (!args.objectId) {
+    return null
+  }
+
+  try {
+    return (await queryInternal(
+      args.convex,
+      generatedInternalApi.channels.router.getObjectByIdInternal,
+      {
+        objectId: args.objectId as Id<"objects">,
+      }
+    )) as RouterObjectRecord | null
+  } catch (error) {
+    console.warn("[Ticket Lookup] Failed to load object:", args.objectId, error)
+    return null
+  }
+}
+
+async function listObjectsByType(args: {
+  convex: ReturnType<typeof getConvexClient>
+  organizationId: string
+  type: string
+}): Promise<RouterObjectRecord[]> {
+  return (await queryInternal(
+    args.convex,
+    generatedInternalApi.channels.router.listObjectsByOrgTypeInternal,
+    {
+      organizationId: args.organizationId as Id<"organizations">,
+      type: args.type,
+    }
+  )) as RouterObjectRecord[]
 }
 
 async function handleLookup(
@@ -115,7 +170,9 @@ async function handleLookup(
       )
     }
 
-    const organizationId = getOrganizationId()
+    const organizationId = await resolveSegelschuleOrganizationId({
+      requestHost: request.headers.get("host"),
+    })
     if (!organizationId) {
       return withLookupDelay(
         startedAt,
@@ -127,21 +184,15 @@ async function handleLookup(
     }
 
     const convex = getConvexClient()
-    const allTickets = (await queryInternal(
+    const allTickets = await listObjectsByType({
       convex,
-      generatedInternalApi.channels.router.listObjectsByOrgTypeInternal,
-      {
-        organizationId: organizationId as Id<"organizations">,
-        type: "ticket",
-      }
-    )) as RouterObjectRecord[]
+      organizationId,
+      type: "ticket",
+    })
 
     const matchedTicket = allTickets
       .filter((ticket) => {
-        const ticketProps = (ticket.customProperties || {}) as Record<
-          string,
-          unknown
-        >
+        const ticketProps = asRecord(ticket.customProperties)
         const ticketCode = normalizeTicketCode(ticketProps.ticketCode)
         const holderEmail = normalizeEmail(ticketProps.holderEmail)
         return (
@@ -163,37 +214,136 @@ async function handleLookup(
       )
     }
 
-    const ticketProps = (matchedTicket.customProperties || {}) as Record<
-      string,
-      unknown
-    >
+    const ticketProps = asRecord(matchedTicket.customProperties)
     const sourceBookingId = normalizeOptionalString(ticketProps.sourceBookingId)
-    let bookingRecord: RouterObjectRecord | null = null
+    const bookingRecord = await getObjectById({
+      convex,
+      objectId: sourceBookingId,
+    })
+    const bookingProps = asRecord(bookingRecord?.customProperties)
 
-    if (sourceBookingId) {
-      try {
-        bookingRecord = (await queryInternal(
-          convex,
-          generatedInternalApi.channels.router.getObjectByIdInternal,
-          {
-            objectId: sourceBookingId as Id<"objects">,
-          }
-        )) as RouterObjectRecord | null
-      } catch (error) {
-        console.warn("[Ticket Lookup] Failed to resolve source booking:", error)
+    const checkoutSessionId =
+      normalizeOptionalString(ticketProps.checkoutSessionId)
+      || normalizeOptionalString(ticketProps.sourceCheckoutSessionId)
+      || normalizeOptionalString(bookingProps.checkoutSessionId)
+      || normalizeOptionalString(bookingProps.sourceCheckoutSessionId)
+      || normalizeOptionalString(bookingProps.checkoutSessionObjectId)
+
+    const transactionIds = [
+      ...normalizeStringArray(bookingProps.transactionIds),
+      ...normalizeStringArray(ticketProps.transactionIds),
+      normalizeOptionalString(bookingProps.primaryTransactionId),
+      normalizeOptionalString(ticketProps.transactionId),
+    ].filter((entry): entry is string => Boolean(entry))
+
+    const invoiceId =
+      normalizeOptionalString(bookingProps.invoiceId)
+      || normalizeOptionalString(ticketProps.invoiceId)
+
+    const checkoutSessionRecord = await getObjectById({
+      convex,
+      objectId: checkoutSessionId,
+    })
+    const directTransactionRecord = await getObjectById({
+      convex,
+      objectId: transactionIds[0] || null,
+    })
+    const directInvoiceRecord = await getObjectById({
+      convex,
+      objectId: invoiceId,
+    })
+
+    let transactionRecord = directTransactionRecord
+    let invoiceRecord = directInvoiceRecord
+
+    if (!transactionRecord || (!invoiceRecord && checkoutSessionId)) {
+      const [allTransactions, allInvoices] = await Promise.all([
+        !transactionRecord
+          ? listObjectsByType({
+              convex,
+              organizationId,
+              type: "transaction",
+            })
+          : Promise.resolve([]),
+        !invoiceRecord
+          ? listObjectsByType({
+              convex,
+              organizationId,
+              type: "invoice",
+            })
+          : Promise.resolve([]),
+      ])
+
+      if (!transactionRecord) {
+        transactionRecord =
+          allTransactions
+            .filter((transaction) => {
+              const transactionProps = asRecord(transaction.customProperties)
+              return (
+                String(transaction._id) === String(transactionIds[0] || "")
+                || String(transactionProps.checkoutSessionId || "")
+                  === String(checkoutSessionId || "")
+              )
+            })
+            .sort(
+              (left, right) =>
+                Number(right.updatedAt || right.createdAt || 0)
+                - Number(left.updatedAt || left.createdAt || 0)
+            )[0] || null
+      }
+
+      if (!invoiceRecord) {
+        invoiceRecord =
+          allInvoices.find((invoice) => {
+            const invoiceProps = asRecord(invoice.customProperties)
+            return (
+              String(invoice._id) === String(invoiceId || "")
+              || String(invoiceProps.checkoutSessionId || "")
+                === String(checkoutSessionId || "")
+            )
+          }) || null
       }
     }
 
-    const bookingProps = (bookingRecord?.customProperties || {}) as Record<
-      string,
-      unknown
-    >
+    const checkoutSessionProps = asRecord(checkoutSessionRecord?.customProperties)
+    const transactionProps = asRecord(transactionRecord?.customProperties)
+    const invoiceProps = asRecord(invoiceRecord?.customProperties)
+
     const bookingSeats =
       (Array.isArray(bookingProps.seats)
         ? bookingProps.seats
         : Array.isArray(ticketProps.bookingSeatSelections)
           ? ticketProps.bookingSeatSelections
           : []) as Array<Record<string, unknown>>
+
+    const lineItems = Array.isArray(transactionProps.lineItems)
+      ? (transactionProps.lineItems as Array<Record<string, unknown>>).map(
+          (lineItem) => ({
+            productId: normalizeOptionalString(lineItem.productId),
+            productName: normalizeOptionalString(lineItem.productName),
+            productSubtype: normalizeOptionalString(lineItem.productSubtype),
+            quantity: safeNumber(lineItem.quantity),
+            unitPriceInCents:
+              safeNumber(lineItem.unitPriceInCents)
+              || safeNumber(lineItem.pricePerUnitInCents),
+            totalPriceInCents: safeNumber(lineItem.totalPriceInCents),
+            ticketId: normalizeOptionalString(lineItem.ticketId),
+          })
+        )
+      : []
+
+    const totalAmountCents =
+      safeNumber(bookingProps.totalAmountCents)
+      || safeNumber(ticketProps.bookingTotalAmountCents)
+      || safeNumber(invoiceProps.totalInCents)
+      || safeNumber(transactionProps.totalInCents)
+      || safeNumber(checkoutSessionProps.totalAmount)
+
+    const currency =
+      normalizeOptionalString(transactionProps.currency)
+      || normalizeOptionalString(bookingProps.courseCurrency)
+      || normalizeOptionalString(ticketProps.bookingCourseCurrency)
+      || normalizeOptionalString(checkoutSessionProps.currency)
 
     return withLookupDelay(
       startedAt,
@@ -206,6 +356,7 @@ async function handleLookup(
             status: matchedTicket.status || "issued",
             holderName: normalizeOptionalString(ticketProps.holderName),
             holderEmail: normalizeEmail(ticketProps.holderEmail),
+            lookupUrl: normalizeOptionalString(ticketProps.ticketLookupUrl),
           },
           booking: {
             bookingId: sourceBookingId || null,
@@ -218,6 +369,24 @@ async function handleLookup(
             courseName:
               normalizeOptionalString(bookingProps.courseName)
               || normalizeOptionalString(ticketProps.bookingCourseName),
+            courseDescription:
+              normalizeOptionalString(bookingProps.courseDescription)
+              || normalizeOptionalString(ticketProps.bookingCourseDescription),
+            durationLabel:
+              normalizeOptionalString(bookingProps.courseDurationLabel)
+              || normalizeOptionalString(ticketProps.bookingCourseDurationLabel),
+            durationMinutes:
+              safeNumber(bookingProps.courseDurationMinutes)
+              || safeNumber(ticketProps.bookingCourseDurationMinutes),
+            fulfillmentType:
+              normalizeOptionalString(bookingProps.fulfillmentType)
+              || normalizeOptionalString(ticketProps.bookingFulfillmentType),
+            checkoutProductId:
+              normalizeOptionalString(bookingProps.checkoutProductId)
+              || normalizeOptionalString(ticketProps.bookingCheckoutProductId),
+            bookingResourceId:
+              normalizeOptionalString(bookingProps.bookingResourceId)
+              || normalizeOptionalString(ticketProps.bookingResourceId),
             date:
               normalizeOptionalString(bookingProps.date)
               || normalizeOptionalString(ticketProps.bookingDate),
@@ -228,9 +397,23 @@ async function handleLookup(
               safeNumber(bookingProps.totalSeats)
               || safeNumber(ticketProps.bookingTotalSeats),
             seats: bookingSeats,
-            totalAmountCents:
-              safeNumber(bookingProps.totalAmountCents)
-              || safeNumber(ticketProps.bookingTotalAmountCents),
+          },
+          commercial: {
+            checkoutSessionId: checkoutSessionId || null,
+            checkoutSessionStatus: checkoutSessionRecord?.status || null,
+            paymentMethod:
+              normalizeOptionalString(checkoutSessionProps.paymentMethod)
+              || "invoice",
+            totalAmountCents,
+            currency,
+            transactionId: transactionRecord ? String(transactionRecord._id) : null,
+            transactionStatus: transactionRecord?.status || null,
+            transactionSubtype: transactionRecord?.subtype || null,
+            lineItems,
+            invoiceId: invoiceRecord ? String(invoiceRecord._id) : null,
+            invoiceNumber: normalizeOptionalString(invoiceProps.invoiceNumber),
+            invoiceStatus: invoiceRecord?.status || null,
+            invoicePdfUrl: normalizeOptionalString(invoiceProps.pdfUrl),
           },
           notes: {
             packingList:
@@ -240,13 +423,6 @@ async function handleLookup(
               normalizeOptionalString(ticketProps.weatherInfo)
               || normalizeOptionalString(bookingProps.weatherInfo),
           },
-          payment: {
-            method: "invoice",
-            status: "pending_on_site",
-          },
-          checkoutSessionId:
-            normalizeOptionalString(ticketProps.checkoutSessionId)
-            || normalizeOptionalString(ticketProps.sourceCheckoutSessionId),
         },
         { status: 200, headers: { "Cache-Control": "no-store" } }
       )

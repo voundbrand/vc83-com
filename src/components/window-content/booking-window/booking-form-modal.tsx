@@ -17,12 +17,6 @@ try {
   _api = null
 }
 
-// Bookable subtypes that can be booked
-const BOOKABLE_SUBTYPES = [
-  "room", "staff", "equipment", "space", "vehicle", "accommodation",
-  "appointment", "class", "treatment"
-]
-
 // BookableConfig interface (matching product-form)
 interface BookableConfig {
   bookingMode: "calendar" | "date-range" | "both"
@@ -75,8 +69,8 @@ export function BookingFormModal({
   const createBooking = useMutation(_api?.bookingOntology?.createBooking)
 
   // Get bookable resources
-  const products = useQuery(
-    _api?.productOntology?.getProducts,
+  const availabilityResources = useQuery(
+    _api?.availabilityOntology?.listAvailabilityResources,
     sessionId && currentOrganizationId
       ? { sessionId, organizationId: currentOrganizationId }
       : "skip"
@@ -90,18 +84,11 @@ export function BookingFormModal({
       : "skip"
   )
 
-  // Filter to only bookable types (resources and services)
-  const bookableResources = useMemo(() => {
-    return (products ?? []).filter((p: { subtype?: string | null }) =>
-      BOOKABLE_SUBTYPES.includes(p.subtype || "")
-    )
-  }, [products])
-
   // Get selected resource details
   const selectedResource = useMemo(() => {
     if (!selectedResourceId) return null
-    return bookableResources.find((r: { _id: string }) => r._id === selectedResourceId) || null
-  }, [selectedResourceId, bookableResources])
+    return (availabilityResources ?? []).find((r: { _id: string }) => r._id === selectedResourceId) || null
+  }, [selectedResourceId, availabilityResources])
 
   // Extract bookable config from selected resource
   const resourceConfig = useMemo((): BookableConfig | null => {
@@ -319,7 +306,7 @@ export function BookingFormModal({
               required
             >
               <option value="">{tWithFallback("ui.app.booking.form.select_resource", "Select a resource...")}</option>
-              {bookableResources.map((resource: { _id: string; name?: string | null; subtype?: string | null }) => (
+              {(availabilityResources ?? []).map((resource: { _id: string; name?: string | null; subtype?: string | null }) => (
                 <option key={resource._id} value={resource._id}>
                   {resource.name} ({resource.subtype?.replace("_", " ")})
                 </option>

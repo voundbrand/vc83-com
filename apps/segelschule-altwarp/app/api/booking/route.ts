@@ -5,10 +5,10 @@ import { NextResponse } from "next/server"
 import type { Id } from "../../../../../convex/_generated/dataModel"
 import {
   getConvexClient,
-  getOrganizationId,
   queryInternal,
   mutateInternal,
   actionInternal,
+  resolveSegelschuleOrganizationId,
 } from "@/lib/server-convex"
 import {
   checkRateLimit,
@@ -29,12 +29,10 @@ import {
 import {
   normalizeSeatSelections,
   parseBookingStartTimestamp,
-  resolveSegelschuleRuntimeConfig,
+  resolveSegelschuleBookingCourse,
 } from "@/lib/booking-platform-bridge"
-import {
-  buildSeatInventoryFromBoats,
-  mapToResourceSeatSelections,
-} from "@/lib/booking-runtime-contracts"
+import { mapToResourceSeatSelections } from "@/lib/booking-runtime-contracts"
+import { resolveSlotSeatInventory } from "@/lib/seat-group-availability"
 
 // Dynamic require avoids excessively deep Convex API type instantiation.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -51,7 +49,7 @@ const generatedPublicApi: any = generatedApi.api
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 interface BookingPayload {
-  course: { id: string; title: string; price: string; isMultiDay: boolean }
+  courseId: string
   date: string
   time: string
   seats: { boatId?: string; boatName: string; seatNumbers: number[] }[]
@@ -66,7 +64,6 @@ interface BookingPayload {
     needsAccommodation?: boolean
   }
   paymentMethod?: string
-  totalAmount: number
   language: string
 }
 
@@ -135,6 +132,40 @@ interface RouterTicketRecord extends RouterObjectRecord {
   updatedAt?: number
 }
 
+interface RouteTransactionLineItem {
+  productId?: string | null
+  productName?: string | null
+  productSubtype?: string | null
+  quantity?: number | null
+  totalPriceInCents?: number | null
+  unitPriceInCents?: number | null
+  ticketId?: string | null
+}
+
+interface RouteTransactionRecord extends RouterObjectRecord {
+  createdAt?: number
+  updatedAt?: number
+  customProperties?: Record<string, unknown> & {
+    checkoutSessionId?: string
+    totalInCents?: number
+    currency?: string
+    lineItems?: RouteTransactionLineItem[]
+  }
+}
+
+interface BookingWorkflowDispatchResult {
+  ok: boolean
+  checkedAt: number
+  triggerType: string
+  dispatchedWorkflows: number
+  workflows: Array<{
+    workflowId: string
+    workflowName: string
+    triggerNodeIds: string[]
+  }>
+  errors?: string[]
+}
+
 interface BridgeTicketContextResult {
   ticketId: string
   ticketCode: string
@@ -149,6 +180,16 @@ interface CapturedBookingEmailPreview {
   subject: string
   html: string
   attachments: BookingEmailAttachmentSummary[]
+}
+
+interface BookingEmailDeliveryRecord {
+  kind: "customer_confirmation" | "operator_notification"
+  to: string[]
+  subject: string
+  transport: "resend_direct" | "ticket_generation_fallback"
+  success: boolean
+  messageId: string | null
+  error: string | null
 }
 
 interface RouteFixtureOptions {
@@ -169,6 +210,83 @@ function normalizeOptionalString(value: unknown): string | null {
 function normalizeEmail(value: unknown): string | null {
   const normalized = normalizeOptionalString(value)
   return normalized ? normalized.toLowerCase() : null
+}
+
+function normalizeNumber(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {}
+  }
+  return value as Record<string, unknown>
+}
+
+function resolveLocaleFromLanguage(language: string): string {
+  if (language === "de" || language === "ch") {
+    return "de-DE"
+  }
+  if (language === "nl") {
+    return "nl-NL"
+  }
+  return "en-US"
+}
+
+function formatCurrencyAmount(args: {
+  amountInCents: number
+  currency: string
+  language: string
+}): string {
+  try {
+    return new Intl.NumberFormat(resolveLocaleFromLanguage(args.language), {
+      style: "currency",
+      currency: args.currency || "EUR",
+    }).format(args.amountInCents / 100)
+  } catch {
+    return `${args.currency || "EUR"} ${(args.amountInCents / 100).toFixed(2)}`
+  }
+}
+
+function normalizeErrorMessage(error: unknown): string {
+  if (error instanceof Error && error.message.trim().length > 0) {
+    return error.message
+  }
+  return String(error)
+}
+
+function extractResendMessageId(result: unknown): string | null {
+  if (!result || typeof result !== "object") {
+    return null
+  }
+
+  const record = result as {
+    id?: unknown
+    data?: { id?: unknown } | null
+  }
+
+  return (
+    normalizeOptionalString(record.id)
+    || normalizeOptionalString(record.data?.id)
+  )
+}
+
+function extractResendErrorMessage(result: unknown): string | null {
+  if (!result || typeof result !== "object") {
+    return null
+  }
+
+  const record = result as {
+    error?: {
+      message?: unknown
+      name?: unknown
+    } | null
+  }
+
+  return (
+    normalizeOptionalString(record.error?.message)
+    || normalizeOptionalString(record.error?.name)
+  )
 }
 
 function normalizeCheckoutUrl(value: unknown): string | null {
@@ -225,6 +343,12 @@ function buildTicketLookupUrl(args: {
   return `${normalizedBase}/ticket?${params.toString()}`
 }
 
+function hasTicketFulfillmentEnabled(
+  candidate: RouterObjectRecord | null | undefined
+): boolean {
+  return normalizeOptionalString(candidate?.customProperties?.fulfillmentType) === "ticket"
+}
+
 function isTicketProductForOrg(
   candidate: RouterObjectRecord | null | undefined,
   organizationId: string
@@ -234,7 +358,10 @@ function isTicketProductForOrg(
   }
   return (
     candidate.type === "product" &&
-    candidate.subtype === "ticket" &&
+    (
+      candidate.subtype === "ticket"
+      || hasTicketFulfillmentEnabled(candidate)
+    ) &&
     String(candidate.organizationId || "") === organizationId
   )
 }
@@ -284,33 +411,9 @@ async function resolveTicketCheckoutProduct(args: {
   } else {
     warnings.push("checkout_product_binding_missing")
   }
-
-  const orgProducts = (await queryInternal(
-    args.convex,
-    generatedInternalApi.channels.router.listObjectsByOrgTypeInternal,
-    {
-      organizationId: args.organizationId as Id<"organizations">,
-      type: "product",
-    }
-  )) as RouterObjectRecord[]
-
-  const activeTicketProduct =
-    orgProducts.find((product) => product.subtype === "ticket" && product.status === "active")
-    || orgProducts.find((product) => product.subtype === "ticket")
-
-  if (!activeTicketProduct) {
-    warnings.push("checkout_ticket_product_missing")
-    return {
-      productId: null,
-      product: null,
-      warnings,
-    }
-  }
-
-  warnings.push("checkout_product_fallback_to_ticket")
   return {
-    productId: activeTicketProduct._id,
-    product: activeTicketProduct,
+    productId: null,
+    product: null,
     warnings,
   }
 }
@@ -318,7 +421,10 @@ async function resolveTicketCheckoutProduct(args: {
 function validateBookingPayload(
   body: Record<string, unknown>
 ): { valid: true; data: BookingPayload } | { valid: false; error: string } {
-  const course = body.course as BookingPayload["course"] | undefined
+  const legacyCourse = asRecord(body.course)
+  const courseId =
+    normalizeOptionalString(body.courseId)
+    || normalizeOptionalString(legacyCourse.id)
   const date = typeof body.date === "string" ? body.date.trim() : ""
   const time = typeof body.time === "string" ? body.time.trim() : ""
   const seats = body.seats as BookingPayload["seats"] | undefined
@@ -329,12 +435,10 @@ function validateBookingPayload(
     || body.agreeToTerms === true
   const formData = body.formData as BookingPayload["formData"] | undefined
   const paymentMethod = normalizeOptionalString(body.paymentMethod) || "invoice"
-  const totalAmount =
-    typeof body.totalAmount === "number" ? body.totalAmount : 0
   const language =
     typeof body.language === "string" ? body.language.trim() : "de"
 
-  if (!course?.id || !course?.title || !course?.price) {
+  if (!courseId) {
     return { valid: false, error: "Course selection is required." }
   }
   if (!date) {
@@ -361,14 +465,11 @@ function validateBookingPayload(
   if (!termsAccepted) {
     return { valid: false, error: "Terms acceptance is required." }
   }
-  if (totalAmount <= 0) {
-    return { valid: false, error: "Invalid total amount." }
-  }
 
   return {
     valid: true,
     data: {
-      course,
+      courseId,
       date,
       time,
       seats,
@@ -383,7 +484,6 @@ function validateBookingPayload(
         needsAccommodation: formData.needsAccommodation || false,
       },
       paymentMethod,
-      totalAmount,
       language,
     },
   }
@@ -414,6 +514,78 @@ async function resolveResendApiKey(
   const envKey = process.env.RESEND_API_KEY
   if (!envKey) throw new Error("RESEND_API_KEY is not configured")
   return envKey
+}
+
+type BookingEmailSenderProfile = {
+  fromEmail: string
+  replyToEmail: string | null
+  source: "domain_config" | "env" | "legacy_default"
+}
+
+function formatSenderAddress(displayName: string, senderEmail: string): string {
+  return senderEmail.includes("<")
+    ? senderEmail
+    : `${displayName} <${senderEmail}>`
+}
+
+async function resolveBookingEmailSenderProfile(
+  convex: ReturnType<typeof getConvexClient>,
+  organizationId: string
+): Promise<BookingEmailSenderProfile> {
+  try {
+    const domainConfigs = (await queryInternal(
+      convex,
+      generatedInternalApi.domainConfigOntology.listDomainConfigsForOrg,
+      {
+        organizationId: organizationId as Id<"organizations">,
+      }
+    )) as RouterObjectRecord[] | null
+
+    const primaryDomainConfig = Array.isArray(domainConfigs)
+      ? domainConfigs.find((config) => config.status === "active") || domainConfigs[0] || null
+      : null
+    const emailSettings =
+      primaryDomainConfig?.customProperties?.email
+      && typeof primaryDomainConfig.customProperties.email === "object"
+        ? (primaryDomainConfig.customProperties.email as Record<string, unknown>)
+        : null
+    const senderEmail = normalizeOptionalString(emailSettings?.senderEmail)
+    const replyToEmail = normalizeOptionalString(emailSettings?.replyToEmail)
+
+    if (senderEmail) {
+      return {
+        fromEmail: formatSenderAddress("Segelschule Altwarp", senderEmail),
+        replyToEmail,
+        source: "domain_config",
+      }
+    }
+  } catch (error) {
+    console.warn(
+      "[Booking] Failed to resolve domain-config sender, falling back to env sender:",
+      error
+    )
+  }
+
+  const envSender =
+    normalizeOptionalString(process.env.BOOKING_FROM_EMAIL)
+    || normalizeOptionalString(process.env.AUTH_RESEND_FROM)
+  const envReplyTo =
+    normalizeOptionalString(process.env.BOOKING_REPLY_TO_EMAIL)
+    || normalizeOptionalString(process.env.REPLY_TO_EMAIL)
+
+  if (envSender) {
+    return {
+      fromEmail: formatSenderAddress("Segelschule Altwarp", envSender),
+      replyToEmail: envReplyTo,
+      source: "env",
+    }
+  }
+
+  return {
+    fromEmail: "Segelschule Altwarp <noreply@segelschule-altwarp.de>",
+    replyToEmail: envReplyTo,
+    source: "legacy_default",
+  }
 }
 
 function normalizeStringArray(value: unknown): string[] {
@@ -672,7 +844,9 @@ export async function POST(request: Request) {
       || null
 
     // Resolve org
-    const organizationId = getOrganizationId()
+    const organizationId = await resolveSegelschuleOrganizationId({
+      requestHost: request.headers.get("host"),
+    })
     if (!organizationId) {
       return NextResponse.json(
         { error: "Platform organization is not configured" },
@@ -681,18 +855,33 @@ export async function POST(request: Request) {
     }
 
     const convex = getConvexClient()
-    const runtimeResolution = await resolveSegelschuleRuntimeConfig({
+    const courseResolution = await resolveSegelschuleBookingCourse({
       convex,
       queryInternalFn: queryInternal,
       generatedInternalApi,
       organizationId,
+      courseId: data.courseId,
+      language: data.language,
     })
+    const runtimeResolution = courseResolution.runtimeResolution
     const bookingRuntimeConfig = runtimeResolution.runtimeConfig
-    const selectedCourseRuntime = bookingRuntimeConfig.courses[data.course.id]
-    if (!selectedCourseRuntime) {
+    const resolvedCourse = courseResolution.course
+    if (!resolvedCourse || !courseResolution.resolvedCourseId) {
       return NextResponse.json(
         { error: "Unknown course for selected booking surface" },
         { status: 404 }
+      )
+    }
+    if (!resolvedCourse.bookingResourceId) {
+      return NextResponse.json(
+        { error: "Selected course is missing its availability resource." },
+        { status: 503 }
+      )
+    }
+    if (resolvedCourse.fulfillmentType !== "ticket") {
+      return NextResponse.json(
+        { error: "Selected course is not configured for ticket fulfillment." },
+        { status: 503 }
       )
     }
 
@@ -719,6 +908,25 @@ export async function POST(request: Request) {
       )
     }
 
+    const checkoutProductResolution = await resolveTicketCheckoutProduct({
+      convex,
+      organizationId,
+      configuredProductId: resolvedCourse.checkoutProductId || undefined,
+    })
+    if (!checkoutProductResolution.productId) {
+      return NextResponse.json(
+        {
+          error: "Selected course is missing its commercial checkout product.",
+          warnings: [
+            ...runtimeResolution.warnings,
+            ...resolvedCourse.warnings,
+            ...checkoutProductResolution.warnings,
+          ],
+        },
+        { status: 503 }
+      )
+    }
+
     let resendApiKey: string | null = null
     try {
       resendApiKey = await resolveResendApiKey(convex, organizationId)
@@ -736,7 +944,19 @@ export async function POST(request: Request) {
       bookingRuntimeConfig.timezone
     )
     const now = Date.now()
-    const totalAmountCents = Math.max(0, Math.round(data.totalAmount * 100))
+    if (resolvedCourse.priceInCents <= 0) {
+      return NextResponse.json(
+        { error: "Selected course is missing a valid commercial price." },
+        { status: 503 }
+      )
+    }
+    const totalAmountCents =
+      resolvedCourse.priceInCents * normalizedSeatSelection.totalSeats
+    const coursePriceDisplay = formatCurrencyAmount({
+      amountInCents: resolvedCourse.priceInCents,
+      currency: resolvedCourse.currency,
+      language: data.language,
+    })
 
     // Split name for CRM (first word → firstName, rest → lastName)
     const nameParts = data.formData.name.split(/\s+/)
@@ -753,14 +973,24 @@ export async function POST(request: Request) {
         organizationId: organizationId as Id<"organizations">,
         type: "booking",
         subtype: "class_enrollment",
-        name: `${data.course.title} - ${data.formData.name} - ${data.date}`,
+        name: `${resolvedCourse.title} - ${data.formData.name} - ${data.date}`,
         status: "pending_confirmation",
         customProperties: {
           source: "segelschule_landing",
-          courseId: data.course.id,
-          courseName: data.course.title,
-          coursePrice: data.course.price,
-          isMultiDay: data.course.isMultiDay,
+          requestedCourseId: data.courseId,
+          courseId: resolvedCourse.courseId,
+          courseAliases: resolvedCourse.aliases,
+          courseName: resolvedCourse.title,
+          courseDescription: resolvedCourse.description,
+          courseDurationLabel: resolvedCourse.durationLabel,
+          courseDurationMinutes: resolvedCourse.durationMinutes,
+          coursePrice: coursePriceDisplay,
+          coursePriceInCents: resolvedCourse.priceInCents,
+          courseCurrency: resolvedCourse.currency,
+          isMultiDay: resolvedCourse.isMultiDay,
+          checkoutProductId: String(checkoutProductResolution.productId),
+          bookingResourceId: resolvedCourse.bookingResourceId,
+          fulfillmentType: resolvedCourse.fulfillmentType,
           date: data.date,
           time: data.time,
           bookingStartAt,
@@ -820,9 +1050,9 @@ export async function POST(request: Request) {
           email: data.formData.email,
           phone: data.formData.phone,
           source: "segelschule_landing",
-          sourceRef: `booking:${data.course.id}`,
-          tags: ["segelschule_landing", "booking", data.course.id],
-          notes: `Booked ${data.course.title} on ${data.date} at ${data.time}. ${normalizedSeatSelection.totalSeats} seat(s).`,
+          sourceRef: `booking:${resolvedCourse.courseId}`,
+          tags: ["segelschule_landing", "booking", resolvedCourse.courseId],
+          notes: `Booked ${resolvedCourse.title} on ${data.date} at ${data.time}. ${normalizedSeatSelection.totalSeats} seat(s).`,
         },
         createdAt: now,
         updatedAt: now,
@@ -832,10 +1062,15 @@ export async function POST(request: Request) {
     // -----------------------------------------------------------------
     // Mother repo bridge: frontend account + optional booking/checkout
     // -----------------------------------------------------------------
-    const bridgeWarnings: string[] = [...runtimeResolution.warnings]
+    const bridgeWarnings: string[] = [
+      ...runtimeResolution.warnings,
+      ...resolvedCourse.warnings,
+      ...checkoutProductResolution.warnings,
+    ]
     let frontendUserId: Id<"objects"> | null = null
     let platformBookingId: Id<"objects"> | null = null
-    let checkoutProductId: Id<"objects"> | null = null
+    let checkoutProductId: Id<"objects"> | null =
+      checkoutProductResolution.productId
     let checkoutSession: BridgeCheckoutSessionResult | null = null
     let checkoutSessionObjectId: Id<"objects"> | null = null
     let checkoutFulfillmentResult: BridgeCheckoutFulfillmentResult | null = null
@@ -870,79 +1105,101 @@ export async function POST(request: Request) {
       console.error("[Booking Bridge] frontend account wiring failed:", bridgeError)
     }
 
-    if (selectedCourseRuntime.bookingResourceId) {
-      const startDateTime = bookingStartAt
-      if (!startDateTime) {
-        bridgeWarnings.push("invalid_booking_datetime")
-      } else {
-        const bookingDurationMinutes =
-          selectedCourseRuntime.bookingDurationMinutes
+    const startDateTime = bookingStartAt
+    if (!startDateTime) {
+      bridgeWarnings.push("invalid_booking_datetime")
+    } else {
+      const bookingDurationMinutes = resolvedCourse.durationMinutes
 
-        try {
-          const resourceSeatSelections = mapToResourceSeatSelections(
-            normalizedSeatSelection.selections
-          )
-          const platformBookingResult = await mutateInternal(
-            convex,
-            generatedInternalApi.api.v1.resourceBookingsInternal
-              .customerCheckoutInternal,
-            {
-              organizationId: organizationId as Id<"organizations">,
-              resourceId: selectedCourseRuntime.bookingResourceId as Id<"objects">,
-              startDateTime,
-              endDateTime:
-                startDateTime + bookingDurationMinutes * 60_000,
-              timezone: bookingRuntimeConfig.timezone,
-              customer: {
-                firstName,
-                lastName: lastName || firstName,
-                email: data.formData.email,
-                phone: data.formData.phone,
-              },
-              participants: normalizedSeatSelection.totalSeats,
-              notes: data.formData.message,
-              source: "segelschule_landing",
-              seatSelections: resourceSeatSelections,
-              seatInventory: buildSeatInventoryFromBoats({
-                boats: bookingRuntimeConfig.boats,
-                strictSeatSelection: true,
-              }),
-              ...(fixtureOptions.ignoreOutsideAvailability
-                ? { ignoreOutsideAvailability: true }
-                : {}),
-            }
-          )
+      try {
+        const slotSeatInventory = await resolveSlotSeatInventory({
+          convex,
+          queryInternalFn: queryInternal,
+          generatedInternalApi,
+          organizationId,
+          bookingResourceId: resolvedCourse.bookingResourceId,
+          boats: bookingRuntimeConfig.boats,
+          startDateTime,
+          endDateTime: startDateTime + bookingDurationMinutes * 60_000,
+          timezone: bookingRuntimeConfig.timezone,
+        })
+        if (slotSeatInventory.seatInventory.groups.length === 0) {
+          throw new Error("No boats are available for the selected date/time.")
+        }
 
-          platformBookingId = (platformBookingResult?.bookingId ||
-            null) as Id<"objects"> | null
-          calendarDiagnostics =
-            (platformBookingResult?.calendarDiagnostics || null) as BridgeCalendarDiagnostics | null
-          if (calendarDiagnostics && !calendarDiagnostics.writeReady) {
-            pushWarningOnce(bridgeWarnings, "calendar_not_write_ready")
-          }
-          if (calendarDiagnostics && calendarDiagnostics.issues.length > 0) {
-            for (const issueCode of calendarDiagnostics.issues) {
-              pushWarningOnce(bridgeWarnings, issueCode)
-            }
-          }
-          if (fixtureOptions.ignoreOutsideAvailability) {
-            pushWarningOnce(bridgeWarnings, "fixture_outside_availability_override")
-          }
-        } catch (bridgeError) {
-          bridgeWarnings.push("resource_booking_bridge_failed")
-          resourceBookingBridgeError =
-            bridgeError instanceof Error
-              ? bridgeError.message
-              : "No availability for the selected slot"
-          console.error(
-            "[Booking Bridge] resource booking checkout failed:",
-            bridgeError
+        const availableBoatIds = new Set(slotSeatInventory.availableGroupIds)
+        const unavailableSelectedBoats = normalizedSeatSelection.selections
+          .filter((selection) => !availableBoatIds.has(selection.boatId))
+          .map((selection) => selection.boatName || selection.boatId)
+
+        if (unavailableSelectedBoats.length > 0) {
+          throw new Error(
+            unavailableSelectedBoats.length === 1
+              ? `${unavailableSelectedBoats[0]} is not available for the selected date/time.`
+              : `These boats are not available for the selected date/time: ${unavailableSelectedBoats.join(", ")}.`
           )
         }
+
+        const resourceSeatSelections = mapToResourceSeatSelections(
+          normalizedSeatSelection.selections
+        )
+        const platformBookingResult = await mutateInternal(
+          convex,
+          generatedInternalApi.api.v1.resourceBookingsInternal
+            .customerCheckoutInternal,
+          {
+            organizationId: organizationId as Id<"organizations">,
+            resourceId: resolvedCourse.bookingResourceId as Id<"objects">,
+            startDateTime,
+            endDateTime:
+              startDateTime + bookingDurationMinutes * 60_000,
+            timezone: bookingRuntimeConfig.timezone,
+            customer: {
+              firstName,
+              lastName: lastName || firstName,
+              email: data.formData.email,
+              phone: data.formData.phone,
+            },
+            participants: normalizedSeatSelection.totalSeats,
+            notes: data.formData.message,
+            source: "segelschule_landing",
+            seatSelections: resourceSeatSelections,
+            seatInventory: slotSeatInventory.seatInventory,
+            ...(fixtureOptions.ignoreOutsideAvailability
+              ? { ignoreOutsideAvailability: true }
+              : {}),
+          }
+        )
+
+        platformBookingId = (platformBookingResult?.bookingId ||
+          null) as Id<"objects"> | null
+        calendarDiagnostics =
+          (platformBookingResult?.calendarDiagnostics || null) as BridgeCalendarDiagnostics | null
+        if (calendarDiagnostics && !calendarDiagnostics.writeReady) {
+          pushWarningOnce(bridgeWarnings, "calendar_not_write_ready")
+        }
+        if (calendarDiagnostics && calendarDiagnostics.issues.length > 0) {
+          for (const issueCode of calendarDiagnostics.issues) {
+            pushWarningOnce(bridgeWarnings, issueCode)
+          }
+        }
+        if (fixtureOptions.ignoreOutsideAvailability) {
+          pushWarningOnce(bridgeWarnings, "fixture_outside_availability_override")
+        }
+      } catch (bridgeError) {
+        bridgeWarnings.push("resource_booking_bridge_failed")
+        resourceBookingBridgeError =
+          bridgeError instanceof Error
+            ? bridgeError.message
+            : "No availability for the selected slot"
+        console.error(
+          "[Booking Bridge] resource booking checkout failed:",
+          bridgeError
+        )
       }
     }
 
-    if (selectedCourseRuntime.bookingResourceId && !platformBookingId) {
+    if (!platformBookingId) {
       try {
         await mutateInternal(
           convex,
@@ -972,32 +1229,10 @@ export async function POST(request: Request) {
       )
     }
 
-    const checkoutProductResolution = await resolveTicketCheckoutProduct({
-      convex,
-      organizationId,
-      configuredProductId: selectedCourseRuntime.checkoutProductId,
-    })
-    bridgeWarnings.push(...checkoutProductResolution.warnings)
-    checkoutProductId = checkoutProductResolution.productId
-
     if (checkoutProductId) {
-      const checkoutProductProps = checkoutProductResolution.product?.customProperties || {}
       const checkoutQuantity = Math.max(1, normalizedSeatSelection.totalSeats)
-      const checkoutCurrencyFromProduct =
-        typeof checkoutProductProps.currency === "string"
-          ? checkoutProductProps.currency.trim().toUpperCase()
-          : ""
-      const checkoutCurrency = checkoutCurrencyFromProduct || "EUR"
-      const configuredPricePerUnit =
-        typeof checkoutProductProps.priceInCents === "number"
-          ? checkoutProductProps.priceInCents
-          : typeof checkoutProductProps.pricePerUnit === "number"
-            ? checkoutProductProps.pricePerUnit
-            : null
-      const pricePerUnit =
-        typeof configuredPricePerUnit === "number"
-          ? configuredPricePerUnit
-          : totalAmountCents / checkoutQuantity
+      const checkoutCurrency = resolvedCourse.currency || "EUR"
+      const pricePerUnit = resolvedCourse.priceInCents
 
       try {
         const createCheckoutSessionResult = (await mutateInternal(
@@ -1069,8 +1304,17 @@ export async function POST(request: Request) {
                       ? String(frontendUserId)
                       : null,
                     contactId: String(contactId),
-                    courseId: data.course.id,
-                    courseName: data.course.title,
+                    requestedCourseId: data.courseId,
+                    courseId: resolvedCourse.courseId,
+                    courseName: resolvedCourse.title,
+                    courseDescription: resolvedCourse.description,
+                    courseDurationLabel: resolvedCourse.durationLabel,
+                    courseDurationMinutes: resolvedCourse.durationMinutes,
+                    coursePriceInCents: resolvedCourse.priceInCents,
+                    courseCurrency: resolvedCourse.currency,
+                    checkoutProductId: String(checkoutProductId),
+                    bookingResourceId: resolvedCourse.bookingResourceId,
+                    fulfillmentType: resolvedCourse.fulfillmentType,
                     date: data.date,
                     time: data.time,
                     participants: normalizedSeatSelection.totalSeats,
@@ -1134,7 +1378,7 @@ export async function POST(request: Request) {
           const fallbackCheckoutUrl =
             checkoutFulfillmentResult
               ? null
-              : selectedCourseRuntime.checkoutPublicUrl || null
+              : resolvedCourse.checkoutPublicUrl || null
 
           checkoutSession = {
             sessionId: String(checkoutSessionObjectId),
@@ -1223,6 +1467,15 @@ export async function POST(request: Request) {
             checkoutFulfillmentCurrency: checkoutFulfillmentResult
               ? checkoutFulfillmentResult.currency
               : null,
+            courseId: resolvedCourse.courseId,
+            courseName: resolvedCourse.title,
+            courseDescription: resolvedCourse.description,
+            courseDurationLabel: resolvedCourse.durationLabel,
+            courseDurationMinutes: resolvedCourse.durationMinutes,
+            coursePriceInCents: resolvedCourse.priceInCents,
+            courseCurrency: resolvedCourse.currency,
+            bookingResourceId: resolvedCourse.bookingResourceId,
+            fulfillmentType: resolvedCourse.fulfillmentType,
             runtimeConfigSource: runtimeResolution.source,
             runtimeConfigBindingId: runtimeResolution.bindingId,
             runtimeSurfaceAppSlug: runtimeResolution.identity.appSlug,
@@ -1286,6 +1539,13 @@ export async function POST(request: Request) {
               checkoutFulfillmentCrmContactId: checkoutFulfillmentResult?.crmContactId
                 ? String(checkoutFulfillmentResult.crmContactId)
                 : null,
+              courseId: resolvedCourse.courseId,
+              courseName: resolvedCourse.title,
+              courseDurationMinutes: resolvedCourse.durationMinutes,
+              coursePriceInCents: resolvedCourse.priceInCents,
+              courseCurrency: resolvedCourse.currency,
+              bookingResourceId: resolvedCourse.bookingResourceId,
+              fulfillmentType: resolvedCourse.fulfillmentType,
               runtimeConfigSource: runtimeResolution.source,
               runtimeConfigBindingId: runtimeResolution.bindingId,
             },
@@ -1342,6 +1602,13 @@ export async function POST(request: Request) {
               checkoutFulfillmentPaymentId: checkoutFulfillmentResult
                 ? checkoutFulfillmentResult.paymentId
                 : null,
+              courseId: resolvedCourse.courseId,
+              courseName: resolvedCourse.title,
+              courseDurationMinutes: resolvedCourse.durationMinutes,
+              coursePriceInCents: resolvedCourse.priceInCents,
+              courseCurrency: resolvedCourse.currency,
+              bookingResourceId: resolvedCourse.bookingResourceId,
+              fulfillmentType: resolvedCourse.fulfillmentType,
               runtimeConfigSource: runtimeResolution.source,
               runtimeConfigBindingId: runtimeResolution.bindingId,
               runtimeSurfaceAppSlug: runtimeResolution.identity.appSlug,
@@ -1360,7 +1627,10 @@ export async function POST(request: Request) {
       }
     }
 
-    if (checkoutSessionObjectId && checkoutFulfillmentResult?.success) {
+    if (
+      checkoutSessionObjectId
+      && checkoutFulfillmentResult?.success
+    ) {
       try {
         const orgTickets = (await queryInternal(
           convex,
@@ -1421,8 +1691,16 @@ export async function POST(request: Request) {
             sourceFrontendUserId: frontendUserId
               ? String(frontendUserId)
               : null,
-            bookingCourseId: data.course.id,
-            bookingCourseName: data.course.title,
+            bookingCourseId: resolvedCourse.courseId,
+            bookingCourseName: resolvedCourse.title,
+            bookingCourseDescription: resolvedCourse.description,
+            bookingCourseDurationLabel: resolvedCourse.durationLabel,
+            bookingCourseDurationMinutes: resolvedCourse.durationMinutes,
+            bookingCoursePriceInCents: resolvedCourse.priceInCents,
+            bookingCourseCurrency: resolvedCourse.currency,
+            bookingCheckoutProductId: String(checkoutProductId),
+            bookingResourceId: resolvedCourse.bookingResourceId,
+            bookingFulfillmentType: resolvedCourse.fulfillmentType,
             bookingDate: data.date,
             bookingTime: data.time,
             bookingTotalSeats: normalizedSeatSelection.totalSeats,
@@ -1596,6 +1874,9 @@ export async function POST(request: Request) {
       pdfUrl: string | null
       attachmentReady: boolean
     } | null = null
+    let linkedTransactions: RouteTransactionRecord[] = []
+    let primaryTransaction: RouteTransactionRecord | null = null
+    let workflowDispatch: BookingWorkflowDispatchResult | null = null
     let confirmationEmailAttachments:
       | Array<{ filename: string; content: string; contentType: string }>
       | undefined
@@ -1711,26 +1992,166 @@ export async function POST(request: Request) {
       }
     }
 
+    if (checkoutSessionObjectId && checkoutFulfillmentResult?.success) {
+      try {
+        const orgTransactions = (await queryInternal(
+          convex,
+          generatedInternalApi.channels.router.listObjectsByOrgTypeInternal,
+          {
+            organizationId: organizationId as Id<"organizations">,
+            type: "transaction",
+          }
+        )) as RouteTransactionRecord[]
+
+        linkedTransactions = orgTransactions
+          .filter((transaction) => {
+            const transactionProps = asRecord(transaction.customProperties)
+            return (
+              String(transactionProps.checkoutSessionId || "")
+              === String(checkoutSessionObjectId)
+            )
+          })
+          .sort(
+            (left, right) =>
+              Number(right.updatedAt || right.createdAt || 0)
+              - Number(left.updatedAt || left.createdAt || 0)
+          )
+        primaryTransaction = linkedTransactions[0] || null
+
+        if (linkedTransactions.length === 0) {
+          pushWarningOnce(bridgeWarnings, "checkout_transactions_missing")
+        } else {
+          const transactionIds = linkedTransactions.map((transaction) =>
+            String(transaction._id)
+          )
+          const primaryTransactionId = String(primaryTransaction!._id)
+          const transactionLinkageProps = {
+            transactionIds,
+            primaryTransactionId,
+            primaryTransactionStatus: primaryTransaction?.status || null,
+            primaryTransactionSubtype: primaryTransaction?.subtype || null,
+          }
+
+          for (const targetObjectId of [
+            bookingId,
+            platformBookingId,
+            checkoutSessionObjectId,
+            ...ticketContexts.map((ticket) => ticket.ticketId as Id<"objects">),
+          ]) {
+            if (!targetObjectId) {
+              continue
+            }
+
+            try {
+              await mergeObjectCustomProperties({
+                convex,
+                objectId: targetObjectId as Id<"objects">,
+                additions: transactionLinkageProps,
+              })
+            } catch (error) {
+              pushWarningOnce(bridgeWarnings, "transaction_context_link_failed")
+              console.error(
+                "[Booking Bridge] transaction context link failed:",
+                targetObjectId,
+                error
+              )
+            }
+          }
+        }
+      } catch (transactionError) {
+        pushWarningOnce(bridgeWarnings, "transaction_verification_failed")
+        console.error(
+          "[Booking Bridge] transaction verification failed:",
+          transactionError
+        )
+      }
+
+      if (emailExecutionResolution.authorized !== true) {
+        try {
+          workflowDispatch = (await actionInternal(
+            convex,
+            generatedInternalApi.bookingWorkflowAutomation
+              .dispatchBookingCreatedLayerWorkflows,
+            {
+              organizationId: organizationId as Id<"organizations">,
+              bookingId,
+              checkoutSessionId: checkoutSessionObjectId,
+              transactionIds: linkedTransactions.map((transaction) => transaction._id),
+              ticketIds: ticketContexts.map((ticket) => ticket.ticketId as Id<"objects">),
+              contactId,
+              ...(platformBookingId ? { platformBookingId } : {}),
+              ...(frontendUserId ? { frontendUserId } : {}),
+              paymentMethod: data.paymentMethod || "invoice",
+              ...(invoiceSummary?.invoiceId
+                ? { invoiceId: invoiceSummary.invoiceId as Id<"objects"> }
+                : {}),
+              source: "segelschule_landing_booking",
+            }
+          )) as BookingWorkflowDispatchResult
+        } catch (workflowError) {
+          pushWarningOnce(bridgeWarnings, "booking_created_workflow_dispatch_failed")
+          console.error(
+            "[Booking Bridge] booking created workflow dispatch failed:",
+            workflowError
+          )
+        }
+      }
+    }
+
     // -----------------------------------------------------------------
     // Emails (non-fatal, parallel)
     // -----------------------------------------------------------------
-    const emailPromises: Promise<unknown>[] = []
+    const useWorkflowDrivenNotifications =
+      emailExecutionResolution.authorized !== true
+      && workflowDispatch?.ok === true
+      && workflowDispatch.dispatchedWorkflows > 0
+    const emailPromises: Promise<BookingEmailDeliveryRecord | null>[] = []
+    const sentEmailDeliveries: BookingEmailDeliveryRecord[] = []
 
-    const fromEmail =
-      process.env.BOOKING_FROM_EMAIL?.trim() ||
-      "Segelschule Altwarp <noreply@segelschule-altwarp.de>"
+    const senderProfile = await resolveBookingEmailSenderProfile(
+      convex,
+      organizationId
+    )
+    const fromEmail = senderProfile.fromEmail
+    const primaryTransactionProps = asRecord(primaryTransaction?.customProperties)
+    const primaryTransactionLineItems = Array.isArray(primaryTransactionProps.lineItems)
+      ? (primaryTransactionProps.lineItems as RouteTransactionLineItem[])
+      : []
+    const primaryTransactionLineItem = primaryTransactionLineItems[0] || null
+    const commercialCurrency =
+      normalizeOptionalString(primaryTransactionProps.currency)
+      || resolvedCourse.currency
+    const commercialTotalAmountCents =
+      normalizeNumber(primaryTransactionProps.totalInCents)
+      || totalAmountCents
+    const commercialCourseName =
+      normalizeOptionalString(primaryTransactionLineItem?.productName)
+      || resolvedCourse.title
+    const primaryLineItemTotalInCents =
+      normalizeNumber(primaryTransactionLineItem?.totalPriceInCents)
+    const primaryLineItemQuantity =
+      normalizeNumber(primaryTransactionLineItem?.quantity)
+    const commercialUnitPriceInCents =
+      primaryLineItemTotalInCents && primaryLineItemQuantity && primaryLineItemQuantity > 0
+        ? Math.round(primaryLineItemTotalInCents / primaryLineItemQuantity)
+        : resolvedCourse.priceInCents
+    const commercialCoursePriceDisplay = formatCurrencyAmount({
+      amountInCents: commercialUnitPriceInCents,
+      currency: commercialCurrency,
+      language: data.language,
+    })
 
     const emailData: BookingEmailData = {
       customerName: data.formData.name,
       customerEmail: data.formData.email,
       customerPhone: data.formData.phone,
-      courseName: data.course.title,
-      coursePrice: data.course.price,
+      courseName: commercialCourseName,
+      coursePrice: commercialCoursePriceDisplay,
       date: data.date,
       time: data.time,
       seats: normalizedSeatSelection.selections,
       totalSeats: normalizedSeatSelection.totalSeats,
-      totalAmount: data.totalAmount,
+      totalAmount: commercialTotalAmountCents / 100,
       tshirtSize: data.formData.tshirtSize,
       needsAccommodation: data.formData.needsAccommodation,
       message: data.formData.message,
@@ -1740,14 +2161,18 @@ export async function POST(request: Request) {
       ticketCode: primaryTicketContext?.ticketCode || undefined,
       ticketLookupUrl: primaryTicketContext?.lookupUrl || undefined,
       invoiceAttachmentIncluded: Boolean(confirmationEmailAttachments?.length),
+      bookingStatusLabel:
+        data.paymentMethod === "invoice"
+          ? "Invoice issued - payment pending on site"
+          : "Pending Confirmation",
     }
     const confirmationSubject =
       data.language === "de"
-        ? `Buchungsbest\u00e4tigung - ${data.course.title}`
+        ? `Buchungsbest\u00e4tigung - ${commercialCourseName}`
         : data.language === "nl"
-          ? `Boekingsbevestiging - ${data.course.title}`
-          : `Booking Confirmation - ${data.course.title}`
-    const operatorNotificationSubject = `New Booking: ${escapeHtml(data.formData.name)} - ${data.course.title}`
+          ? `Boekingsbevestiging - ${commercialCourseName}`
+          : `Booking Confirmation - ${commercialCourseName}`
+    const operatorNotificationSubject = `New Booking: ${escapeHtml(data.formData.name)} - ${commercialCourseName}`
     const confirmationHtml = buildBookingConfirmationHtml(emailData)
     const notificationHtml = buildBookingNotificationHtml(emailData)
     const confirmationRecipients = resolveBookingEmailRecipients({
@@ -1761,113 +2186,182 @@ export async function POST(request: Request) {
       mode: emailExecutionControl.mode,
     })
 
-    if (
-      emailExecutionControl.capturePreviews
-      && confirmationRecipients.length > 0
-    ) {
-      capturedEmailPreviews.push({
-        kind: "customer_confirmation",
-        to: confirmationRecipients,
-        subject: confirmationSubject,
-        html: confirmationHtml,
-        attachments: summarizeBookingEmailAttachments(
-          confirmationEmailAttachments
-        ),
-      })
-    }
+    if (!useWorkflowDrivenNotifications) {
+      if (
+        emailExecutionControl.capturePreviews
+        && confirmationRecipients.length > 0
+      ) {
+        capturedEmailPreviews.push({
+          kind: "customer_confirmation",
+          to: confirmationRecipients,
+          subject: confirmationSubject,
+          html: confirmationHtml,
+          attachments: summarizeBookingEmailAttachments(
+            confirmationEmailAttachments
+          ),
+        })
+      }
 
-    if (
-      emailExecutionControl.capturePreviews
-      && operatorNotificationRecipients.length > 0
-    ) {
-      capturedEmailPreviews.push({
-        kind: "operator_notification",
-        to: operatorNotificationRecipients,
-        subject: operatorNotificationSubject,
-        html: notificationHtml,
-        attachments: [],
-      })
-    }
+      if (
+        emailExecutionControl.capturePreviews
+        && operatorNotificationRecipients.length > 0
+      ) {
+        capturedEmailPreviews.push({
+          kind: "operator_notification",
+          to: operatorNotificationRecipients,
+          subject: operatorNotificationSubject,
+          html: notificationHtml,
+          attachments: [],
+        })
+      }
 
-    // Booking confirmation to customer
-    if (
-      resendApiKey
-      && emailExecutionControl.mode !== "capture"
-      && confirmationRecipients.length > 0
-    ) {
-      emailPromises.push(
-        (async () => {
-          try {
-            const resend = createResendClient(resendApiKey!)
-            await resend.emails.send({
-              from: fromEmail,
-              to: confirmationRecipients.length === 1
-                ? confirmationRecipients[0]
-                : confirmationRecipients,
+      // Booking confirmation to customer
+      if (
+        resendApiKey
+        && emailExecutionControl.mode !== "capture"
+        && confirmationRecipients.length > 0
+      ) {
+        emailPromises.push(
+          (async () => {
+            try {
+              const resend = createResendClient(resendApiKey!)
+              const sendResult = await resend.emails.send({
+                from: fromEmail,
+                to: confirmationRecipients.length === 1
+                  ? confirmationRecipients[0]
+                  : confirmationRecipients,
+                subject: confirmationSubject,
+                html: confirmationHtml,
+                ...(confirmationEmailAttachments
+                  ? { attachments: confirmationEmailAttachments }
+                  : {}),
+                ...(senderProfile.replyToEmail
+                  ? { replyTo: senderProfile.replyToEmail }
+                  : {}),
+                headers: {
+                  "X-Entity-Ref-ID": `booking-confirm-${Date.now()}`,
+                },
+              })
+              const resendError = extractResendErrorMessage(sendResult)
+              if (resendError) {
+                throw new Error(resendError)
+              }
+
+              return {
+                kind: "customer_confirmation" as const,
+                to: confirmationRecipients,
+                subject: confirmationSubject,
+                transport: "resend_direct" as const,
+                success: true,
+                messageId: extractResendMessageId(sendResult),
+                error: null,
+              }
+            } catch (err) {
+              console.error("[Booking] Direct confirmation email failed, trying fallback:", err)
+              if (
+                emailExecutionControl.mode !== "live"
+                || !checkoutSessionObjectId
+              ) {
+                throw err
+              }
+
+              const fallbackResult = await actionInternal(
+                convex,
+                generatedInternalApi.ticketGeneration.sendOrderConfirmationEmail,
+                {
+                  checkoutSessionId: checkoutSessionObjectId,
+                  recipientEmail: confirmationRecipients[0] || data.formData.email,
+                  recipientName: data.formData.name,
+                  includeInvoicePDF:
+                    Boolean(invoiceSummary)
+                    && invoiceSummary?.type !== "none"
+                    && invoiceSummary?.type !== "employer",
+                }
+              )
+              const success = fallbackResult?.success !== false
+              return {
+                kind: "customer_confirmation" as const,
+                to: confirmationRecipients,
+                subject: confirmationSubject,
+                transport: "ticket_generation_fallback" as const,
+                success,
+                messageId: normalizeOptionalString(fallbackResult?.emailId),
+                error: success
+                  ? null
+                  : normalizeOptionalString(fallbackResult?.error)
+                    || normalizeErrorMessage(err),
+              }
+            }
+          })().catch((err) => {
+            console.error("[Booking] Confirmation email failed:", err)
+            return {
+              kind: "customer_confirmation" as const,
+              to: confirmationRecipients,
               subject: confirmationSubject,
-              html: confirmationHtml,
-              ...(confirmationEmailAttachments
-                ? { attachments: confirmationEmailAttachments }
-                : {}),
+              transport: "resend_direct" as const,
+              success: false,
+              messageId: null,
+              error: normalizeErrorMessage(err),
+            }
+          })
+        )
+      }
+
+      // Booking notification to team
+      if (
+        resendApiKey
+        && emailExecutionControl.mode !== "capture"
+        && operatorNotificationRecipients.length > 0
+      ) {
+        emailPromises.push(
+          (async () => {
+            const resend = createResendClient(resendApiKey!)
+            const sendResult = await resend.emails.send({
+              from: fromEmail,
+              to: operatorNotificationRecipients,
+              replyTo: data.formData.email || senderProfile.replyToEmail || undefined,
+              subject: operatorNotificationSubject,
+              html: notificationHtml,
               headers: {
-                "X-Entity-Ref-ID": `booking-confirm-${Date.now()}`,
+                "X-Entity-Ref-ID": `booking-notify-${Date.now()}`,
               },
             })
-          } catch (err) {
-            console.error("[Booking] Direct confirmation email failed, trying fallback:", err)
-            if (
-              emailExecutionControl.mode !== "live"
-              || !checkoutSessionObjectId
-            ) {
-              throw err
+            const resendError = extractResendErrorMessage(sendResult)
+            if (resendError) {
+              throw new Error(resendError)
             }
 
-            await actionInternal(
-              convex,
-              generatedInternalApi.ticketGeneration.sendOrderConfirmationEmail,
-              {
-                checkoutSessionId: checkoutSessionObjectId,
-                recipientEmail: confirmationRecipients[0] || data.formData.email,
-                recipientName: data.formData.name,
-                includeInvoicePDF:
-                  Boolean(invoiceSummary)
-                  && invoiceSummary?.type !== "none"
-                  && invoiceSummary?.type !== "employer",
-              }
-            )
-          }
-        })().catch((err) =>
-          console.error("[Booking] Confirmation email failed:", err)
-        )
-      )
-    }
-
-    // Booking notification to team
-    if (
-      resendApiKey
-      && emailExecutionControl.mode !== "capture"
-      && operatorNotificationRecipients.length > 0
-    ) {
-      emailPromises.push(
-        (async () => {
-          const resend = createResendClient(resendApiKey!)
-          await resend.emails.send({
-            from: fromEmail,
-            to: operatorNotificationRecipients,
-            replyTo: data.formData.email,
-            subject: operatorNotificationSubject,
-            html: notificationHtml,
-            headers: {
-              "X-Entity-Ref-ID": `booking-notify-${Date.now()}`,
-            },
+            return {
+              kind: "operator_notification" as const,
+              to: operatorNotificationRecipients,
+              subject: operatorNotificationSubject,
+              transport: "resend_direct" as const,
+              success: true,
+              messageId: extractResendMessageId(sendResult),
+              error: null,
+            }
+          })().catch((err) => {
+            console.error("[Booking] Notification email failed:", err)
+            return {
+              kind: "operator_notification" as const,
+              to: operatorNotificationRecipients,
+              subject: operatorNotificationSubject,
+              transport: "resend_direct" as const,
+              success: false,
+              messageId: null,
+              error: normalizeErrorMessage(err),
+            }
           })
-        })().catch((err) =>
-          console.error("[Booking] Notification email failed:", err)
         )
-      )
+      }
     }
 
-    await Promise.all(emailPromises)
+    const emailResults = await Promise.all(emailPromises)
+    for (const result of emailResults) {
+      if (result) {
+        sentEmailDeliveries.push(result)
+      }
+    }
 
     return NextResponse.json(
       {
@@ -1877,10 +2371,29 @@ export async function POST(request: Request) {
         frontendUserId,
         platformBookingId,
         checkoutProductId,
+        course: {
+          requestedCourseId: data.courseId,
+          courseId: resolvedCourse.courseId,
+          title: resolvedCourse.title,
+          description: resolvedCourse.description,
+          durationLabel: resolvedCourse.durationLabel,
+          durationMinutes: resolvedCourse.durationMinutes,
+          priceInCents: resolvedCourse.priceInCents,
+          currency: resolvedCourse.currency,
+          isMultiDay: resolvedCourse.isMultiDay,
+          bookingResourceId: resolvedCourse.bookingResourceId,
+          fulfillmentType: resolvedCourse.fulfillmentType,
+        },
         checkoutSession,
         ticket: primaryTicketContext,
         tickets: ticketContexts,
+        transactions: linkedTransactions.map((transaction) => ({
+          transactionId: String(transaction._id),
+          status: transaction.status || null,
+          subtype: transaction.subtype || null,
+        })),
         invoice: invoiceSummary,
+        workflowDispatch,
         checkoutFulfillment: checkoutFulfillmentResult
           ? {
             success: checkoutFulfillmentResult.success,
@@ -1909,7 +2422,11 @@ export async function POST(request: Request) {
                 capturePreviews: emailExecutionControl.capturePreviews,
                 fixtureKey: emailExecutionControl.fixtureKey,
                 fixtureLabel: emailExecutionControl.fixtureLabel,
+                fromEmail,
+                defaultReplyTo: senderProfile.replyToEmail,
+                senderSource: senderProfile.source,
                 previews: capturedEmailPreviews,
+                deliveries: sentEmailDeliveries,
               },
             }
           : {}),

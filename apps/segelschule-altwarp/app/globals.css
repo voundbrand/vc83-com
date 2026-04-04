@@ -86,7 +86,7 @@
   --font-sans: var(--font-montserrat), "Montserrat", system-ui, -apple-system, sans-serif;
   --font-serif: var(--font-montserrat), "Montserrat", system-ui, sans-serif;
   --font-script: var(--font-romantica), cursive;
-  --font-mono: "Geist Mono", "Geist Mono Fallback";
+  --font-mono: var(--font-geist-mono), "Geist Mono", "Geist Mono Fallback", ui-monospace, monospace;
   /* Sand color for accent backgrounds */
   --color-sand: #E2C786;
   --color-background: var(--background);

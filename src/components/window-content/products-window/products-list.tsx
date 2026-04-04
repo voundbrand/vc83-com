@@ -1,9 +1,12 @@
 "use client";
 
+import Link from "next/link";
 import { useQuery, useMutation } from "convex/react";
-import { api } from "../../../../convex/_generated/api";
+// Dynamic require avoids TS2589 deep type instantiation from generated API type expansion.
+// eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
+const { api } = require("../../../../convex/_generated/api") as { api: any };
 import { Id } from "../../../../convex/_generated/dataModel";
-import { Edit2, Trash2, CheckCircle, Loader2, Copy, Archive, RotateCcw, ChevronDown, ChevronUp } from "lucide-react";
+import { Edit2, Trash2, CheckCircle, Loader2, Copy, Archive, RotateCcw, ChevronDown, ChevronUp, Clock3 } from "lucide-react";
 import { useState } from "react";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 
@@ -11,6 +14,21 @@ interface ProductsListProps {
   sessionId: string;
   organizationId: Id<"organizations">;
   onEdit: (productId: Id<"objects">) => void;
+}
+
+interface ProductListRecord {
+  _id: Id<"objects">;
+  name?: string | null;
+  description?: string | null;
+  subtype?: string | null;
+  status?: string | null;
+  customProperties?: {
+    price?: number;
+    currency?: string;
+    inventory?: number | null;
+    sold?: number;
+    [key: string]: unknown;
+  } | null;
 }
 
 export function ProductsList({ sessionId, organizationId, onEdit }: ProductsListProps) {
@@ -23,7 +41,7 @@ export function ProductsList({ sessionId, organizationId, onEdit }: ProductsList
     sessionId,
     organizationId,
     ...filter,
-  });
+  }) as ProductListRecord[] | undefined;
 
   const archiveProduct = useMutation(api.productOntology.archiveProduct);
   const restoreProduct = useMutation(api.productOntology.restoreProduct);
@@ -123,11 +141,11 @@ export function ProductsList({ sessionId, organizationId, onEdit }: ProductsList
   }
 
   // Separate active and archived products
-  const activeProducts = products.filter(p => p.status !== "archived");
-  const archivedProducts = products.filter(p => p.status === "archived");
+  const activeProducts = products.filter((p) => p.status !== "archived");
+  const archivedProducts = products.filter((p) => p.status === "archived");
 
   // Apply filters to active products only (archived shown separately)
-  const filteredActiveProducts = activeProducts.filter(p => {
+  const filteredActiveProducts = activeProducts.filter((p) => {
     if (filter.subtype && p.subtype !== filter.subtype) return false;
     if (filter.status && p.status !== filter.status) return false;
     return true;
@@ -145,16 +163,24 @@ export function ProductsList({ sessionId, organizationId, onEdit }: ProductsList
     );
   }
 
-  const renderProductCard = (product: typeof products[0], isArchived: boolean = false) => (
-    <div
-      key={product._id}
-      className="border-2 p-4"
-      style={{
-        borderColor: isArchived ? "var(--warning)" : "var(--shell-border)",
-        background: isArchived ? "rgba(245, 158, 11, 0.05)" : "var(--shell-surface-elevated)",
-        opacity: isArchived ? 0.8 : 1,
-      }}
-    >
+  const renderProductCard = (product: ProductListRecord, isArchived: boolean = false) => {
+    const explicitAvailabilityResourceId =
+      typeof product.customProperties?.availabilityResourceId === "string" &&
+      product.customProperties.availabilityResourceId.length > 0
+        ? product.customProperties.availabilityResourceId
+        : null;
+    const availabilityResourceId = explicitAvailabilityResourceId || product._id;
+
+    return (
+      <div
+        key={product._id}
+        className="border-2 p-4"
+        style={{
+          borderColor: isArchived ? "var(--warning)" : "var(--shell-border)",
+          background: isArchived ? "rgba(245, 158, 11, 0.05)" : "var(--shell-surface-elevated)",
+          opacity: isArchived ? 0.8 : 1,
+        }}
+      >
       {/* Header */}
       <div className="flex items-start justify-between mb-3">
         <div className="flex-1">
@@ -238,6 +264,19 @@ export function ProductsList({ sessionId, organizationId, onEdit }: ProductsList
         ) : (
           // Active product actions: Edit, Publish, Duplicate, Archive
           <>
+            <Link
+              href={`/booking?resourceId=${availabilityResourceId}`}
+              className="px-2 py-1.5 text-xs font-bold flex items-center justify-center border-2 transition-colors hover:brightness-95"
+              style={{
+                borderColor: "var(--shell-border)",
+                background: "var(--shell-button-surface)",
+                color: "var(--shell-text)",
+              }}
+              title={t("ui.products.list.button.manageAvailability") || "Manage Availability"}
+            >
+              <Clock3 size={12} />
+            </Link>
+
             <button
               onClick={() => onEdit(product._id)}
               className="px-2 py-1.5 text-xs font-bold flex items-center justify-center border-2 transition-colors hover:brightness-95"
@@ -295,8 +334,9 @@ export function ProductsList({ sessionId, organizationId, onEdit }: ProductsList
           </>
         )}
       </div>
-    </div>
-  );
+      </div>
+    );
+  };
 
   return (
     <div className="p-4">

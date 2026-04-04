@@ -48,6 +48,7 @@ const RESOURCE_ID = "objects_resource_availability" as any
 
 const successMock = vi.fn()
 const errorMock = vi.fn()
+const createProductMock = vi.fn()
 const setWeeklyScheduleMock = vi.fn()
 const updateProductMock = vi.fn()
 const createExceptionMock = vi.fn()
@@ -56,6 +57,7 @@ const deleteExceptionMock = vi.fn()
 const createBlockMock = vi.fn()
 const updateBlockMock = vi.fn()
 const deleteBlockMock = vi.fn()
+const archiveProductMock = vi.fn()
 
 const PRODUCTS = [
   {
@@ -97,10 +99,10 @@ let availabilitySnapshot: {
   blocks: Array<Record<string, unknown>>
 }
 
-function renderResourceAvailability() {
+function renderResourceAvailability(selectedResourceId: any = RESOURCE_ID) {
   return render(
     React.createElement(ResourceAvailability, {
-      selectedResourceId: RESOURCE_ID,
+      selectedResourceId,
       onSelectResource: vi.fn(),
     })
   )
@@ -149,6 +151,7 @@ describe("ResourceAvailability override and blackout editor", () => {
       info: vi.fn(),
     } as any)
 
+    createProductMock.mockResolvedValue("objects_resource_new")
     setWeeklyScheduleMock.mockResolvedValue({ scheduleIds: [] })
     updateProductMock.mockResolvedValue({ success: true })
     createExceptionMock.mockResolvedValue({ exceptionId: "objects_exception_new" })
@@ -157,6 +160,8 @@ describe("ResourceAvailability override and blackout editor", () => {
     createBlockMock.mockResolvedValue({ blockId: "objects_block_new" })
     updateBlockMock.mockResolvedValue({ blockId: "objects_block_existing" })
     deleteBlockMock.mockResolvedValue({ success: true })
+    archiveProductMock.mockResolvedValue({ success: true })
+    vi.spyOn(window, "confirm").mockReturnValue(true)
 
     useQueryMock.mockImplementation((_queryRef, args) => {
       if (args === "skip") {
@@ -171,22 +176,40 @@ describe("ResourceAvailability override and blackout editor", () => {
       return undefined
     })
 
-    let mutationIndex = 0
-    const orderedMutations = [
-      setWeeklyScheduleMock,
-      updateProductMock,
-      createExceptionMock,
-      updateExceptionMock,
-      deleteExceptionMock,
-      createBlockMock,
-      updateBlockMock,
-      deleteBlockMock,
-    ]
-
     useMutationMock.mockImplementation(() => {
-      const nextMutation = orderedMutations[mutationIndex % orderedMutations.length] || vi.fn()
-      mutationIndex += 1
-      return nextMutation
+      return async (args: Record<string, unknown>) => {
+        if ("organizationId" in args && "subtype" in args && "price" in args) {
+          return createProductMock(args)
+        }
+        if ("resourceId" in args && "schedules" in args) {
+          return setWeeklyScheduleMock(args)
+        }
+        if ("productId" in args && (Object.keys(args).length > 2 || "customProperties" in args || "name" in args)) {
+          return updateProductMock(args)
+        }
+        if ("exceptionId" in args && Object.keys(args).length === 2) {
+          return deleteExceptionMock(args)
+        }
+        if ("exceptionId" in args) {
+          return updateExceptionMock(args)
+        }
+        if ("blockId" in args && Object.keys(args).length === 2) {
+          return deleteBlockMock(args)
+        }
+        if ("blockId" in args) {
+          return updateBlockMock(args)
+        }
+        if ("resourceId" in args && "date" in args) {
+          return createExceptionMock(args)
+        }
+        if ("resourceId" in args && "startDate" in args && "endDate" in args) {
+          return createBlockMock(args)
+        }
+        if ("productId" in args) {
+          return archiveProductMock(args)
+        }
+        return undefined
+      }
     })
   })
 
@@ -201,6 +224,40 @@ describe("ResourceAvailability override and blackout editor", () => {
     expect(screen.getByDisplayValue("2026-04-11")).toBeTruthy()
     expect(screen.getByDisplayValue("2026-04-13")).toBeTruthy()
     expect(screen.getByDisplayValue("Maintenance")).toBeTruthy()
+  })
+
+  it("renders backend-discovered carriers without client-side subtype filtering", () => {
+    const emptyAvailabilitySnapshot = {
+      schedules: [],
+      exceptions: [],
+      blocks: [],
+    }
+
+    useQueryMock.mockImplementation((_queryRef, args) => {
+      if (args === "skip") {
+        return undefined
+      }
+      if (args && typeof args === "object" && "organizationId" in args) {
+        return [
+          {
+            _id: "objects_legacy_carrier",
+            name: "Legacy Carrier",
+            subtype: "digital",
+            status: "active",
+            customProperties: {},
+          },
+        ]
+      }
+      if (args && typeof args === "object" && "resourceId" in args) {
+        return emptyAvailabilitySnapshot
+      }
+      return undefined
+    })
+
+    renderResourceAvailability(null)
+
+    expect(screen.getByText("Legacy Carrier")).toBeTruthy()
+    expect(screen.queryByText("No bookable resources found")).toBeNull()
   })
 
   it("creates overrides and same-day blackout windows with UTC day timestamps", async () => {
@@ -298,6 +355,67 @@ describe("ResourceAvailability override and blackout editor", () => {
             bufferAfter: 15,
           },
         },
+      })
+    })
+  })
+
+  it("creates a new resource inline from the availability screen", async () => {
+    renderResourceAvailability(null)
+
+    fireEvent.click(screen.getByRole("button", { name: "Create resource" }))
+    fireEvent.change(screen.getByLabelText("Resource name"), {
+      target: { value: "Boat Shed" },
+    })
+    fireEvent.change(screen.getByLabelText("Resource type"), {
+      target: { value: "space" },
+    })
+    fireEvent.click(screen.getByRole("button", { name: "Create resource" }))
+
+    await waitFor(() => {
+      expect(createProductMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          sessionId: SESSION_ID,
+          organizationId: ORGANIZATION_ID,
+          subtype: "space",
+          name: "Boat Shed",
+          price: 0,
+          currency: "EUR",
+          customProperties: expect.objectContaining({
+            availabilityStructure: "resource_time_slot",
+            timezone: expect.any(String),
+            minDuration: 60,
+            slotIncrement: 60,
+            bufferAfter: 0,
+          }),
+        })
+      )
+    })
+  })
+
+  it("renames and archives the selected resource inline", async () => {
+    renderResourceAvailability()
+
+    fireEvent.change(screen.getByLabelText("Resource name"), {
+      target: { value: "Harbor Deck" },
+    })
+    fireEvent.click(screen.getByRole("button", { name: "Save Changes" }))
+
+    await waitFor(() => {
+      expect(updateProductMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          sessionId: SESSION_ID,
+          productId: RESOURCE_ID,
+          name: "Harbor Deck",
+        })
+      )
+    })
+
+    fireEvent.click(screen.getByRole("button", { name: "Archive Resource" }))
+
+    await waitFor(() => {
+      expect(archiveProductMock).toHaveBeenCalledWith({
+        sessionId: SESSION_ID,
+        productId: RESOURCE_ID,
       })
     })
   })

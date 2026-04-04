@@ -1,31 +1,73 @@
 "use client"
 
-import { Suspense, useState, useEffect, useMemo, useCallback } from "react"
-import { useSearchParams } from "next/navigation"
+import { Suspense, useState, useEffect, useMemo, useCallback, useRef } from "react"
+import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import { translations } from "@/lib/translations"
 import { useLanguage } from "@/lib/language-context"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Calendar } from "@/components/ui/calendar"
-import { CheckCircle2, Sparkles, Anchor, Users, Phone, MessageCircle, Loader2 } from "lucide-react"
+import {
+  CheckCircle2,
+  Sparkles,
+  Anchor,
+  Users,
+  Phone,
+  MessageCircle,
+  Loader2,
+} from "lucide-react"
 import { format } from "date-fns"
 import { de, enUS, nl } from "date-fns/locale"
 import { useToast } from "@/hooks/use-toast"
 import { Toaster } from "@/components/ui/toaster"
 import { WaveDivider } from "@/components/wave-divider"
 
-// Boat seat types
 type SeatStatus = "available" | "booked" | "selected"
 
 interface Boat {
   id: string
   name: string
   seats: SeatStatus[]
+}
+
+interface BookingCatalogBoatPayload {
+  id: string
+  name: string
+  seatCount: number
+}
+
+interface BookingCatalogCoursePayload {
+  courseId: string
+  aliases?: string[]
+  title: string
+  description?: string | null
+  durationLabel?: string | null
+  durationMinutes: number
+  priceInCents: number
+  currency: string
+  isMultiDay: boolean
+  checkoutProductId?: string | null
+  bookingResourceId?: string | null
+  fulfillmentType?: string | null
+  warnings?: string[]
+}
+
+interface BookingCatalogApiPayload {
+  error?: string
+  courses?: BookingCatalogCoursePayload[]
+  boats?: BookingCatalogBoatPayload[]
+  warnings?: string[]
 }
 
 interface BookingCheckoutSessionPayload {
@@ -52,6 +94,9 @@ interface BookingApiSuccessPayload {
   tickets?: BookingTicketContextPayload[]
   checkoutFulfillment?: BookingCheckoutFulfillmentPayload | null
   warnings?: string[]
+  course?: {
+    courseId?: string | null
+  } | null
 }
 
 interface AvailabilityTimeSlotPayload {
@@ -74,14 +119,80 @@ interface AvailabilityBoatPayload {
 
 interface BookingAvailabilityApiPayload {
   error?: string
+  courseId?: string
   availableTimes?: AvailabilityTimeSlotPayload[]
   selectedBoatAvailability?: AvailabilityBoatPayload[] | null
 }
 
 const DEFAULT_BOATS: Boat[] = [
-  { id: "fraukje", name: "Fraukje", seats: ["available", "available", "available", "available"] },
-  { id: "rose", name: "Rose", seats: ["available", "available", "available", "available"] },
+  {
+    id: "fraukje",
+    name: "Fraukje",
+    seats: ["available", "available", "available", "available"],
+  },
+  {
+    id: "rose",
+    name: "Rose",
+    seats: ["available", "available", "available", "available"],
+  },
 ]
+
+function resolveLocale(language: string) {
+  if (language === "de" || language === "ch") {
+    return "de-DE"
+  }
+  if (language === "nl") {
+    return "nl-NL"
+  }
+  return "en-US"
+}
+
+function formatCurrencyAmount(args: {
+  amountInCents: number
+  currency: string
+  language: string
+}): string {
+  try {
+    return new Intl.NumberFormat(resolveLocale(args.language), {
+      style: "currency",
+      currency: args.currency || "EUR",
+    }).format(args.amountInCents / 100)
+  } catch {
+    return `${args.currency || "EUR"} ${(args.amountInCents / 100).toFixed(2)}`
+  }
+}
+
+function resolveCourseDurationLabel(
+  course: BookingCatalogCoursePayload | null
+): string {
+  if (course?.durationLabel && course.durationLabel.trim().length > 0) {
+    return course.durationLabel
+  }
+  if (!course || !Number.isFinite(course.durationMinutes) || course.durationMinutes <= 0) {
+    return ""
+  }
+  if (course.durationMinutes % 60 === 0) {
+    return `${course.durationMinutes / 60} h`
+  }
+  return `${course.durationMinutes} min`
+}
+
+function buildBoatState(
+  boats: BookingCatalogBoatPayload[] | null | undefined
+): Boat[] {
+  if (!Array.isArray(boats) || boats.length === 0) {
+    return DEFAULT_BOATS
+  }
+
+  return boats.map((boat) => ({
+    id: boat.id,
+    name: boat.name,
+    seats: Array.from(
+      { length: Math.max(boat.seatCount, 1) },
+      () => "available" as const
+    ),
+  }))
+}
 
 function toBoatState(
   boats: AvailabilityBoatPayload[],
@@ -99,7 +210,8 @@ function toBoatState(
   }
 
   return boats.map((boatPayload) => {
-    const selectedSeats = previousSelectedSeats.get(boatPayload.boatId) || new Set<number>()
+    const selectedSeats =
+      previousSelectedSeats.get(boatPayload.boatId) || new Set<number>()
     const seats: SeatStatus[] = boatPayload.seats.map((seat) => {
       if (seat.status === "booked") {
         return "booked"
@@ -114,39 +226,110 @@ function toBoatState(
   })
 }
 
-// Boat Seat Component
+function findCatalogCourse(
+  courses: BookingCatalogCoursePayload[],
+  requestedCourseId: string | null
+): BookingCatalogCoursePayload | null {
+  if (!requestedCourseId) {
+    return null
+  }
+
+  return (
+    courses.find(
+      (course) =>
+        course.courseId === requestedCourseId
+        || (Array.isArray(course.aliases) && course.aliases.includes(requestedCourseId))
+    ) || null
+  )
+}
+
+function SelectedCourseCard({
+  course,
+  language,
+  changeLabel,
+  onChange,
+}: {
+  course: BookingCatalogCoursePayload
+  language: string
+  changeLabel: string
+  onChange: () => void
+}) {
+  return (
+    <Card className="mb-6 border-primary/20 bg-primary/5">
+      <CardContent className="pt-5">
+        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+          <div className="space-y-1">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary/70">
+              Active course
+            </p>
+            <h3 className="text-xl font-serif font-bold text-primary">
+              {course.title}
+            </h3>
+            {course.description && (
+              <p className="text-sm text-muted-foreground">{course.description}</p>
+            )}
+          </div>
+          <div className="flex flex-col items-start gap-2 md:items-end">
+            <div className="text-right">
+              <div className="text-lg font-semibold text-primary">
+                {formatCurrencyAmount({
+                  amountInCents: course.priceInCents,
+                  currency: course.currency,
+                  language,
+                })}
+              </div>
+              <div className="text-sm text-muted-foreground">
+                {resolveCourseDurationLabel(course)}
+              </div>
+            </div>
+            <Button type="button" variant="outline" size="sm" onClick={onChange}>
+              {changeLabel}
+            </Button>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
 function BoatSeatPicker({
   boat,
   onSeatClick,
-  labels
+  labels,
 }: {
   boat: Boat
   onSeatClick: (boatId: string, seatIndex: number) => void
-  labels: { seat: string; captain: string; seatFree: string; seatTaken: string; seatSelected: string; free: string }
+  labels: {
+    seat: string
+    captain: string
+    seatFree: string
+    seatTaken: string
+    seatSelected: string
+    free: string
+  }
 }) {
-  const availableCount = boat.seats.filter(s => s === "available").length
-  const selectedCount = boat.seats.filter(s => s === "selected").length
+  const availableCount = boat.seats.filter((status) => status === "available").length
+  const selectedCount = boat.seats.filter((status) => status === "selected").length
 
   return (
     <Card className={`transition-all ${selectedCount > 0 ? "ring-2 ring-primary" : ""}`}>
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-xl font-serif flex items-center gap-2">
+          <CardTitle className="flex items-center gap-2 text-xl font-serif">
             <Anchor className="h-5 w-5 text-primary" />
             {boat.name}
           </CardTitle>
           <div className="flex items-center gap-1 text-sm text-muted-foreground">
             <Users className="h-4 w-4" />
-            <span>{availableCount} {labels.free}</span>
+            <span>
+              {availableCount} {labels.free}
+            </span>
           </div>
         </div>
       </CardHeader>
       <CardContent>
-        {/* Boat diagram */}
-        <div className="relative bg-gradient-to-b from-primary/5 to-primary/10 rounded-2xl p-4 border-2 border-primary/20">
-          {/* Boat hull outline */}
-          <svg viewBox="0 0 200 280" className="w-full max-w-[200px] mx-auto">
-            {/* Boat hull outline */}
+        <div className="relative rounded-2xl border-2 border-primary/20 bg-gradient-to-b from-primary/5 to-primary/10 p-4">
+          <svg viewBox="0 0 200 280" className="mx-auto w-full max-w-[200px]">
             <path
               d="M100 10 L180 80 L180 250 Q180 270 100 270 Q20 270 20 250 L20 80 Z"
               fill="none"
@@ -155,10 +338,14 @@ function BoatSeatPicker({
               className="opacity-30"
             />
 
-            {/* Bow decoration */}
-            <circle cx="100" cy="35" r="8" fill="oklch(0.32 0.08 240)" className="opacity-20" />
+            <circle
+              cx="100"
+              cy="35"
+              r="8"
+              fill="oklch(0.32 0.08 240)"
+              className="opacity-20"
+            />
 
-            {/* Captain's seat at the back */}
             <g transform="translate(70, 210)">
               <rect
                 x="0"
@@ -169,12 +356,18 @@ function BoatSeatPicker({
                 fill="oklch(0.32 0.08 240)"
                 className="opacity-40"
               />
-              <text x="30" y="24" textAnchor="middle" fontSize="10" fill="white" fontWeight="bold">
+              <text
+                x="30"
+                y="24"
+                textAnchor="middle"
+                fontSize="10"
+                fill="white"
+                fontWeight="bold"
+              >
                 {labels.captain}
               </text>
             </g>
 
-            {/* Passenger seats - 2 rows of 2 */}
             {boat.seats.map((status, index) => {
               const row = Math.floor(index / 2)
               const col = index % 2
@@ -182,14 +375,17 @@ function BoatSeatPicker({
               const y = 70 + row * 65
 
               const colors = {
-                available: "oklch(0.88 0.04 60)", // sandy beige
-                booked: "oklch(0.7 0.02 240)", // gray
-                selected: "oklch(0.55 0.15 150)", // green
+                available: "oklch(0.88 0.04 60)",
+                booked: "oklch(0.7 0.02 240)",
+                selected: "oklch(0.55 0.15 150)",
               }
 
-              const hoverClass = status === "available" ? "cursor-pointer hover:opacity-80" :
-                                status === "selected" ? "cursor-pointer hover:opacity-80" :
-                                "cursor-not-allowed"
+              const hoverClass =
+                status === "available"
+                  ? "cursor-pointer hover:opacity-80"
+                  : status === "selected"
+                    ? "cursor-pointer hover:opacity-80"
+                    : "cursor-not-allowed"
 
               return (
                 <g
@@ -205,7 +401,11 @@ function BoatSeatPicker({
                     height="50"
                     rx="10"
                     fill={colors[status]}
-                    stroke={status === "selected" ? "oklch(0.45 0.15 150)" : "oklch(0.32 0.08 240)"}
+                    stroke={
+                      status === "selected"
+                        ? "oklch(0.45 0.15 150)"
+                        : "oklch(0.32 0.08 240)"
+                    }
                     strokeWidth={status === "selected" ? "3" : "2"}
                     className="transition-all"
                   />
@@ -214,7 +414,13 @@ function BoatSeatPicker({
                     y="22"
                     textAnchor="middle"
                     fontSize="10"
-                    fill={status === "booked" ? "#666" : status === "selected" ? "white" : "oklch(0.32 0.08 240)"}
+                    fill={
+                      status === "booked"
+                        ? "#666"
+                        : status === "selected"
+                          ? "white"
+                          : "oklch(0.32 0.08 240)"
+                    }
                     fontWeight="bold"
                   >
                     {labels.seat} {index + 1}
@@ -224,11 +430,15 @@ function BoatSeatPicker({
                       {labels.seatTaken}
                     </text>
                   )}
-                  {status === "selected" && (
-                    <circle cx="30" cy="38" r="6" fill="white" />
-                  )}
+                  {status === "selected" && <circle cx="30" cy="38" r="6" fill="white" />}
                   {status === "available" && (
-                    <text x="30" y="38" textAnchor="middle" fontSize="9" fill="oklch(0.32 0.08 240)">
+                    <text
+                      x="30"
+                      y="38"
+                      textAnchor="middle"
+                      fontSize="9"
+                      fill="oklch(0.32 0.08 240)"
+                    >
                       {labels.seatFree}
                     </text>
                   )}
@@ -238,18 +448,17 @@ function BoatSeatPicker({
           </svg>
         </div>
 
-        {/* Legend */}
-        <div className="flex justify-center gap-4 mt-4 text-xs">
+        <div className="mt-4 flex justify-center gap-4 text-xs">
           <div className="flex items-center gap-1">
-            <div className="w-4 h-4 rounded bg-[oklch(0.88_0.04_60)] border border-primary/30" />
+            <div className="h-4 w-4 rounded border border-primary/30 bg-[oklch(0.88_0.04_60)]" />
             <span>{labels.seatFree}</span>
           </div>
           <div className="flex items-center gap-1">
-            <div className="w-4 h-4 rounded bg-[oklch(0.55_0.15_150)]" />
+            <div className="h-4 w-4 rounded bg-[oklch(0.55_0.15_150)]" />
             <span>{labels.seatSelected}</span>
           </div>
           <div className="flex items-center gap-1">
-            <div className="w-4 h-4 rounded bg-[oklch(0.7_0.02_240)]" />
+            <div className="h-4 w-4 rounded bg-[oklch(0.7_0.02_240)]" />
             <span>{labels.seatTaken}</span>
           </div>
         </div>
@@ -270,14 +479,23 @@ function BookingPageContent() {
   const { language, setLanguage } = useLanguage()
   const t = translations[language]
   const { toast } = useToast()
+  const router = useRouter()
+  const pathname = usePathname()
   const searchParams = useSearchParams()
+  const lastSyncedCourseRef = useRef<string | null>(null)
+
   const [step, setStep] = useState(1)
   const [bookingComplete, setBookingComplete] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [bookingId, setBookingId] = useState<string | null>(null)
-  const [bookingTicket, setBookingTicket] = useState<BookingTicketContextPayload | null>(null)
+  const [bookingTicket, setBookingTicket] =
+    useState<BookingTicketContextPayload | null>(null)
   const [termsAccepted, setTermsAccepted] = useState(false)
-  const [completedInApi, setCompletedInApi] = useState<boolean>(false)
+  const [completedInApi, setCompletedInApi] = useState(false)
+  const [catalogCourses, setCatalogCourses] = useState<BookingCatalogCoursePayload[]>([])
+  const [catalogBoats, setCatalogBoats] = useState<BookingCatalogBoatPayload[]>([])
+  const [isLoadingCatalog, setIsLoadingCatalog] = useState(true)
+  const [catalogError, setCatalogError] = useState<string | null>(null)
   const [selectedCourse, setSelectedCourse] = useState<string | null>(null)
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined)
   const [selectedTime, setSelectedTime] = useState<string | null>(null)
@@ -294,102 +512,171 @@ function BookingPageContent() {
     needsAccommodation: false,
   })
 
-  // T-shirt sizes
   const tshirtSizes = ["XS", "S", "M", "L", "XL", "XXL"]
 
-  const [selectedCourseData, setSelectedCourseData] = useState<{
-    id: string
-    title: string
-    duration: string
-    price: string
-    description: string
-    isMultiDay: boolean
-  } | null>(null)
-
-  // Handle seat selection
-  const handleSeatClick = (boatId: string, seatIndex: number) => {
-    setBoats(prev => prev.map(boat => {
-      if (boat.id === boatId) {
-        const newSeats = [...boat.seats]
-        if (newSeats[seatIndex] === "available") {
-          newSeats[seatIndex] = "selected"
-        } else if (newSeats[seatIndex] === "selected") {
-          newSeats[seatIndex] = "available"
-        }
-        return { ...boat, seats: newSeats }
-      }
-      return boat
-    }))
-  }
-
-  // Calculate selected seats count
+  const selectedCourseData = useMemo(
+    () => catalogCourses.find((course) => course.courseId === selectedCourse) || null,
+    [catalogCourses, selectedCourse]
+  )
+  const selectedDateKey = selectedDate ? format(selectedDate, "yyyy-MM-dd") : null
+  const defaultBoatState = useMemo(() => buildBoatState(catalogBoats), [catalogBoats])
+  const isMultiDayCourse = selectedCourseData?.isMultiDay === true
   const selectedSeatsCount = boats.reduce(
-    (total, boat) => total + boat.seats.filter(s => s === "selected").length,
+    (total, boat) => total + boat.seats.filter((status) => status === "selected").length,
     0
   )
+  const totalPriceInCents =
+    (selectedCourseData?.priceInCents || 0) * selectedSeatsCount
+  const totalPriceDisplay = selectedCourseData
+    ? formatCurrencyAmount({
+        amountInCents: totalPriceInCents,
+        currency: selectedCourseData.currency,
+        language,
+      })
+    : null
+  const coursePriceDisplay = selectedCourseData
+    ? formatCurrencyAmount({
+        amountInCents: selectedCourseData.priceInCents,
+        currency: selectedCourseData.currency,
+        language,
+      })
+    : null
 
-  // Get selected boat name for confirmation
-  const getSelectedBoatInfo = () => {
-    const selectedBoats = boats.filter(boat => boat.seats.some(s => s === "selected"))
-    return selectedBoats.map(boat => ({
-      name: boat.name,
-      seats: boat.seats.map((s, i) => s === "selected" ? i + 1 : null).filter(Boolean)
-    }))
+  const handleSeatClick = (boatId: string, seatIndex: number) => {
+    setBoats((previousBoats) =>
+      previousBoats.map((boat) => {
+        if (boat.id !== boatId) {
+          return boat
+        }
+        const seats = [...boat.seats]
+        if (seats[seatIndex] === "available") {
+          seats[seatIndex] = "selected"
+        } else if (seats[seatIndex] === "selected") {
+          seats[seatIndex] = "available"
+        }
+        return { ...boat, seats }
+      })
+    )
   }
 
-  // Check if selected date is within 24 hours
-  const isWithin24Hours = selectedDate ? (
-    (selectedDate.getTime() - new Date().getTime()) < (24 * 60 * 60 * 1000)
-  ) : false
+  const getSelectedBoatInfo = () => {
+    return boats
+      .filter((boat) => boat.seats.some((seat) => seat === "selected"))
+      .map((boat) => ({
+        name: boat.name,
+        seats: boat.seats
+          .map((seat, index) => (seat === "selected" ? index + 1 : null))
+          .filter((seat): seat is number => seat !== null),
+      }))
+  }
 
-  // Check if selected course is multi-day (needs T-shirt)
-  const isMultiDayCourse = selectedCourseData ? selectedCourseData.isMultiDay : false
-
-  const courses = useMemo(() => [
-    {
-      id: t.courses.schnupper.id,
-      title: t.courses.schnupper.title,
-      duration: t.courses.schnupper.duration,
-      price: t.courses.schnupper.price,
-      description: t.courses.schnupper.description,
-      isMultiDay: t.courses.schnupper.isMultiDay,
-    },
-    {
-      id: t.courses.grund.id,
-      title: t.courses.grund.title,
-      duration: t.courses.grund.duration,
-      price: t.courses.grund.price,
-      description: t.courses.grund.description,
-      isMultiDay: t.courses.grund.isMultiDay,
-    },
-    {
-      id: t.courses.intensiv.id,
-      title: t.courses.intensiv.title,
-      duration: t.courses.intensiv.duration,
-      price: t.courses.intensiv.price,
-      description: t.courses.intensiv.description,
-      isMultiDay: t.courses.intensiv.isMultiDay,
-    },
-  ], [t])
+  const isWithin24Hours = selectedDate
+    ? selectedDate.getTime() - new Date().getTime() < 24 * 60 * 60 * 1000
+    : false
 
   useEffect(() => {
-    const courseParam = searchParams?.get("course")
-    if (courseParam) {
-      const courseData = courses.find((c) => c.id === courseParam)
-      if (courseData) {
-        setSelectedCourse(courseParam)
-        setSelectedCourseData(courseData)
+    let isCancelled = false
+    const controller = new AbortController()
+
+    const loadCatalog = async () => {
+      setIsLoadingCatalog(true)
+      setCatalogError(null)
+      try {
+        const response = await fetch(
+          `/api/booking/catalog?lang=${encodeURIComponent(language)}`,
+          {
+            method: "GET",
+            headers: { "Content-Type": "application/json" },
+            signal: controller.signal,
+          }
+        )
+        const payload = (await response.json()) as BookingCatalogApiPayload
+        if (!response.ok) {
+          throw new Error(payload.error || "Failed to load booking catalog")
+        }
+        if (isCancelled) {
+          return
+        }
+
+        const nextCourses = Array.isArray(payload.courses) ? payload.courses : []
+        const nextBoats = Array.isArray(payload.boats) ? payload.boats : []
+        setCatalogCourses(nextCourses)
+        setCatalogBoats(nextBoats)
+        setBoats(buildBoatState(nextBoats))
+        setSelectedCourse((currentCourse) =>
+          currentCourse
+          && !nextCourses.some((course) => course.courseId === currentCourse)
+            ? null
+            : currentCourse
+        )
+      } catch (error) {
+        if (isCancelled) {
+          return
+        }
+        if (error instanceof Error && error.name === "AbortError") {
+          return
+        }
+        setCatalogCourses([])
+        setCatalogBoats([])
+        setBoats(DEFAULT_BOATS)
+        setCatalogError(
+          error instanceof Error ? error.message : "Failed to load booking catalog"
+        )
+      } finally {
+        if (!isCancelled) {
+          setIsLoadingCatalog(false)
+        }
       }
     }
-  }, [searchParams, courses])
 
-  const selectedDateKey = selectedDate ? format(selectedDate, "yyyy-MM-dd") : null
+    void loadCatalog()
+
+    return () => {
+      isCancelled = true
+      controller.abort()
+    }
+  }, [language])
+
+  useEffect(() => {
+    if (selectedCourse || catalogCourses.length === 0) {
+      return
+    }
+    const requestedCourseId = searchParams?.get("course")?.trim() || null
+    const preselectedCourse = findCatalogCourse(catalogCourses, requestedCourseId)
+    if (preselectedCourse) {
+      setSelectedCourse(preselectedCourse.courseId)
+    }
+  }, [catalogCourses, searchParams, selectedCourse])
+
+  useEffect(() => {
+    if (!selectedCourse || !pathname) {
+      lastSyncedCourseRef.current = null
+      return
+    }
+
+    const currentCourseParam = searchParams?.get("course")?.trim() || null
+    if (currentCourseParam === selectedCourse) {
+      lastSyncedCourseRef.current = selectedCourse
+      return
+    }
+
+    if (lastSyncedCourseRef.current === selectedCourse) {
+      return
+    }
+
+    const nextParams = new URLSearchParams(searchParams?.toString() || "")
+    nextParams.set("course", selectedCourse)
+    const nextHref = `${pathname}?${nextParams.toString()}`
+    router.replace(nextHref, { scroll: false })
+    lastSyncedCourseRef.current = selectedCourse
+  }, [pathname, router, searchParams, selectedCourse])
 
   useEffect(() => {
     setSelectedTime(null)
-    setBoats(DEFAULT_BOATS)
+    setAvailableTimes([])
+    setBoats(defaultBoatState)
     setAvailabilityError(null)
-  }, [selectedCourseData?.id, selectedDateKey])
+  }, [defaultBoatState, selectedCourseData?.courseId, selectedDateKey])
 
   useEffect(() => {
     if (!selectedCourseData || !selectedDateKey) {
@@ -409,10 +696,10 @@ function BookingPageContent() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            courseId: selectedCourseData.id,
+            courseId: selectedCourseData.courseId,
             date: selectedDateKey,
             time: selectedTime || undefined,
-            isMultiDayCourse: selectedCourseData.isMultiDay,
+            language,
           }),
           signal: controller.signal,
         })
@@ -425,22 +712,30 @@ function BookingPageContent() {
           return
         }
 
-        if (Array.isArray(payload.availableTimes) && payload.availableTimes.length > 0) {
-          setAvailableTimes(payload.availableTimes)
-          if (selectedTime) {
-            const selectedTimeSlot = payload.availableTimes.find((slot) => slot.time === selectedTime)
-            if (!selectedTimeSlot || !selectedTimeSlot.isAvailable) {
-              setSelectedTime(null)
-              setBoats(DEFAULT_BOATS)
-              return
-            }
+        if (payload.courseId && payload.courseId !== selectedCourseData.courseId) {
+          setSelectedCourse(payload.courseId)
+        }
+
+        const nextAvailableTimes = Array.isArray(payload.availableTimes)
+          ? payload.availableTimes
+          : []
+        setAvailableTimes(nextAvailableTimes)
+
+        if (selectedTime) {
+          const selectedTimeSlot = nextAvailableTimes.find(
+            (timeSlot) => timeSlot.time === selectedTime
+          )
+          if (!selectedTimeSlot || !selectedTimeSlot.isAvailable) {
+            setSelectedTime(null)
+            setBoats(defaultBoatState)
+            return
           }
-        } else {
-          setAvailableTimes([])
         }
 
         if (selectedTime && Array.isArray(payload.selectedBoatAvailability)) {
-          setBoats((previousBoats) => toBoatState(payload.selectedBoatAvailability || [], previousBoats))
+          setBoats((previousBoats) =>
+            toBoatState(payload.selectedBoatAvailability || [], previousBoats)
+          )
         }
       } catch (error) {
         if (isCancelled) {
@@ -454,7 +749,7 @@ function BookingPageContent() {
         )
         setAvailableTimes([])
         setSelectedTime(null)
-        setBoats(DEFAULT_BOATS)
+        setBoats(defaultBoatState)
       } finally {
         if (!isCancelled) {
           setIsLoadingAvailability(false)
@@ -468,38 +763,30 @@ function BookingPageContent() {
       isCancelled = true
       controller.abort()
     }
-  }, [selectedCourseData, selectedDateKey, selectedTime])
-
-  const parsedPrice = selectedCourseData
-    ? Number.parseFloat(selectedCourseData.price.replace("€", ""))
-    : 0
-  const totalPrice = Number.isNaN(parsedPrice) ? 0 : parsedPrice * selectedSeatsCount
+  }, [defaultBoatState, language, selectedCourseData, selectedDateKey, selectedTime])
 
   const handleComplete = useCallback(async () => {
-    if (isSubmitting || !selectedCourseData || !selectedDate || !selectedTime) return
+    if (isSubmitting || !selectedCourseData || !selectedDate || !selectedTime) {
+      return
+    }
     setIsSubmitting(true)
 
     try {
       const seatPayload = boats
-        .filter((boat) => boat.seats.some((s) => s === "selected"))
+        .filter((boat) => boat.seats.some((seat) => seat === "selected"))
         .map((boat) => ({
           boatId: boat.id,
           boatName: boat.name,
           seatNumbers: boat.seats
-            .map((s, i) => (s === "selected" ? i + 1 : null))
-            .filter(Boolean) as number[],
+            .map((seat, index) => (seat === "selected" ? index + 1 : null))
+            .filter((seat): seat is number => seat !== null),
         }))
 
       const response = await fetch("/api/booking", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          course: {
-            id: selectedCourseData.id,
-            title: selectedCourseData.title,
-            price: selectedCourseData.price,
-            isMultiDay: selectedCourseData.isMultiDay,
-          },
+          courseId: selectedCourseData.courseId,
           date: format(selectedDate, "yyyy-MM-dd"),
           time: selectedTime,
           seats: seatPayload,
@@ -513,7 +800,6 @@ function BookingPageContent() {
             needsAccommodation: formData.needsAccommodation,
           },
           termsAccepted,
-          totalAmount: totalPrice,
           language,
         }),
       })
@@ -529,6 +815,10 @@ function BookingPageContent() {
           ? result.checkoutSession.checkoutUrl.trim()
           : ""
 
+      if (result.course?.courseId && result.course.courseId !== selectedCourseData.courseId) {
+        setSelectedCourse(result.course.courseId)
+      }
+
       if (Array.isArray(result.warnings) && result.warnings.length > 0) {
         console.warn("[Booking Bridge] warnings:", result.warnings)
       }
@@ -542,42 +832,60 @@ function BookingPageContent() {
       setBookingTicket(result.ticket ?? null)
       setCompletedInApi(Boolean(result.checkoutFulfillment?.completedInApi))
       setBookingComplete(true)
-    } catch (err) {
+    } catch (error) {
       toast({
         title: t.booking.bookingFailed,
         description:
-          err instanceof Error
-            ? err.message
-            : t.booking.tryAgain,
+          error instanceof Error ? error.message : t.booking.tryAgain,
         variant: "destructive",
       })
     } finally {
       setIsSubmitting(false)
     }
-  }, [isSubmitting, selectedCourseData, selectedDate, selectedTime, boats, selectedSeatsCount, formData, termsAccepted, totalPrice, language, toast, t.booking.bookingFailed, t.booking.tryAgain])
+  }, [
+    boats,
+    formData,
+    isSubmitting,
+    language,
+    selectedCourseData,
+    selectedDate,
+    selectedSeatsCount,
+    selectedTime,
+    t.booking.bookingFailed,
+    t.booking.tryAgain,
+    termsAccepted,
+    toast,
+  ])
 
   if (bookingComplete) {
-    const ticketLookupUrl = bookingTicket?.lookupUrl
+    const ticketLookupUrl =
+      bookingTicket?.lookupUrl
       || (bookingTicket?.ticketCode
         ? `/ticket?code=${encodeURIComponent(String(bookingTicket.ticketCode))}&email=${encodeURIComponent(formData.email)}`
         : null)
+
     return (
       <>
-        <Header currentLanguage={language} onLanguageChange={setLanguage} navLinks={t.nav} forceScrolledStyle />
-        <main className="min-h-screen pt-20 px-4 bg-secondary">
-          <div className="confetti-container fixed inset-0 pointer-events-none overflow-hidden z-50">
-            {[...Array(50)].map((_, i) => (
+        <Header
+          currentLanguage={language}
+          onLanguageChange={setLanguage}
+          navLinks={t.nav}
+          forceScrolledStyle
+        />
+        <main className="min-h-screen bg-secondary px-4 pt-20">
+          <div className="confetti-container fixed inset-0 z-50 overflow-hidden pointer-events-none">
+            {[...Array(50)].map((_, index) => (
               <div
-                key={i}
-                className="confetti animate-confetti absolute w-2 h-2 rounded-full"
+                key={index}
+                className="confetti animate-confetti absolute h-2 w-2 rounded-full"
                 style={{
                   left: `${Math.random() * 100}%`,
                   animationDelay: `${Math.random() * 0.5}s`,
                   backgroundColor: [
-                    "oklch(0.32 0.08 240)", // primary navy
-                    "oklch(0.88 0.04 60)", // sandy beige
-                    "oklch(0.5 0.1 200)", // light blue
-                    "oklch(0.7 0.08 220)", // medium blue
+                    "oklch(0.32 0.08 240)",
+                    "oklch(0.88 0.04 60)",
+                    "oklch(0.5 0.1 200)",
+                    "oklch(0.7 0.08 220)",
                   ][Math.floor(Math.random() * 4)],
                 }}
               />
@@ -586,9 +894,9 @@ function BookingPageContent() {
 
           <div className="container mx-auto max-w-3xl py-16">
             <Card className="border-2 border-primary/20 shadow-2xl">
-              <CardHeader className="text-center space-y-4 pb-8">
-                <div className="mx-auto w-20 h-20 bg-green-100 rounded-full flex items-center justify-center">
-                  <CheckCircle2 className="w-12 h-12 text-green-600" />
+              <CardHeader className="space-y-4 pb-8 text-center">
+                <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-green-100">
+                  <CheckCircle2 className="h-12 w-12 text-green-600" />
                 </div>
                 <CardTitle className="text-4xl font-bold text-primary">
                   {t.booking.congratulations}
@@ -604,7 +912,7 @@ function BookingPageContent() {
                       <span className="text-muted-foreground">
                         {t.booking.bookingRef}
                       </span>
-                      <span className="font-mono font-medium text-sm">{bookingId}</span>
+                      <span className="font-mono text-sm font-medium">{bookingId}</span>
                     </div>
                   )}
                   {bookingTicket?.ticketCode && (
@@ -612,31 +920,32 @@ function BookingPageContent() {
                       <span className="text-muted-foreground">
                         {t.booking.ticketCodeLabel}
                       </span>
-                      <span className="font-mono font-medium text-sm">
+                      <span className="font-mono text-sm font-medium">
                         {bookingTicket.ticketCode}
                       </span>
                     </div>
                   )}
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">
-                      {t.booking.labelCourse}
-                    </span>
+                    <span className="text-muted-foreground">{t.booking.labelCourse}</span>
                     <span className="font-medium">{selectedCourseData?.title}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">
-                      {t.booking.labelDate}
-                    </span>
+                    <span className="text-muted-foreground">{t.booking.labelDate}</span>
                     <span className="font-medium">
                       {selectedDate
-                        ? format(selectedDate, "PP", { locale: language === "de" ? de : language === "nl" ? nl : enUS })
+                        ? format(selectedDate, "PP", {
+                            locale:
+                              language === "de"
+                                ? de
+                                : language === "nl"
+                                  ? nl
+                                  : enUS,
+                          })
                         : ""}
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">
-                      {t.booking.labelTime}
-                    </span>
+                    <span className="text-muted-foreground">{t.booking.labelTime}</span>
                     <span className="font-medium">{selectedTime}</span>
                   </div>
                   <div className="flex justify-between">
@@ -646,35 +955,31 @@ function BookingPageContent() {
                     <span className="font-medium">{selectedSeatsCount}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">
-                      {t.booking.labelBoatSeats}
-                    </span>
-                    <span className="font-medium text-right">
-                      {getSelectedBoatInfo().map((b) => (
-                        <span key={b.name} className="block">
-                          {b.name}: {t.booking.seat} {b.seats.join(", ")}
+                    <span className="text-muted-foreground">{t.booking.labelBoatSeats}</span>
+                    <span className="text-right font-medium">
+                      {getSelectedBoatInfo().map((boat) => (
+                        <span key={boat.name} className="block">
+                          {boat.name}: {t.booking.seat} {boat.seats.join(", ")}
                         </span>
                       ))}
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">
-                      {t.booking.labelName}
-                    </span>
+                    <span className="text-muted-foreground">{t.booking.labelName}</span>
                     <span className="font-medium">{formData.name}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Email:</span>
                     <span className="font-medium">{formData.email}</span>
                   </div>
-                  <div className="border-t pt-3 flex justify-between text-lg font-bold">
+                  <div className="flex justify-between border-t pt-3 text-lg font-bold">
                     <span>{t.booking.labelTotal}</span>
-                    <span className="text-primary">&euro;{totalPrice.toFixed(2)}</span>
+                    <span className="text-primary">{totalPriceDisplay}</span>
                   </div>
                 </div>
 
-                <Card className="bg-primary/5 border-primary/20">
-                  <CardContent className="pt-6 space-y-3 text-sm">
+                <Card className="border-primary/20 bg-primary/5">
+                  <CardContent className="space-y-3 pt-6 text-sm">
                     <p className="font-medium text-primary">
                       {t.booking.paymentOnSiteStatus}
                     </p>
@@ -684,16 +989,14 @@ function BookingPageContent() {
                     <p className="text-muted-foreground">
                       {t.booking.confirmationWeatherNote}
                     </p>
-                    {selectedCourseData?.isMultiDay && (
+                    {isMultiDayCourse && (
                       <p className="text-muted-foreground">
                         {t.booking.confirmationTshirtNote}
                       </p>
                     )}
                     {completedInApi && bookingTicket?.ticketCode && ticketLookupUrl && (
                       <Button asChild size="sm" className="mt-2">
-                        <a href={ticketLookupUrl}>
-                          {t.booking.viewTicket}
-                        </a>
+                        <a href={ticketLookupUrl}>{t.booking.viewTicket}</a>
                       </Button>
                     )}
                   </CardContent>
@@ -702,7 +1005,6 @@ function BookingPageContent() {
             </Card>
           </div>
 
-          {/* Background -> Flaschengruen (footer) */}
           <div className="-mx-4">
             <WaveDivider fillColor="#1E3926" bgColor="#FFF6C3" />
           </div>
@@ -715,15 +1017,17 @@ function BookingPageContent() {
 
   return (
     <>
-      <Header currentLanguage={language} onLanguageChange={setLanguage} navLinks={t.nav} forceScrolledStyle />
+      <Header
+        currentLanguage={language}
+        onLanguageChange={setLanguage}
+        navLinks={t.nav}
+        forceScrolledStyle
+      />
 
-      <main className="min-h-screen pt-20 px-4 bg-secondary">
-        <section
-          className="py-32 md:py-40 px-4 -mx-4"
-          style={{ background: "#1E3926" }}
-        >
+      <main className="min-h-screen bg-secondary px-4 pt-20">
+        <section className="py-32 md:py-40 px-4 -mx-4" style={{ background: "#1E3926" }}>
           <div className="container mx-auto max-w-7xl text-center">
-            <h1 className="text-5xl md:text-6xl font-serif font-bold text-white mb-6 text-balance">
+            <h1 className="mb-6 text-5xl font-serif font-bold text-white text-balance md:text-6xl">
               {t.booking.pageTitle}
             </h1>
             <p className="text-xl text-white/90 text-balance">
@@ -732,94 +1036,135 @@ function BookingPageContent() {
           </div>
         </section>
 
-        {/* Flaschengruen -> Background */}
         <div className="-mx-4">
           <WaveDivider fillColor="#FFF6C3" bgColor="#1E3926" />
         </div>
 
-        <section className="py-16 px-4">
+        <section className="px-4 py-16">
           <div className="container mx-auto max-w-3xl">
             <div className="mb-12">
-              <div className="flex items-center justify-center mb-2">
+              <div className="mb-2 flex items-center justify-center">
                 {[
-                  {
-                    num: 1,
-                    label: t.booking.steps.course,
-                  },
-                  {
-                    num: 2,
-                    label: t.booking.steps.dateTime,
-                  },
-                  {
-                    num: 3,
-                    label: t.booking.steps.details,
-                  },
+                  { num: 1, label: t.booking.steps.course },
+                  { num: 2, label: t.booking.steps.dateTime },
+                  { num: 3, label: t.booking.steps.details },
                   {
                     num: 4,
                     label: t.booking.steps.confirmation || t.booking.steps.payment,
                   },
-                ].map((s, idx) => (
-                  <div key={s.num} className="flex items-center">
-                    <div className="flex flex-col items-center w-20">
+                ].map((progressStep, index) => (
+                  <div key={progressStep.num} className="flex items-center">
+                    <div className="flex w-20 flex-col items-center">
                       <div
-                        className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg transition-all ${
-                          step >= s.num
+                        className={`flex h-12 w-12 items-center justify-center rounded-full text-lg font-bold transition-all ${
+                          step >= progressStep.num
                             ? "bg-primary text-white shadow-md"
-                            : "bg-white border border-border text-primary"
+                            : "border border-border bg-white text-primary"
                         }`}
                       >
-                        {step > s.num ? <CheckCircle2 className="h-6 w-6" /> : s.num}
+                        {step > progressStep.num ? (
+                          <CheckCircle2 className="h-6 w-6" />
+                        ) : (
+                          progressStep.num
+                        )}
                       </div>
                       <span
-                        className={`text-xs mt-2 text-center transition-colors ${
-                          step >= s.num ? "text-primary font-semibold" : "text-muted-foreground"
+                        className={`mt-2 text-center text-xs transition-colors ${
+                          step >= progressStep.num
+                            ? "font-semibold text-primary"
+                            : "text-muted-foreground"
                         }`}
                       >
-                        {s.label}
+                        {progressStep.label}
                       </span>
                     </div>
-                    {idx < 3 && (
-                      <div className={`w-12 md:w-16 h-px -mt-6 ${step > s.num ? "bg-primary" : "bg-border"}`} />
+                    {index < 3 && (
+                      <div
+                        className={`-mt-6 h-px w-12 md:w-16 ${
+                          step > progressStep.num ? "bg-primary" : "bg-border"
+                        }`}
+                      />
                     )}
                   </div>
                 ))}
               </div>
             </div>
 
+            {selectedCourseData && step > 1 && (
+              <SelectedCourseCard
+                course={selectedCourseData}
+                language={language}
+                changeLabel={t.booking.chooseCourse}
+                onChange={() => setStep(1)}
+              />
+            )}
+
             {step === 1 && (
               <div className="space-y-4">
-                <h2 className="text-3xl font-serif font-bold text-primary mb-6">
+                <h2 className="mb-6 text-3xl font-serif font-bold text-primary">
                   {t.booking.chooseCourse}
                 </h2>
-                {courses.map((course) => (
+
+                {catalogError && (
+                  <p className="rounded-lg border border-destructive/20 bg-destructive/5 p-4 text-sm text-destructive">
+                    {catalogError}
+                  </p>
+                )}
+
+                {isLoadingCatalog && catalogCourses.length === 0 && (
+                  <div className="flex items-center gap-2 rounded-lg border border-border bg-white p-4 text-sm text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span>Loading backend course catalog...</span>
+                  </div>
+                )}
+
+                {!isLoadingCatalog && !catalogError && catalogCourses.length === 0 && (
+                  <p className="rounded-lg border border-border bg-white p-4 text-sm text-muted-foreground">
+                    No products are currently available for this booking surface.
+                  </p>
+                )}
+
+                {catalogCourses.map((course) => (
                   <Card
-                    key={course.id}
+                    key={course.courseId}
+                    data-course-id={course.courseId}
+                    aria-selected={selectedCourse === course.courseId}
                     className={`cursor-pointer transition-all hover:shadow-lg ${
-                      selectedCourse === course.id ? "ring-2 ring-primary" : ""
+                      selectedCourse === course.courseId ? "ring-2 ring-primary" : ""
                     }`}
-                    onClick={() => {
-                      setSelectedCourse(course.id)
-                      setSelectedCourseData(course)
-                    }}
+                    onClick={() => setSelectedCourse(course.courseId)}
                   >
                     <CardHeader>
-                      <div className="flex items-start justify-between">
+                      <div className="flex items-start justify-between gap-4">
                         <div>
-                          <CardTitle className="text-2xl text-primary">{course.title}</CardTitle>
-                          <CardDescription className="text-base mt-2">{course.description}</CardDescription>
+                          <CardTitle className="text-2xl text-primary">
+                            {course.title}
+                          </CardTitle>
+                          <CardDescription className="mt-2 text-base">
+                            {course.description}
+                          </CardDescription>
                         </div>
                         <div className="text-right">
-                          <div className="text-3xl font-bold text-primary">{course.price}</div>
-                          <div className="text-sm text-muted-foreground">{course.duration}</div>
+                          <div className="text-3xl font-bold text-primary">
+                            {formatCurrencyAmount({
+                              amountInCents: course.priceInCents,
+                              currency: course.currency,
+                              language,
+                            })}
+                          </div>
+                          <div className="text-sm text-muted-foreground">
+                            {resolveCourseDurationLabel(course)}
+                          </div>
                         </div>
                       </div>
                     </CardHeader>
                   </Card>
                 ))}
+
                 <Button
                   onClick={() => setStep(2)}
-                  disabled={!selectedCourse}
-                  className="w-full bg-accent hover:bg-[#AA2023] text-accent-foreground shimmer-button"
+                  disabled={!selectedCourseData || isLoadingCatalog}
+                  className="w-full bg-accent text-accent-foreground shimmer-button hover:bg-[#AA2023]"
                   size="lg"
                 >
                   {t.booking.continue}
@@ -829,35 +1174,32 @@ function BookingPageContent() {
 
             {step === 2 && (
               <div className="space-y-6">
-                <h2 className="text-3xl font-serif font-bold text-primary mb-6">
+                <h2 className="mb-6 text-3xl font-serif font-bold text-primary">
                   {t.booking.chooseDateTimeSeats}
                 </h2>
 
-                {/* 24h Warning Notice */}
                 {isWithin24Hours && selectedDate && (
-                  <div className="p-4 bg-orange/10 border border-orange/30 rounded-lg flex items-start gap-3">
-                    <Phone className="h-5 w-5 text-orange mt-0.5 flex-shrink-0" />
+                  <div className="flex items-start gap-3 rounded-lg border border-orange/30 bg-orange/10 p-4">
+                    <Phone className="mt-0.5 h-5 w-5 flex-shrink-0 text-orange" />
                     <div>
-                      <p className="font-medium text-orange">
-                        {t.booking.shortNotice}
-                      </p>
-                      <p className="text-sm text-muted-foreground mt-1">
+                      <p className="font-medium text-orange">{t.booking.shortNotice}</p>
+                      <p className="mt-1 text-sm text-muted-foreground">
                         {t.booking.shortNoticeText}
                       </p>
-                      <a href="tel:+4939778123456" className="text-lg font-bold text-orange hover:underline mt-1 block">
+                      <a
+                        href="tel:+4939778123456"
+                        className="mt-1 block text-lg font-bold text-orange hover:underline"
+                      >
                         +49 (0) 39778 123456
                       </a>
                     </div>
                   </div>
                 )}
 
-                {/* Date and Time Selection */}
-                <div className="grid md:grid-cols-2 gap-6">
+                <div className="grid gap-6 md:grid-cols-2">
                   <Card>
                     <CardHeader>
-                      <CardTitle>
-                        {t.booking.selectDate}
-                      </CardTitle>
+                      <CardTitle>{t.booking.selectDate}</CardTitle>
                     </CardHeader>
                     <CardContent className="flex justify-center">
                       <Calendar
@@ -872,9 +1214,7 @@ function BookingPageContent() {
 
                   <Card>
                     <CardHeader>
-                      <CardTitle>
-                        {t.booking.selectTime}
-                      </CardTitle>
+                      <CardTitle>{t.booking.selectTime}</CardTitle>
                     </CardHeader>
                     <CardContent>
                       <div className="grid grid-cols-3 gap-3">
@@ -891,35 +1231,35 @@ function BookingPageContent() {
                         ))}
                       </div>
                       {availabilityError && (
-                        <p className="text-xs text-destructive mt-3">
+                        <p className="mt-3 text-xs text-destructive">
                           {availabilityError}
                         </p>
                       )}
                       {isLoadingAvailability && (
-                        <p className="text-xs text-muted-foreground mt-3">
+                        <p className="mt-3 text-xs text-muted-foreground">
                           Loading real-time availability...
                         </p>
                       )}
-                      {!isLoadingAvailability && !availabilityError && selectedDate && availableTimes.length === 0 && (
-                        <p className="text-xs text-muted-foreground mt-3">
-                          No available time slots found for this date.
-                        </p>
-                      )}
+                      {!isLoadingAvailability
+                        && !availabilityError
+                        && selectedDate
+                        && availableTimes.length === 0 && (
+                          <p className="mt-3 text-xs text-muted-foreground">
+                            No available time slots found for this date.
+                          </p>
+                        )}
                     </CardContent>
                   </Card>
                 </div>
 
-                {/* Boat Seat Selection - Shows after date and time are selected */}
                 {selectedDate && selectedTime && (
                   <div className="space-y-4">
                     <h3 className="text-2xl font-serif font-bold text-primary">
                       {t.booking.chooseSeats}
                     </h3>
-                    <p className="text-muted-foreground">
-                      {t.booking.chooseSeatsDesc}
-                    </p>
+                    <p className="text-muted-foreground">{t.booking.chooseSeatsDesc}</p>
 
-                    <div className="grid md:grid-cols-2 gap-6">
+                    <div className="grid gap-6 md:grid-cols-2">
                       {boats.map((boat) => (
                         <BoatSeatPicker
                           key={boat.id}
@@ -937,26 +1277,29 @@ function BookingPageContent() {
                       ))}
                     </div>
 
-                    {/* Selected seats summary */}
-                    {selectedSeatsCount > 0 && (
-                      <Card className="bg-primary/5 border-primary/20">
+                    {selectedSeatsCount > 0 && selectedCourseData && (
+                      <Card className="border-primary/20 bg-primary/5">
                         <CardContent className="pt-4">
-                          <div className="flex items-center justify-between">
+                          <div className="flex items-center justify-between gap-4">
                             <div>
                               <p className="font-medium">
-                                {`${selectedSeatsCount} ${selectedSeatsCount === 1 ? t.booking.seatSingular : t.booking.seatsPlural} ${t.booking.seatsSelectedSuffix}`}
+                                {`${selectedSeatsCount} ${
+                                  selectedSeatsCount === 1
+                                    ? t.booking.seatSingular
+                                    : t.booking.seatsPlural
+                                } ${t.booking.seatsSelectedSuffix}`}
                               </p>
                               <p className="text-sm text-muted-foreground">
-                                {getSelectedBoatInfo().map((b, i) => (
-                                  <span key={b.name}>
-                                    {i > 0 ? ", " : ""}
-                                    {b.name}: {t.booking.seat} {b.seats.join(", ")}
+                                {getSelectedBoatInfo().map((boat, index) => (
+                                  <span key={boat.name}>
+                                    {index > 0 ? ", " : ""}
+                                    {boat.name}: {t.booking.seat} {boat.seats.join(", ")}
                                   </span>
                                 ))}
                               </p>
                             </div>
                             <div className="text-2xl font-bold text-primary">
-                              &euro;{(selectedCourseData ? Number.parseFloat(selectedCourseData.price.replace("€", "")) * selectedSeatsCount : 0).toFixed(2)}
+                              {totalPriceDisplay}
                             </div>
                           </div>
                         </CardContent>
@@ -966,14 +1309,19 @@ function BookingPageContent() {
                 )}
 
                 <div className="flex gap-4">
-                  <Button onClick={() => setStep(1)} variant="outline" className="flex-1" size="lg">
+                  <Button
+                    onClick={() => setStep(1)}
+                    variant="outline"
+                    className="flex-1"
+                    size="lg"
+                  >
                     <Sparkles className="mr-2 h-5 w-5" />
                     {t.booking.back}
                   </Button>
                   <Button
                     onClick={() => setStep(3)}
                     disabled={!selectedDate || !selectedTime || selectedSeatsCount === 0}
-                    className="flex-1 bg-accent hover:bg-[#AA2023] text-accent-foreground shimmer-button"
+                    className="flex-1 bg-accent text-accent-foreground shimmer-button hover:bg-[#AA2023]"
                     size="lg"
                   >
                     {t.booking.continue}
@@ -984,67 +1332,76 @@ function BookingPageContent() {
 
             {step === 3 && (
               <div className="space-y-6">
-                <h2 className="text-3xl font-serif font-bold text-primary mb-6">
+                <h2 className="mb-6 text-3xl font-serif font-bold text-primary">
                   {t.booking.steps.details}
                 </h2>
                 <Card>
-                  <CardContent className="pt-6 space-y-4">
+                  <CardContent className="space-y-4 pt-6">
                     <div>
-                      <Label className="block text-sm font-medium mb-2">
+                      <Label className="mb-2 block text-sm font-medium">
                         {t.booking.formName}
                       </Label>
                       <Input
                         type="text"
                         value={formData.name}
-                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                        onChange={(event) =>
+                          setFormData({ ...formData, name: event.target.value })
+                        }
                         required
                       />
                     </div>
                     <div>
-                      <Label className="block text-sm font-medium mb-2">Email</Label>
+                      <Label className="mb-2 block text-sm font-medium">Email</Label>
                       <Input
                         type="email"
                         value={formData.email}
-                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                        onChange={(event) =>
+                          setFormData({ ...formData, email: event.target.value })
+                        }
                         required
                       />
                     </div>
                     <div>
-                      <Label className="block text-sm font-medium mb-2">
+                      <Label className="mb-2 block text-sm font-medium">
                         {t.booking.formPhone}
                       </Label>
                       <Input
                         type="tel"
                         value={formData.phone}
-                        onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                        onChange={(event) =>
+                          setFormData({ ...formData, phone: event.target.value })
+                        }
                         required
                       />
                     </div>
-                    {/* Selected seats summary */}
-                    <div className="p-4 bg-primary/5 rounded-lg border border-primary/20">
-                      <Label className="block text-sm font-medium mb-2">
+
+                    <div className="rounded-lg border border-primary/20 bg-primary/5 p-4">
+                      <Label className="mb-2 block text-sm font-medium">
                         {t.booking.selectedSeats}
                       </Label>
                       <div className="text-lg font-medium text-primary">
-                        {selectedSeatsCount} {selectedSeatsCount === 1 ? t.booking.seatSingular : t.booking.seatsPlural}
+                        {selectedSeatsCount}{" "}
+                        {selectedSeatsCount === 1
+                          ? t.booking.seatSingular
+                          : t.booking.seatsPlural}
                       </div>
-                      <div className="text-sm text-muted-foreground mt-1">
-                        {getSelectedBoatInfo().map((b, i) => (
-                          <span key={b.name}>
-                            {i > 0 ? " | " : ""}
-                            {b.name}: {t.booking.seat} {b.seats.join(", ")}
+                      <div className="mt-1 text-sm text-muted-foreground">
+                        {getSelectedBoatInfo().map((boat, index) => (
+                          <span key={boat.name}>
+                            {index > 0 ? " | " : ""}
+                            {boat.name}: {t.booking.seat} {boat.seats.join(", ")}
                           </span>
                         ))}
                       </div>
                     </div>
-                    {/* T-shirt size selector for multi-day courses */}
+
                     {isMultiDayCourse && (
                       <div>
-                        <Label className="block text-sm font-medium mb-2">
+                        <Label className="mb-2 block text-sm font-medium">
                           {t.booking.tshirtSize}
-                          <span className="text-orange ml-1">*</span>
+                          <span className="ml-1 text-orange">*</span>
                         </Label>
-                        <p className="text-sm text-muted-foreground mb-3">
+                        <p className="mb-3 text-sm text-muted-foreground">
                           {t.booking.tshirtIncluded}
                         </p>
                         <div className="grid grid-cols-6 gap-2">
@@ -1053,8 +1410,14 @@ function BookingPageContent() {
                               key={size}
                               type="button"
                               variant={formData.tshirtSize === size ? "default" : "outline"}
-                              onClick={() => setFormData({ ...formData, tshirtSize: size })}
-                              className={`${formData.tshirtSize === size ? "bg-accent hover:bg-[#AA2023] text-white" : ""}`}
+                              onClick={() =>
+                                setFormData({ ...formData, tshirtSize: size })
+                              }
+                              className={
+                                formData.tshirtSize === size
+                                  ? "bg-accent text-white hover:bg-[#AA2023]"
+                                  : ""
+                              }
                             >
                               {size}
                             </Button>
@@ -1063,20 +1426,24 @@ function BookingPageContent() {
                       </div>
                     )}
 
-                    {/* Accommodation help checkbox */}
-                    <div className="p-4 bg-orange/10 rounded-lg border border-orange/20">
-                      <label className="flex items-start gap-3 cursor-pointer">
+                    <div className="rounded-lg border border-orange/20 bg-orange/10 p-4">
+                      <label className="flex cursor-pointer items-start gap-3">
                         <input
                           type="checkbox"
                           checked={formData.needsAccommodation}
-                          onChange={(e) => setFormData({ ...formData, needsAccommodation: e.target.checked })}
+                          onChange={(event) =>
+                            setFormData({
+                              ...formData,
+                              needsAccommodation: event.target.checked,
+                            })
+                          }
                           className="mt-1 h-5 w-5 rounded border-orange text-orange focus:ring-orange"
                         />
                         <div>
                           <span className="font-medium">
                             {t.booking.needAccommodation}
                           </span>
-                          <p className="text-sm text-muted-foreground mt-1">
+                          <p className="mt-1 text-sm text-muted-foreground">
                             {t.booking.accommodationHelp}
                           </p>
                         </div>
@@ -1084,12 +1451,14 @@ function BookingPageContent() {
                     </div>
 
                     <div>
-                      <Label className="block text-sm font-medium mb-2">
+                      <Label className="mb-2 block text-sm font-medium">
                         {t.booking.messageOptional}
                       </Label>
                       <Textarea
                         value={formData.message}
-                        onChange={(e) => setFormData({ ...formData, message: e.target.value })}
+                        onChange={(event) =>
+                          setFormData({ ...formData, message: event.target.value })
+                        }
                         className="resize-none"
                         placeholder={t.booking.messagePlaceholder}
                       />
@@ -1097,7 +1466,12 @@ function BookingPageContent() {
                   </CardContent>
                 </Card>
                 <div className="flex gap-4">
-                  <Button onClick={() => setStep(2)} variant="outline" className="flex-1" size="lg">
+                  <Button
+                    onClick={() => setStep(2)}
+                    variant="outline"
+                    className="flex-1"
+                    size="lg"
+                  >
                     <Sparkles className="mr-2 h-5 w-5" />
                     {t.booking.back}
                   </Button>
@@ -1106,8 +1480,13 @@ function BookingPageContent() {
                       setTermsAccepted(false)
                       setStep(4)
                     }}
-                    disabled={!formData.name || !formData.email || !formData.phone || (isMultiDayCourse && !formData.tshirtSize)}
-                    className="flex-1 bg-accent hover:bg-[#AA2023] text-accent-foreground shimmer-button"
+                    disabled={
+                      !formData.name
+                      || !formData.email
+                      || !formData.phone
+                      || (isMultiDayCourse && !formData.tshirtSize)
+                    }
+                    className="flex-1 bg-accent text-accent-foreground shimmer-button hover:bg-[#AA2023]"
                     size="lg"
                   >
                     {t.booking.continue}
@@ -1118,39 +1497,36 @@ function BookingPageContent() {
 
             {step === 4 && (
               <div className="space-y-6">
-                <h2 className="text-3xl font-serif font-bold text-primary mb-6">
+                <h2 className="mb-6 text-3xl font-serif font-bold text-primary">
                   {t.booking.steps.confirmation || t.booking.steps.payment}
                 </h2>
 
                 <Card>
                   <CardHeader>
-                    <CardTitle>
-                      {t.booking.bookingSummary}
-                    </CardTitle>
+                    <CardTitle>{t.booking.bookingSummary}</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-3">
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">
-                        {t.booking.labelCourse}
-                      </span>
+                      <span className="text-muted-foreground">{t.booking.labelCourse}</span>
                       <span className="font-medium">{selectedCourseData?.title}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">
-                        {t.booking.labelDate}
-                      </span>
+                      <span className="text-muted-foreground">{t.booking.labelDate}</span>
                       <span className="font-medium">
                         {selectedDate
                           ? format(selectedDate, "PP", {
-                              locale: language === "de" ? de : language === "nl" ? nl : enUS,
+                              locale:
+                                language === "de"
+                                  ? de
+                                  : language === "nl"
+                                    ? nl
+                                    : enUS,
                             })
                           : ""}
                       </span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">
-                        {t.booking.labelTime}
-                      </span>
+                      <span className="text-muted-foreground">{t.booking.labelTime}</span>
                       <span className="font-medium">{selectedTime}</span>
                     </div>
                     <div className="flex justify-between">
@@ -1159,24 +1535,22 @@ function BookingPageContent() {
                       </span>
                       <span className="font-medium">{selectedSeatsCount}</span>
                     </div>
-                    <div className="border-t pt-3 flex justify-between text-xl font-bold">
+                    <div className="flex justify-between border-t pt-3 text-xl font-bold">
                       <span>{t.booking.labelTotal}</span>
-                      <span className="text-primary">&euro;{totalPrice.toFixed(2)}</span>
+                      <span className="text-primary">{totalPriceDisplay}</span>
                     </div>
                   </CardContent>
                 </Card>
 
                 <Card>
                   <CardHeader>
-                    <CardTitle>
-                      {t.booking.onSitePaymentTitle}
-                    </CardTitle>
+                    <CardTitle>{t.booking.onSitePaymentTitle}</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 text-sm text-muted-foreground">
                       {t.booking.onSitePaymentDesc}
                     </div>
-                    <label className="flex items-start gap-3 rounded-lg border border-border p-4 cursor-pointer">
+                    <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-border p-4">
                       <input
                         type="checkbox"
                         checked={termsAccepted}
@@ -1191,7 +1565,12 @@ function BookingPageContent() {
                 </Card>
 
                 <div className="flex gap-4">
-                  <Button onClick={() => setStep(3)} variant="outline" className="flex-1" size="lg">
+                  <Button
+                    onClick={() => setStep(3)}
+                    variant="outline"
+                    className="flex-1"
+                    size="lg"
+                  >
                     <Sparkles className="mr-2 h-5 w-5" />
                     {t.booking.back}
                   </Button>
@@ -1216,7 +1595,6 @@ function BookingPageContent() {
           </div>
         </section>
 
-        {/* Background -> Flaschengruen (footer) */}
         <div className="-mx-4">
           <WaveDivider fillColor="#1E3926" bgColor="#FFF6C3" />
         </div>
@@ -1224,10 +1602,9 @@ function BookingPageContent() {
 
       <Footer content={t.footer} />
 
-      {/* Floating "Fragen?" button */}
       <a
         href="tel:+4939778123456"
-        className="fixed bottom-6 right-6 z-50 bg-accent hover:bg-[#AA2023] text-white px-5 py-3 rounded-full shadow-lg flex items-center gap-2 font-medium transition-all hover:scale-105"
+        className="fixed bottom-6 right-6 z-50 flex items-center gap-2 rounded-full bg-accent px-5 py-3 font-medium text-white shadow-lg transition-all hover:scale-105 hover:bg-[#AA2023]"
       >
         <MessageCircle className="h-5 w-5" />
         {t.booking.questions}

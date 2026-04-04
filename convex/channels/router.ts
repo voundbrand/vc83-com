@@ -360,6 +360,7 @@ async function insertObjectRecord(
     type: string;
     subtype?: string;
     name: string;
+    description?: string;
     status: string;
     customProperties?: Record<string, unknown>;
     createdAt: number;
@@ -382,6 +383,7 @@ async function patchObjectRecord(
   ctx: RouterActionCtx,
   objectId: ObjectId,
   patch: {
+    description?: string;
     status?: string;
     customProperties?: Record<string, unknown>;
     updatedAt?: number;
@@ -2274,6 +2276,7 @@ export const insertObjectInternal = internalMutation({
     type: v.string(),
     subtype: v.optional(v.string()),
     name: v.string(),
+    description: v.optional(v.string()),
     status: v.string(),
     customProperties: v.optional(v.any()),
     createdAt: v.number(),
@@ -2285,6 +2288,7 @@ export const insertObjectInternal = internalMutation({
       type: args.type,
       subtype: args.subtype,
       name: args.name,
+      description: args.description,
       status: args.status,
       customProperties: args.customProperties,
       createdAt: args.createdAt,
@@ -2317,12 +2321,16 @@ export const insertObjectLinkInternal = internalMutation({
 export const patchObjectInternal = internalMutation({
   args: {
     objectId: v.id("objects"),
+    description: v.optional(v.string()),
     status: v.optional(v.string()),
     customProperties: v.optional(v.any()),
     updatedAt: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const patch: Record<string, unknown> = {};
+    if (args.description !== undefined) {
+      patch.description = args.description;
+    }
     if (args.status !== undefined) {
       patch.status = args.status;
     }

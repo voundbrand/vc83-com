@@ -5,14 +5,14 @@ import { toZonedTime } from "date-fns-tz"
 import type { Id } from "../../../../../../convex/_generated/dataModel"
 import {
   getConvexClient,
-  getOrganizationId,
   queryInternal,
+  resolveSegelschuleOrganizationId,
 } from "@/lib/server-convex"
 import {
   parseBookingStartTimestamp,
-  resolveSegelschuleRuntimeConfig,
+  resolveSegelschuleBookingCourse,
 } from "@/lib/booking-platform-bridge"
-import { buildSeatInventoryFromBoats } from "@/lib/booking-runtime-contracts"
+import { resolveSlotSeatInventory } from "@/lib/seat-group-availability"
 
 // Dynamic require avoids excessively deep Convex API type instantiation.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -23,7 +23,7 @@ interface AvailabilityRequestPayload {
   courseId?: string
   date?: string
   time?: string
-  isMultiDayCourse?: boolean
+  language?: string
 }
 
 interface SeatAvailabilitySnapshot {
@@ -74,7 +74,7 @@ function isValidTime(value: unknown): value is string {
 function extractPayload(body: Record<string, unknown>): {
   valid: true
   data: Required<Pick<AvailabilityRequestPayload, "courseId" | "date">> &
-    Pick<AvailabilityRequestPayload, "time" | "isMultiDayCourse">
+    Pick<AvailabilityRequestPayload, "time" | "language">
 } | { valid: false; error: string } {
   const courseId = typeof body.courseId === "string" ? body.courseId.trim() : ""
   const date = typeof body.date === "string" ? body.date.trim() : ""
@@ -96,7 +96,10 @@ function extractPayload(body: Record<string, unknown>): {
       courseId,
       date,
       time,
-      isMultiDayCourse: body.isMultiDayCourse === true,
+      language:
+        typeof body.language === "string" && body.language.trim().length > 0
+          ? body.language.trim()
+          : undefined,
     },
   }
 }
@@ -271,7 +274,9 @@ export async function POST(request: Request) {
       )
     }
 
-    const organizationId = getOrganizationId()
+    const organizationId = await resolveSegelschuleOrganizationId({
+      requestHost: request.headers.get("host"),
+    })
     if (!organizationId) {
       return NextResponse.json(
         { error: "Platform organization is not configured" },
@@ -280,15 +285,18 @@ export async function POST(request: Request) {
     }
 
     const convex = getConvexClient()
-    const runtimeResolution = await resolveSegelschuleRuntimeConfig({
+    const courseResolution = await resolveSegelschuleBookingCourse({
       convex,
       queryInternalFn: queryInternal,
       generatedInternalApi,
       organizationId,
+      courseId: parsedPayload.data.courseId,
+      language: parsedPayload.data.language,
     })
+    const runtimeResolution = courseResolution.runtimeResolution
     const runtime = runtimeResolution.runtimeConfig
-    const selectedCourse = runtime.courses[parsedPayload.data.courseId]
-    if (!selectedCourse) {
+    const selectedCourse = courseResolution.course
+    if (!selectedCourse || !courseResolution.resolvedCourseId) {
       return NextResponse.json(
         { error: "Unknown course for selected booking surface" },
         { status: 404 }
@@ -301,7 +309,8 @@ export async function POST(request: Request) {
       )
     }
 
-    const durationMinutes = selectedCourse.bookingDurationMinutes
+    const bookingResourceId = selectedCourse.bookingResourceId
+    const durationMinutes = selectedCourse.durationMinutes
     const fallbackTimes =
       selectedCourse.availableTimes.length > 0
         ? selectedCourse.availableTimes
@@ -320,10 +329,6 @@ export async function POST(request: Request) {
       fallbackTimes,
       availability: resourceAvailability,
       timezone: runtime.timezone,
-    })
-    const seatInventory = buildSeatInventoryFromBoats({
-      boats: runtime.boats,
-      strictSeatSelection: true,
     })
     let availableStartTimes = new Set<string>()
 
@@ -368,11 +373,33 @@ export async function POST(request: Request) {
             totalSeats: 0,
             availableSeats: 0,
             snapshot: null as SeatAvailabilitySnapshot | null,
+            boats: [] as Array<{ id: string; name: string; seatCount: number }>,
           }
         }
 
+        const slotSeatInventory = await resolveSlotSeatInventory({
+          convex,
+          queryInternalFn: queryInternal,
+          generatedInternalApi,
+          organizationId,
+          bookingResourceId,
+          boats: runtime.boats,
+          startDateTime,
+          endDateTime: startDateTime + durationMinutes * 60_000,
+          timezone: runtime.timezone,
+        })
         const slotAllowedBySchedule =
           !hasResourceAvailability(resourceAvailability) || availableStartTimes.has(time)
+        if (slotSeatInventory.seatInventory.groups.length === 0) {
+          return {
+            time,
+            isAvailable: false,
+            totalSeats: 0,
+            availableSeats: 0,
+            snapshot: null as SeatAvailabilitySnapshot | null,
+            boats: slotSeatInventory.availableBoats,
+          }
+        }
         const snapshot = (await queryInternal(
           convex,
           generatedInternalApi.api.v1.resourceBookingsInternal.getSeatAvailabilityInternal,
@@ -381,7 +408,7 @@ export async function POST(request: Request) {
             resourceId: selectedCourse.bookingResourceId as Id<"objects">,
             startDateTime,
             endDateTime: startDateTime + durationMinutes * 60_000,
-            seatInventory,
+            seatInventory: slotSeatInventory.seatInventory,
           }
         )) as SeatAvailabilitySnapshot
 
@@ -391,6 +418,7 @@ export async function POST(request: Request) {
           totalSeats: snapshot.totalCapacity,
           availableSeats: slotAllowedBySchedule ? snapshot.remainingCapacity : 0,
           snapshot,
+          boats: slotSeatInventory.availableBoats,
         }
       })
     )
@@ -404,19 +432,21 @@ export async function POST(request: Request) {
       selectedSlot?.snapshot
         ? mapSelectedBoatAvailability({
             snapshot: selectedSlot.snapshot,
-            boats: runtime.boats,
+            boats: selectedSlot.boats,
           })
         : null
 
     return NextResponse.json(
       {
         ok: true,
-        courseId: parsedPayload.data.courseId,
+        courseId: courseResolution.resolvedCourseId,
+        requestedCourseId: courseResolution.requestedCourseId,
         date: parsedPayload.data.date,
         timezone: runtime.timezone,
         runtimeConfigSource: runtimeResolution.source,
         runtimeConfigBindingId: runtimeResolution.bindingId,
         runtimeConfigWarnings: runtimeResolution.warnings,
+        courseWarnings: selectedCourse.warnings,
         durationMinutes,
         availableTimes: slotResults.map((slot) => ({
           time: slot.time,

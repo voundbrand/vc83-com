@@ -38,6 +38,12 @@ function createBookingRecord(args: {
   weatherInfo?: string
   packingList?: string
   packingListItems?: string[]
+  checkoutSessionId?: string
+  invoiceId?: string
+  paymentMethod?: string
+  totalAmountCents?: number
+  coursePriceInCents?: number
+  seats?: Array<{ boatName: string; seatNumbers: number[] }>
 }): RouterObjectRecord {
   return {
     _id: args.id,
@@ -56,6 +62,13 @@ function createBookingRecord(args: {
       bookingStartAt: args.bookingStartAt,
       bookingTimezone: args.timezone || "Europe/Berlin",
       language: args.language || "de",
+      paymentMethod: args.paymentMethod || "invoice",
+      checkoutSessionId: args.checkoutSessionId || "checkout_segelschule_1",
+      invoiceId: args.invoiceId || "invoice_segelschule_1",
+      totalAmountCents: args.totalAmountCents || 25_800,
+      coursePriceInCents: args.coursePriceInCents || 12_900,
+      courseCurrency: "EUR",
+      seats: args.seats || [{ boatName: "Fraukje", seatNumbers: [1, 2] }],
       ticketCode: "SA-ABC1234",
       primaryTicketCode: "SA-ABC1234",
       primaryTicketLookupUrl: "https://segelschule.example/ticket?code=SA-ABC1234",
@@ -71,13 +84,17 @@ function createBookingRecord(args: {
 
 function createHarness(args: {
   bookings: RouterObjectRecord[]
+  extraRecords?: RouterObjectRecord[]
   settings?: RouterObjectRecord | null
   contacts?: RouterObjectRecord[]
   domainConfigs?: RouterObjectRecord[]
   systemOrg?: { _id: string } | null
 }) {
   const records = new Map<string, RouterObjectRecord>(
-    args.bookings.map((booking) => [String(booking._id), structuredClone(booking)])
+    [...args.bookings, ...(args.extraRecords || [])].map((record) => [
+      String(record._id),
+      structuredClone(record),
+    ])
   )
   const sentEmails: Array<Record<string, unknown>> = []
   let orgOnlyQueryPhase: "settings" | "domain_configs" = "settings"
@@ -129,11 +146,15 @@ function createHarness(args: {
       sentEmails.push(actionArgs)
       return { success: true }
     }),
-    runMutation: vi.fn(async (_ref: unknown, mutationArgs: Record<string, unknown>) =>
-      getHandler<Record<string, unknown>, { success: boolean }>(
-        bookingWorkflowAutomation.markBookingReminderSentInternal
+    runMutation: vi.fn(async (_ref: unknown, mutationArgs: Record<string, unknown>) => {
+      const target =
+        typeof mutationArgs.reminderKind === "undefined"
+          ? bookingWorkflowAutomation.markBookingConfirmationSentInternal
+          : bookingWorkflowAutomation.markBookingReminderSentInternal
+      return getHandler<Record<string, unknown>, { success: boolean }>(
+        target
       )({ db } as any, mutationArgs)
-    ),
+    }),
   }
 
   return {
@@ -517,6 +538,112 @@ describe("booking workflow automation", () => {
     })
   })
 
+  it("captures booking confirmation previews from persisted booking data and marks confirmation sent when requested", async () => {
+    const now = Date.parse("2026-04-01T06:00:00.000Z")
+    vi.spyOn(Date, "now").mockReturnValue(now)
+
+    const harness = createHarness({
+      bookings: [
+        createBookingRecord({
+          id: "booking_confirmation_capture",
+          date: "2026-04-08",
+          time: "09:00",
+          bookingStartAt: Date.parse("2026-04-08T07:00:00.000Z"),
+          courseName: "Grundkurs",
+          checkoutSessionId: "checkout_confirmation_capture",
+          invoiceId: "invoice_confirmation_capture",
+          totalAmountCents: 59_800,
+          coursePriceInCents: 29_900,
+        }),
+      ],
+      extraRecords: [
+        {
+          _id: "invoice_confirmation_capture",
+          organizationId: "org_segelschule",
+          type: "invoice",
+          subtype: "manual_b2c",
+          status: "sent",
+          customProperties: {
+            invoiceNumber: "SA-4001",
+          },
+        },
+      ],
+      settings: {
+        _id: "booking_notifications_confirmation",
+        organizationId: "org_segelschule",
+        type: "organization_settings",
+        subtype: "booking_notifications",
+        status: "active",
+        customProperties: {
+          operatorEmails: ["ops@example.com"],
+        },
+      },
+      contacts: [],
+      domainConfigs: [
+        {
+          _id: "domain_config_confirmation",
+          organizationId: "org_segelschule",
+          type: "domain_config",
+          status: "active",
+        },
+      ],
+    })
+
+    const result = await getHandler<any, any>(
+      bookingWorkflowAutomation.executeBookingNotificationNode
+    )(harness.ctx as any, {
+      organizationId: "org_segelschule",
+      nodeConfig: {
+        action: "send-booking-confirmations",
+        recipientKinds: ["customer", "operator"],
+        bookingSubtypes: ["class_enrollment"],
+        bookingSources: ["segelschule_landing"],
+        operatorEmails: ["ops@example.com"],
+        emailExecutionControl: {
+          mode: "capture",
+          capturePreviews: true,
+          markAsSent: true,
+        },
+      },
+      inputData: {
+        bookingId: "booking_confirmation_capture",
+        checkoutSessionId: "checkout_confirmation_capture",
+      },
+    })
+
+    expect(result.success).toBe(true)
+    expect(result.data.sent).toBe(1)
+    expect(result.data.skippedAlreadySent).toBe(false)
+    expect(result.data.capturedPreviews).toHaveLength(1)
+    expect(result.data.capturedPreviews[0]).toMatchObject({
+      bookingId: "booking_confirmation_capture",
+      deliveryMode: "capture",
+      markedAsSent: true,
+      customer: {
+        to: ["ada@example.com"],
+        subject: "Buchungsbestätigung - Grundkurs",
+        attachments: [],
+      },
+      operator: {
+        to: ["ops@example.com"],
+        subject: "New Booking: Ada Lovelace - Grundkurs",
+      },
+    })
+    expect(String(result.data.capturedPreviews[0]?.customer?.html || "")).toContain(
+      "Ticket ansehen"
+    )
+    expect(harness.sentEmails).toHaveLength(0)
+
+    const updatedBooking = harness.records.get("booking_confirmation_capture")
+    expect(updatedBooking?.customProperties?.notifications).toMatchObject({
+      confirmation: {
+        sentAt: now,
+        customerRecipients: ["ada@example.com"],
+        operatorRecipients: ["ops@example.com"],
+      },
+    })
+  })
+
   it("dispatches only scheduled workflows whose cron matches the current local time", async () => {
     const now = Date.parse("2026-04-01T06:00:00.000Z")
     vi.spyOn(Date, "now").mockReturnValue(now)
@@ -589,6 +716,220 @@ describe("booking workflow automation", () => {
       triggerNodeId: "weather_schedule_trigger",
       triggerType: "schedule_cron",
       mode: "live",
+    })
+  })
+
+  it("dispatches payment-received workflows only for matching provider and organization", async () => {
+    const now = Date.parse("2026-04-01T08:00:00.000Z")
+    vi.spyOn(Date, "now").mockReturnValue(now)
+
+    const startedExecutions: Array<Record<string, unknown>> = []
+
+    const result = await getHandler<any, any>(
+      bookingWorkflowAutomation.dispatchPaymentReceivedLayerWorkflows
+    )(
+      {
+        runQuery: vi.fn(async (_ref: unknown, args: Record<string, unknown>) => {
+          if (args.triggerNodeType === "trigger_payment_received") {
+            return [
+              {
+                _id: "workflow_lc_checkout",
+                organizationId: "org_segelschule",
+                name: "LC Checkout Payment Workflow",
+                status: "active",
+                customProperties: {
+                  nodes: [
+                    {
+                      id: "payment_trigger_lc_checkout",
+                      type: "trigger_payment_received",
+                      config: {
+                        paymentProvider: "lc_checkout",
+                      },
+                    },
+                  ],
+                },
+              },
+              {
+                _id: "workflow_stripe_only",
+                organizationId: "org_segelschule",
+                name: "Stripe Payment Workflow",
+                status: "active",
+                customProperties: {
+                  nodes: [
+                    {
+                      id: "payment_trigger_stripe",
+                      type: "trigger_payment_received",
+                      config: {
+                        paymentProvider: "stripe",
+                      },
+                    },
+                  ],
+                },
+              },
+              {
+                _id: "workflow_other_org",
+                organizationId: "org_other",
+                name: "Other Org Workflow",
+                status: "active",
+                customProperties: {
+                  nodes: [
+                    {
+                      id: "payment_trigger_other_org",
+                      type: "trigger_payment_received",
+                      config: {
+                        paymentProvider: "any",
+                      },
+                    },
+                  ],
+                },
+              },
+            ]
+          }
+          throw new Error(`Unexpected runQuery args: ${JSON.stringify(args)}`)
+        }),
+        runAction: vi.fn(async (_ref: unknown, args: Record<string, unknown>) => {
+          startedExecutions.push(args)
+          return { success: true }
+        }),
+      } as any,
+      {
+        organizationId: "org_segelschule",
+        bookingId: "booking_1",
+        checkoutSessionId: "checkout_1",
+        transactionIds: ["transaction_1"],
+        ticketIds: ["ticket_1"],
+        contactId: "contact_1",
+        paymentProvider: "lc_checkout",
+        paymentMethod: "invoice",
+        source: "segelschule_landing_booking",
+      }
+    )
+
+    expect(result.ok).toBe(true)
+    expect(result.dispatchedWorkflows).toBe(1)
+    expect(result.workflows).toEqual([
+      {
+        workflowId: "workflow_lc_checkout",
+        workflowName: "LC Checkout Payment Workflow",
+        triggerNodeIds: ["payment_trigger_lc_checkout"],
+      },
+    ])
+    expect(startedExecutions).toHaveLength(1)
+    expect(startedExecutions[0]).toMatchObject({
+      workflowId: "workflow_lc_checkout",
+      organizationId: "org_segelschule",
+      triggerNodeId: "payment_trigger_lc_checkout",
+      triggerType: "payment_received",
+      sessionId: "system:payment:checkout_1",
+      mode: "live",
+      triggerData: {
+        occurredAt: now,
+        paymentProvider: "lc_checkout",
+        paymentMethod: "invoice",
+        checkoutSessionId: "checkout_1",
+        bookingId: "booking_1",
+        transactionIds: ["transaction_1"],
+        ticketIds: ["ticket_1"],
+        source: "segelschule_landing_booking",
+      },
+      triggeredBy: "contact_1",
+    })
+  })
+
+  it("dispatches booking-created workflows for the matching organization", async () => {
+    const now = Date.parse("2026-04-01T08:30:00.000Z")
+    vi.spyOn(Date, "now").mockReturnValue(now)
+
+    const startedExecutions: Array<Record<string, unknown>> = []
+
+    const result = await getHandler<any, any>(
+      bookingWorkflowAutomation.dispatchBookingCreatedLayerWorkflows
+    )(
+      {
+        runQuery: vi.fn(async (_ref: unknown, args: Record<string, unknown>) => {
+          if (args.triggerNodeType === "trigger_booking_created") {
+            return [
+              {
+                _id: "workflow_booking_created",
+                organizationId: "org_segelschule",
+                name: "Segelschule Booking Confirmation",
+                status: "active",
+                customProperties: {
+                  nodes: [
+                    {
+                      id: "booking_created_trigger",
+                      type: "trigger_booking_created",
+                      config: {},
+                    },
+                  ],
+                },
+              },
+              {
+                _id: "workflow_other_org_booking",
+                organizationId: "org_other",
+                name: "Other Org Booking Workflow",
+                status: "active",
+                customProperties: {
+                  nodes: [
+                    {
+                      id: "booking_created_trigger_other",
+                      type: "trigger_booking_created",
+                      config: {},
+                    },
+                  ],
+                },
+              },
+            ]
+          }
+          throw new Error(`Unexpected runQuery args: ${JSON.stringify(args)}`)
+        }),
+        runAction: vi.fn(async (_ref: unknown, args: Record<string, unknown>) => {
+          startedExecutions.push(args)
+          return { success: true }
+        }),
+      } as any,
+      {
+        organizationId: "org_segelschule",
+        bookingId: "booking_1",
+        checkoutSessionId: "checkout_1",
+        transactionIds: ["transaction_1"],
+        ticketIds: ["ticket_1"],
+        invoiceId: "invoice_1",
+        contactId: "contact_1",
+        paymentMethod: "invoice",
+        source: "segelschule_landing_booking",
+      }
+    )
+
+    expect(result.ok).toBe(true)
+    expect(result.triggerType).toBe("booking_created")
+    expect(result.dispatchedWorkflows).toBe(1)
+    expect(result.workflows).toEqual([
+      {
+        workflowId: "workflow_booking_created",
+        workflowName: "Segelschule Booking Confirmation",
+        triggerNodeIds: ["booking_created_trigger"],
+      },
+    ])
+    expect(startedExecutions).toHaveLength(1)
+    expect(startedExecutions[0]).toMatchObject({
+      workflowId: "workflow_booking_created",
+      organizationId: "org_segelschule",
+      triggerNodeId: "booking_created_trigger",
+      triggerType: "booking_created",
+      sessionId: "system:booking:booking_1",
+      mode: "live",
+      triggerData: {
+        occurredAt: now,
+        bookingId: "booking_1",
+        checkoutSessionId: "checkout_1",
+        transactionIds: ["transaction_1"],
+        ticketIds: ["ticket_1"],
+        invoiceId: "invoice_1",
+        paymentMethod: "invoice",
+        source: "segelschule_landing_booking",
+      },
+      triggeredBy: "contact_1",
     })
   })
 })

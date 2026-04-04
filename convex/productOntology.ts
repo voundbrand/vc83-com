@@ -96,6 +96,14 @@ import { v, ConvexError } from "convex/values";
 import { Id } from "./_generated/dataModel";
 import { requireAuthenticatedUser } from "./rbacHelpers";
 import { checkResourceLimit, checkFeatureAccess, getLicenseInternal } from "./licensing/helpers";
+import {
+  getProductAvailabilityConnectionSummary,
+  PRODUCT_AVAILABILITY_LINK_TYPE,
+} from "./lib/productAvailabilityConnection";
+import {
+  getShadowAvailabilityResourceId,
+  isAvailabilityCarrierCandidate,
+} from "./lib/availabilityResources";
 
 /**
  * PRODUCT AVAILABILITY VALIDATION
@@ -109,6 +117,7 @@ import { checkResourceLimit, checkFeatureAccess, getLicenseInternal } from "./li
  * - endSaleDateTime (if set) must be >= current date
  * - earlyBirdEndDate (if ticketTier === "earlybird") must be >= current date
  * - Inventory limits (if applicable)
+ * - Bookable products must resolve to configured availability
  */
 export function isProductAvailableForPurchase(
   product: {
@@ -201,6 +210,63 @@ function getNextTier(
     enterprise: "Enterprise (contact sales)",
   };
   return tierUpgradePath[currentTier] || "a higher tier";
+}
+
+async function validateAvailabilityResourceCandidate(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ctx: any,
+  owner: {
+    organizationId: Id<"organizations">;
+  },
+  availabilityResourceId: Id<"objects">
+): Promise<void> {
+  const availabilityResource = await ctx.db.get(availabilityResourceId);
+  if (
+    !availabilityResource ||
+    availabilityResource.type !== "product" ||
+    availabilityResource.organizationId !== owner.organizationId ||
+    availabilityResource.status === "archived"
+  ) {
+    throw new Error("Invalid availability resource ID");
+  }
+
+  const outgoingLinks = await ctx.db
+    .query("objectLinks")
+    .withIndex("by_from_object", (q: { eq: (field: string, value: unknown) => unknown }) =>
+      q.eq("fromObjectId", availabilityResourceId)
+    )
+    .collect();
+
+  let explicitAvailabilityResourceId = getShadowAvailabilityResourceId(
+    availabilityResource.customProperties
+  );
+  const directAvailabilityResourceIds = new Set<string>();
+  const templatedAvailabilityResourceIds = new Set<string>();
+
+  for (const link of outgoingLinks) {
+    if (link.linkType === PRODUCT_AVAILABILITY_LINK_TYPE) {
+      explicitAvailabilityResourceId = link.toObjectId;
+      continue;
+    }
+    if (link.linkType === "has_availability") {
+      directAvailabilityResourceIds.add(availabilityResourceId);
+      continue;
+    }
+    if (link.linkType === "uses_schedule") {
+      templatedAvailabilityResourceIds.add(availabilityResourceId);
+    }
+  }
+
+  const isValidCarrier = isAvailabilityCarrierCandidate(availabilityResource, {
+    referencedResourceIds: new Set<string>(),
+    directAvailabilityResourceIds,
+    templatedAvailabilityResourceIds,
+    explicitAvailabilityResourceId,
+  });
+
+  if (!isValidCarrier) {
+    throw new Error("Invalid availability resource ID");
+  }
 }
 
 /**
@@ -329,7 +395,7 @@ export const getProductsWithForms = query({
 
 /**
  * GET PRODUCT
- * Get a single product by ID with linked form and event data
+ * Get a single product by ID with linked form, event, and availability data
  */
 export const getProduct = query({
   args: {
@@ -345,22 +411,25 @@ export const getProduct = query({
       throw new Error("Product not found");
     }
 
-    // Find all links for this product
-    const allLinks = await ctx.db
+    const linksFromProduct = await ctx.db
       .query("objectLinks")
+      .withIndex("by_from_object", (q) => q.eq("fromObjectId", args.productId))
+      .collect();
+
+    const linksToProduct = await ctx.db
+      .query("objectLinks")
+      .withIndex("by_to_object", (q) => q.eq("toObjectId", args.productId))
       .collect();
 
     // Find form link (product->form "requiresForm")
-    const formLink = allLinks.find(
-      (link) =>
-        link.fromObjectId === args.productId && link.linkType === "requiresForm"
+    const formLink = linksFromProduct.find((link) => link.linkType === "requiresForm");
+
+    const availabilityLink = linksFromProduct.find(
+      (link) => link.linkType === PRODUCT_AVAILABILITY_LINK_TYPE
     );
 
     // Find event link (event->product "offers")
-    const eventLink = allLinks.find(
-      (link) =>
-        link.toObjectId === args.productId && link.linkType === "offers"
-    );
+    const eventLink = linksToProduct.find((link) => link.linkType === "offers");
 
     // Build customProperties with form and event data
     let enrichedCustomProperties = { ...product.customProperties };
@@ -388,6 +457,18 @@ export const getProduct = query({
           eventName: event.name,
         };
       }
+    }
+
+    if (availabilityLink) {
+      const linkedResource = await ctx.db.get(availabilityLink.toObjectId);
+      enrichedCustomProperties = {
+        ...enrichedCustomProperties,
+        availabilityResourceId: availabilityLink.toObjectId,
+        availabilityResourceName:
+          linkedResource && linkedResource.type === "product"
+            ? linkedResource.name
+            : enrichedCustomProperties.availabilityResourceName,
+      };
     }
 
     return {
@@ -459,6 +540,7 @@ export const createProduct = mutation({
     currency: v.optional(v.string()), // Default: "USD"
     inventory: v.optional(v.number()), // Available quantity
     eventId: v.optional(v.id("objects")), // Optional: Link product to event (event->product "offers")
+    availabilityResourceId: v.optional(v.union(v.id("objects"), v.null())),
     customProperties: v.optional(v.record(v.string(), v.any())),
   },
   handler: async (ctx, args) => {
@@ -491,6 +573,12 @@ export const createProduct = mutation({
       }
     }
 
+    if (args.availabilityResourceId) {
+      await validateAvailabilityResourceCandidate(ctx, {
+        organizationId: args.organizationId,
+      }, args.availabilityResourceId);
+    }
+
     // Build customProperties with product data
     const customProperties = {
       price: args.price,
@@ -498,6 +586,7 @@ export const createProduct = mutation({
       inventory: args.inventory ?? null,
       sold: 0, // Track sales count
       eventId: args.eventId, // Store event link for easy access
+      availabilityResourceId: args.availabilityResourceId ?? null,
       ...(args.customProperties || {}),
     };
 
@@ -531,6 +620,17 @@ export const createProduct = mutation({
       });
     }
 
+    if (args.availabilityResourceId) {
+      await ctx.db.insert("objectLinks", {
+        organizationId: args.organizationId,
+        fromObjectId: productId,
+        toObjectId: args.availabilityResourceId,
+        linkType: PRODUCT_AVAILABILITY_LINK_TYPE,
+        createdBy: userId,
+        createdAt: Date.now(),
+      });
+    }
+
     return productId;
   },
 });
@@ -550,6 +650,7 @@ export const updateProduct = mutation({
     inventory: v.optional(v.number()),
     status: v.optional(v.string()), // "draft" | "active" | "sold_out" | "archived"
     eventId: v.optional(v.union(v.id("objects"), v.null())), // Optional: Update event link (null to remove)
+    availabilityResourceId: v.optional(v.union(v.id("objects"), v.null())), // Explicit availability carrier
     customProperties: v.optional(v.record(v.string(), v.any())),
     // B2B Invoicing configuration (optional) - used when checkout has invoice payment enabled
     invoiceConfig: v.optional(v.object({
@@ -575,6 +676,12 @@ export const updateProduct = mutation({
       }
     }
 
+    if (args.availabilityResourceId !== undefined && args.availabilityResourceId !== null) {
+      await validateAvailabilityResourceCandidate(ctx, {
+        organizationId: product.organizationId,
+      }, args.availabilityResourceId);
+    }
+
     // Build update object
     const updates: Record<string, unknown> = {
       updatedAt: Date.now(),
@@ -593,7 +700,15 @@ export const updateProduct = mutation({
     }
 
     // Update customProperties
-    if (args.price !== undefined || args.currency !== undefined || args.inventory !== undefined || args.eventId !== undefined || args.customProperties || args.invoiceConfig !== undefined) {
+    if (
+      args.price !== undefined ||
+      args.currency !== undefined ||
+      args.inventory !== undefined ||
+      args.eventId !== undefined ||
+      args.availabilityResourceId !== undefined ||
+      args.customProperties ||
+      args.invoiceConfig !== undefined
+    ) {
       const currentProps = product.customProperties || {};
 
       // ⚠️ CRITICAL FIX: When args.customProperties is provided, it should COMPLETELY
@@ -611,6 +726,9 @@ export const updateProduct = mutation({
         ...(args.currency !== undefined && { currency: args.currency }),
         ...(args.inventory !== undefined && { inventory: args.inventory }),
         ...(args.eventId !== undefined && { eventId: args.eventId }),
+        ...(args.availabilityResourceId !== undefined && {
+          availabilityResourceId: args.availabilityResourceId,
+        }),
       };
 
       // If customProperties provided, merge them but REPLACE arrays completely
@@ -693,6 +811,35 @@ export const updateProduct = mutation({
             createdAt: Date.now(),
           });
         }
+      }
+    }
+
+    if (args.availabilityResourceId !== undefined) {
+      const availabilityLinks = await ctx.db
+        .query("objectLinks")
+        .withIndex("by_from_link_type", (q) =>
+          q.eq("fromObjectId", args.productId).eq("linkType", PRODUCT_AVAILABILITY_LINK_TYPE)
+        )
+        .collect();
+
+      const existingAvailabilityLink = availabilityLinks[0] ?? null;
+
+      if (args.availabilityResourceId === null) {
+        if (existingAvailabilityLink) {
+          await ctx.db.delete(existingAvailabilityLink._id);
+        }
+      } else if (existingAvailabilityLink) {
+        await ctx.db.patch(existingAvailabilityLink._id, {
+          toObjectId: args.availabilityResourceId,
+        });
+      } else {
+        await ctx.db.insert("objectLinks", {
+          organizationId: product.organizationId,
+          fromObjectId: args.productId,
+          toObjectId: args.availabilityResourceId,
+          linkType: PRODUCT_AVAILABILITY_LINK_TYPE,
+          createdAt: Date.now(),
+        });
       }
     }
 
@@ -1199,9 +1346,43 @@ export const checkProductAvailability = internalQuery({
       };
     }
 
-    return isProductAvailableForPurchase(
+    const purchaseAvailability = isProductAvailableForPurchase(
       product,
       args.currentDate ?? Date.now()
     );
+
+    if (!purchaseAvailability.available) {
+      return purchaseAvailability;
+    }
+
+    const connection = await getProductAvailabilityConnectionSummary(ctx, product);
+    if (connection.isBookable) {
+      if (
+        connection.connectionMode === "linked" &&
+        !connection.isConnectionValid
+      ) {
+        return {
+          available: false,
+          reason:
+            "This product points to an availability resource that no longer exists or is no longer valid.",
+        };
+      }
+
+      if (!connection.hasAvailabilityConfigured) {
+        const resourceName =
+          connection.availabilityResourceName || connection.productName || "this product";
+        return {
+          available: false,
+          reason: `Availability is not configured for ${resourceName}.`,
+        };
+      }
+    }
+
+    return {
+      ...purchaseAvailability,
+      availabilityResourceId: connection.availabilityResourceId,
+      availabilityResourceName: connection.availabilityResourceName,
+      availabilityConnectionMode: connection.connectionMode,
+    };
   },
 });

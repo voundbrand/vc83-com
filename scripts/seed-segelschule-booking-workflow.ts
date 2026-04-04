@@ -1,13 +1,16 @@
 #!/usr/bin/env npx tsx
 
 import path from "node:path";
-import { config as loadEnv } from "dotenv";
+import { pathToFileURL } from "node:url";
+import { execFileSync } from "node:child_process";
 import { ConvexHttpClient } from "convex/browser";
 import type { Id } from "../convex/_generated/dataModel";
 import {
   buildAvailabilityStructureDrivenConfig,
   type AvailabilityStructureKey,
 } from "../convex/lib/availabilityStructures";
+import { localDateTimeToTimestamp } from "../src/lib/timezone-utils";
+import { loadWorkspaceEnvCascade } from "./lib/load-workspace-env";
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
 const { internal } = require("../convex/_generated/api") as { internal: any };
@@ -26,11 +29,38 @@ const DEFAULT_INVENTORY_GROUPS = [
   { id: "fraukje", label: "Fraukje", capacity: 4 },
   { id: "rose", label: "Rose", capacity: 4 },
 ];
+const BOAT_AVAILABILITY_WINDOWS: RecurringAvailabilitySeedProfile = {
+  profileId: "segelschule_boats_daily_open",
+  availabilityStructure: "boat_charter",
+  timezone: DEFAULT_TIMEZONE,
+  windows: [
+    {
+      daysOfWeek: [0, 1, 2, 3, 4, 5, 6],
+      startTimes: ["09:00"],
+      durationMinutes: 480,
+    },
+  ],
+};
+const SEGELSCHULE_BOAT_TEMPLATES = [
+  {
+    boatId: "fraukje",
+    displayName: "Fraukje",
+    seatCount: 4,
+    availableFromDate: "2026-05-01",
+  },
+  {
+    boatId: "rose",
+    displayName: "Rose",
+    seatCount: 4,
+    availableFromDate: "2026-04-05",
+  },
+] as const;
 
 const SEGELSCHULE_APP_SLUG = "segelschule-altwarp";
 const SEGELSCHULE_SURFACE_TYPE = "booking";
 const SEGELSCHULE_SURFACE_KEY = "default";
 const SEGELSCHULE_SEED_VERSION = "segelschule_booking_seed_v2";
+const PRODUCT_AVAILABILITY_LINK_TYPE = "uses_availability_of";
 const SEGELSCHULE_DEFAULT_DOMAIN_NAME = "segelschule-altwarp.test.l4yercak3.com";
 const SEGELSCHULE_DEFAULT_EMAIL_DOMAIN = "mail.l4yercak3.com";
 const SEGELSCHULE_DEFAULT_BRANDING = {
@@ -52,6 +82,15 @@ const SEGELSCHULE_DEFAULT_ADDRESS = {
   region: "Europe",
 };
 const SEGELSCHULE_DEFAULT_LOCATION_NAME = "Segelschule Altwarp Hafen";
+const SEGELSCHULE_DEFAULT_TAX_RATE_PERCENT = 19;
+const LEGACY_RESOURCE_NAME_ALIASES_BY_COURSE_ID: Record<string, string[]> = {
+  schnupper: ["Taster course Resource", "Taster course"],
+  grund: ["Weekend course Resource", "Weekend course"],
+  intensiv: [
+    "Intensive sailing license course Resource",
+    "Intensive sailing license course",
+  ],
+};
 
 type OAuthConnectionSyncSettings = {
   email: boolean;
@@ -60,12 +99,19 @@ type OAuthConnectionSyncSettings = {
   sharePoint: boolean;
 };
 
-interface CourseTemplate {
+export interface CourseTemplate {
   courseId: string;
   displayName: string;
+  priceInCents: number;
   bookingDurationMinutes: number;
   availableTimes: string[];
   isMultiDay: boolean;
+  catalogContent: {
+    aliases?: string[];
+    title: Record<string, string>;
+    description: Record<string, string>;
+    durationLabel: Record<string, string>;
+  };
   availabilitySeedProfile: RecurringAvailabilitySeedProfile;
 }
 
@@ -84,7 +130,9 @@ interface RecurringAvailabilitySeedProfile {
 
 interface OrgObjectRecord {
   _id: Id<"objects">;
+  type?: string;
   name?: string;
+  description?: string;
   subtype?: string;
   status?: string;
   customProperties?: Record<string, unknown>;
@@ -125,6 +173,24 @@ interface OAuthConnectionRecord {
 interface CourseResourceResult {
   resourceByCourseId: Record<string, Id<"objects">>;
   createdCourseIds: string[];
+  adoptedCourseIds: string[];
+  missingCourseIds: string[];
+}
+
+interface CoursePlatformBindingResult {
+  checkoutProductByCourseId: Partial<Record<string, Id<"objects">>>;
+}
+
+interface BoatResourceSeedResult {
+  resourceByBoatId: Record<string, Id<"objects">>;
+  createdBoatIds: string[];
+  adoptedBoatIds: string[];
+}
+
+interface CourseCheckoutProductSeedResult extends CoursePlatformBindingResult {
+  createdCheckoutProductCourseIds: string[];
+  adoptedCheckoutProductCourseIds: string[];
+  missingCheckoutProductCourseIds: string[];
 }
 
 interface SettingsSeedResult {
@@ -195,6 +261,31 @@ interface SegelschuleAvailabilitySeedResult {
   }>;
 }
 
+interface SegelschuleBoatAvailabilitySeedResult {
+  seededResourceIds: string[];
+  seededProfiles: Array<{
+    boatId: string;
+    resourceId: string;
+    availabilityStructure: AvailabilityStructureKey;
+    profileId: string;
+    scheduleCount: number;
+    timezone: string;
+    schedules: Array<{
+      dayOfWeek: number;
+      startTime: string;
+      endTime: string;
+      isAvailable: boolean;
+    }>;
+    openingBlock:
+      | {
+          startDate: number;
+          endDate: number;
+          availableFromDate: string;
+        }
+      | null;
+  }>;
+}
+
 interface LayerWorkflowSeedResult {
   objectId: Id<"objects">;
   created: boolean;
@@ -242,9 +333,27 @@ const COURSE_TEMPLATES: CourseTemplate[] = [
   {
     courseId: "schnupper",
     displayName: "Schnupperkurs",
+    priceInCents: 12_900,
     bookingDurationMinutes: 180,
     availableTimes: ["09:00", "13:00"],
     isMultiDay: false,
+    catalogContent: {
+      title: {
+        de: "Schnupperkurs",
+        en: "Taster Course",
+        nl: "Proefcursus",
+      },
+      description: {
+        de: "Erster Einstieg aufs Wasser mit einer kompakten, begleiteten Segelerfahrung.",
+        en: "A compact first session on the water with guided sailing practice.",
+        nl: "Een compacte eerste sessie op het water met begeleide zeilpraktijk.",
+      },
+      durationLabel: {
+        de: "3 Stunden",
+        en: "3 hours",
+        nl: "3 uur",
+      },
+    },
     availabilitySeedProfile: {
       profileId: "segelschule_taster_sessions",
       availabilityStructure: "course_session",
@@ -261,9 +370,28 @@ const COURSE_TEMPLATES: CourseTemplate[] = [
   {
     courseId: "grund",
     displayName: "Grundkurs",
+    priceInCents: 29_900,
     bookingDurationMinutes: 480,
     availableTimes: ["09:00"],
     isMultiDay: true,
+    catalogContent: {
+      aliases: ["wochenende"],
+      title: {
+        de: "Grundkurs",
+        en: "Foundation Course",
+        nl: "Basiscursus",
+      },
+      description: {
+        de: "Mehrtaegiger Grundlagenkurs mit Manövern, Sicherheit und viel Zeit fuer echte Segelpraxis.",
+        en: "A multi-day foundation course covering maneuvers, safety, and real sailing practice.",
+        nl: "Een meerdaagse basiscursus met manoeuvres, veiligheid en veel echte zeilpraktijk.",
+      },
+      durationLabel: {
+        de: "2 Tage",
+        en: "2 days",
+        nl: "2 dagen",
+      },
+    },
     availabilitySeedProfile: {
       profileId: "segelschule_foundation_weekday_sessions",
       availabilityStructure: "course_session",
@@ -280,9 +408,27 @@ const COURSE_TEMPLATES: CourseTemplate[] = [
   {
     courseId: "intensiv",
     displayName: "Intensivkurs",
+    priceInCents: 34_900,
     bookingDurationMinutes: 480,
     availableTimes: ["09:00"],
     isMultiDay: true,
+    catalogContent: {
+      title: {
+        de: "Intensivkurs",
+        en: "Intensive Course",
+        nl: "Intensieve cursus",
+      },
+      description: {
+        de: "Intensiver Mehrtageskurs fuer Wiedereinsteiger oder alle, die strukturiert aufs Wasser wollen.",
+        en: "An intensive multi-day course for returners or anyone who wants a structured practical block on the water.",
+        nl: "Een intensieve meerdaagse cursus voor herintreders of iedereen die een gestructureerd praktijkblok op het water wil.",
+      },
+      durationLabel: {
+        de: "5 Tage",
+        en: "5 days",
+        nl: "5 dagen",
+      },
+    },
     availabilitySeedProfile: {
       profileId: "segelschule_intensive_weekend_sessions",
       availabilityStructure: "course_session",
@@ -335,6 +481,35 @@ function required(value: string | undefined, message: string): string {
     throw new Error(message);
   }
   return normalized;
+}
+
+function runJsonTsxScript(args: {
+  scriptPath: string;
+  scriptArgs: string[];
+  tsconfigPath?: string;
+}): Record<string, unknown> {
+  const tsxCliPath = path.resolve(process.cwd(), "node_modules/tsx/dist/cli.mjs");
+  const commandArgs = args.tsconfigPath
+    ? [tsxCliPath, "--tsconfig", args.tsconfigPath, args.scriptPath, ...args.scriptArgs]
+    : [tsxCliPath, args.scriptPath, ...args.scriptArgs];
+
+  const output = execFileSync(process.execPath, commandArgs, {
+    cwd: process.cwd(),
+    encoding: "utf8",
+  });
+
+  for (let index = output.lastIndexOf("{"); index >= 0; index = output.lastIndexOf("{", index - 1)) {
+    const candidate = output.slice(index).trim();
+    try {
+      return JSON.parse(candidate) as Record<string, unknown>;
+    } catch {
+      continue;
+    }
+  }
+
+  throw new Error(
+    `Unable to parse JSON output from ${args.scriptPath}. Output length: ${output.length}`
+  );
 }
 
 function normalizePositiveNumber(value: unknown): number | null {
@@ -447,6 +622,19 @@ function normalizeConnectionSummary(connection: OAuthConnectionRecord) {
   };
 }
 
+function isGoogleCalendarLinkReady(connection: OAuthConnectionRecord | null): boolean {
+  if (!connection) {
+    return false;
+  }
+  if (connection.status !== "active") {
+    return false;
+  }
+  if (connection.syncSettings?.calendar !== true) {
+    return false;
+  }
+  return true;
+}
+
 function isInvoiceProvider(record: OrgObjectRecord): boolean {
   return record.customProperties?.providerCode === "invoice";
 }
@@ -455,54 +643,137 @@ function isStripeProvider(record: OrgObjectRecord): boolean {
   return record.customProperties?.providerCode === "stripe-connect";
 }
 
+function isCourseResourceRecord(
+  product: OrgObjectRecord | null | undefined
+): product is OrgObjectRecord {
+  return ["class", "appointment"].includes(String(product?.subtype || ""));
+}
+
+function isSeededCourseCatalogRecord(product: OrgObjectRecord | null | undefined): boolean {
+  const props = asObjectRecord(product?.customProperties);
+  return (
+    normalizeOptionalString(props.source) === SEGELSCHULE_SEED_VERSION
+    && Boolean(
+      normalizeOptionalString(props.segelschuleCourseId)
+      || normalizeOptionalString(props.bookingSurface) === SEGELSCHULE_APP_SLUG
+      || normalizeOptionalString(props.segelschuleCatalogRole)
+    )
+  );
+}
+
+function normalizeNameKey(value: unknown): string | null {
+  return lower(normalizeOptionalString(value));
+}
+
+function matchesLegacyCourseResourceName(
+  product: OrgObjectRecord | null | undefined,
+  courseId: string
+): boolean {
+  const normalizedProductName = normalizeNameKey(product?.name);
+  if (!normalizedProductName) {
+    return false;
+  }
+
+  return (LEGACY_RESOURCE_NAME_ALIASES_BY_COURSE_ID[courseId] || []).some(
+    (candidate) => normalizeNameKey(candidate) === normalizedProductName
+  );
+}
+
 function getCourseResourceCandidate(
   products: OrgObjectRecord[],
   courseId: string
 ): OrgObjectRecord | null {
-  const bySeedCourseId = products.find((product) => {
-    if (product.subtype !== "class") {
-      return false;
-    }
-    const props = asObjectRecord(product.customProperties);
-    return props.segelschuleCourseId === courseId;
-  });
-  if (bySeedCourseId) {
-    return bySeedCourseId;
-  }
+  const candidates = products
+    .filter(isCourseResourceRecord)
+    .map((product) => {
+      const props = asObjectRecord(product.customProperties);
+      const explicitLegacyCourseId = normalizeOptionalString(props.courseId);
+      const explicitSegelschuleCourseId = normalizeOptionalString(props.segelschuleCourseId);
+      const seeded = isSeededCourseCatalogRecord(product);
+      let rank: number | null = null;
 
-  const byLegacyId = products.find((product) => {
-    if (!["class", "appointment"].includes(String(product.subtype || ""))) {
-      return false;
-    }
-    const props = asObjectRecord(product.customProperties);
-    return props.courseId === courseId;
-  });
-  if (byLegacyId) {
-    return byLegacyId;
-  }
+      if (explicitLegacyCourseId === courseId) {
+        rank = 0;
+      } else if (matchesLegacyCourseResourceName(product, courseId) && !seeded) {
+        rank = 1;
+      } else if (explicitSegelschuleCourseId === courseId && !seeded) {
+        rank = 2;
+      } else if (matchesLegacyCourseResourceName(product, courseId)) {
+        rank = 3;
+      } else if (explicitSegelschuleCourseId === courseId) {
+        rank = 4;
+      }
 
-  return null;
+      if (rank === null) {
+        return null;
+      }
+
+      return { product, rank };
+    })
+    .filter(
+      (
+        candidate
+      ): candidate is {
+        product: OrgObjectRecord;
+        rank: number;
+      } => Boolean(candidate)
+    )
+    .sort((left, right) => {
+      if (left.rank !== right.rank) {
+        return left.rank - right.rank;
+      }
+      return String(left.product._id).localeCompare(String(right.product._id));
+    });
+
+  return candidates[0]?.product || null;
 }
 
-function createResourceCustomProperties(course: CourseTemplate): Record<string, unknown> {
+function buildCatalogContentDefaults(course: CourseTemplate) {
+  return {
+    aliases: course.catalogContent.aliases || [],
+    title: course.catalogContent.title,
+    description: course.catalogContent.description,
+    durationLabel: course.catalogContent.durationLabel,
+  };
+}
+
+function createResourceCustomProperties(args: {
+  course: CourseTemplate;
+  existingProps?: Record<string, unknown>;
+  synthetic: boolean;
+}): Record<string, unknown> {
   const structureDrivenConfig = buildAvailabilityStructureDrivenConfig(
-    course.availabilitySeedProfile.availabilityStructure,
+    args.course.availabilitySeedProfile.availabilityStructure,
     {
-      minDuration: course.bookingDurationMinutes,
-      maxDuration: course.bookingDurationMinutes,
+      minDuration: args.course.bookingDurationMinutes,
+      maxDuration: args.course.bookingDurationMinutes,
       durationUnit: "minutes",
       capacity: 8,
-      pricePerUnit: 0,
       priceUnit: "seat",
       confirmationRequired: false,
     }
   );
+  const existingProps = args.existingProps || {};
+  const existingCatalogContent = asObjectRecord(existingProps.catalogContent);
+  const existingDescription = normalizeOptionalString(existingProps.description);
 
   return {
-    source: SEGELSCHULE_SEED_VERSION,
-    segelschuleCourseId: course.courseId,
+    ...existingProps,
+    ...(args.synthetic ? { source: SEGELSCHULE_SEED_VERSION } : {}),
+    segelschuleCatalogSource: args.synthetic
+      ? "seed_created_resource"
+      : "adopted_existing_resource",
+    segelschuleCourseId: args.course.courseId,
+    courseId: args.course.courseId,
     bookingSurface: SEGELSCHULE_APP_SLUG,
     bookingType: "class_enrollment",
+    fulfillmentType: "ticket",
+    isMultiDay: args.course.isMultiDay,
+    bookingDurationMinutes: args.course.bookingDurationMinutes,
+    catalogContent:
+      Object.keys(existingCatalogContent).length > 0
+        ? existingCatalogContent
+        : buildCatalogContentDefaults(args.course),
     availabilityStructure: structureDrivenConfig.availabilityStructure,
     availabilityModel: structureDrivenConfig.availabilityModel,
     availabilityContextKey: structureDrivenConfig.availabilityContextKey,
@@ -511,11 +782,20 @@ function createResourceCustomProperties(course: CourseTemplate): Record<string, 
     locationBehavior: structureDrivenConfig.locationBehavior,
     resourceTopologyProfile: structureDrivenConfig.resourceTopologyProfile,
     capacity: structureDrivenConfig.capacity,
-    pricePerUnit: structureDrivenConfig.pricePerUnit,
+    pricePerUnit: 0,
     priceUnit: structureDrivenConfig.priceUnit,
+    priceInCents: null,
+    price: null,
+    basePrice: null,
+    currency: normalizeOptionalString(existingProps.currency) || "EUR",
+    taxBehavior: normalizeOptionalString(existingProps.taxBehavior) || null,
+    description: existingDescription || args.course.catalogContent.description.de,
     bookableConfig: {
       ...structureDrivenConfig,
       bookingType: "class_enrollment",
+      fulfillmentType: "ticket",
+      pricePerUnit: 0,
+      priceUnit: "seat",
     },
     seatInventory: {
       groups: DEFAULT_INVENTORY_GROUPS.map((group) => ({
@@ -525,6 +805,670 @@ function createResourceCustomProperties(course: CourseTemplate): Record<string, 
       })),
       strictSeatSelection: true,
     },
+  };
+}
+
+export function createBoatResourceCustomProperties(args: {
+  boat: (typeof SEGELSCHULE_BOAT_TEMPLATES)[number];
+  existingProps?: Record<string, unknown>;
+  synthetic: boolean;
+}): Record<string, unknown> {
+  const structureDrivenConfig = buildAvailabilityStructureDrivenConfig(
+    BOAT_AVAILABILITY_WINDOWS.availabilityStructure,
+    {
+      minDuration: BOAT_AVAILABILITY_WINDOWS.windows[0]?.durationMinutes || 480,
+      maxDuration: BOAT_AVAILABILITY_WINDOWS.windows[0]?.durationMinutes || 480,
+      durationUnit: "minutes",
+      capacity: 1,
+      priceUnit: "flat",
+      confirmationRequired: true,
+      totalPassengerSeats: args.boat.seatCount,
+      vehicleType: "boat",
+    }
+  );
+  const existingProps = args.existingProps || {};
+  const existingDescription = normalizeOptionalString(existingProps.description);
+
+  return {
+    ...existingProps,
+    ...(args.synthetic ? { source: SEGELSCHULE_SEED_VERSION } : {}),
+    segelschuleBoatId: args.boat.boatId,
+    bookingSurface: SEGELSCHULE_APP_SLUG,
+    availabilityEnabled: true,
+    availabilityStructure: structureDrivenConfig.availabilityStructure,
+    availabilityModel: structureDrivenConfig.availabilityModel,
+    availabilityContextKey: structureDrivenConfig.availabilityContextKey,
+    inventoryMode: structureDrivenConfig.inventoryMode,
+    requiresBookingAddress: structureDrivenConfig.requiresBookingAddress,
+    locationBehavior: structureDrivenConfig.locationBehavior,
+    resourceTopologyProfile: structureDrivenConfig.resourceTopologyProfile,
+    vehicleType: "boat",
+    totalPassengerSeats: args.boat.seatCount,
+    capacity: structureDrivenConfig.capacity,
+    pricePerUnit: 0,
+    priceUnit: structureDrivenConfig.priceUnit,
+    priceInCents: null,
+    price: null,
+    basePrice: null,
+    currency: normalizeOptionalString(existingProps.currency) || "EUR",
+    description:
+      existingDescription
+      || `${args.boat.displayName} is available as a sailing-school vessel when its calendar is open.`,
+    bookableConfig: {
+      ...structureDrivenConfig,
+      pricePerUnit: 0,
+      priceUnit: structureDrivenConfig.priceUnit,
+      totalPassengerSeats: args.boat.seatCount,
+      vehicleType: "boat",
+    },
+  };
+}
+
+function getBoatResourceCandidate(
+  products: OrgObjectRecord[],
+  boat: (typeof SEGELSCHULE_BOAT_TEMPLATES)[number]
+): OrgObjectRecord | null {
+  const normalizedBoatName = normalizeNameKey(boat.displayName);
+
+  const candidates = products
+    .filter((product) => String(product.subtype || "") === "vehicle")
+    .map((product) => {
+      const props = asObjectRecord(product.customProperties);
+      const segelschuleBoatId = normalizeOptionalString(props.segelschuleBoatId);
+      const normalizedProductName = normalizeNameKey(product.name);
+      let rank: number | null = null;
+
+      if (segelschuleBoatId === boat.boatId) {
+        rank = 0;
+      } else if (normalizedProductName === normalizedBoatName) {
+        rank = 1;
+      }
+
+      if (rank === null) {
+        return null;
+      }
+
+      return { product, rank };
+    })
+    .filter(
+      (
+        candidate
+      ): candidate is {
+        product: OrgObjectRecord;
+        rank: number;
+      } => Boolean(candidate)
+    )
+    .sort((left, right) => {
+      if (left.rank !== right.rank) {
+        return left.rank - right.rank;
+      }
+      return String(left.product._id).localeCompare(String(right.product._id));
+    });
+
+  return candidates[0]?.product || null;
+}
+
+async function ensureSegelschuleBoatResources(
+  client: ConvexHttpClient,
+  args: {
+    organizationId: Id<"organizations">;
+    products: OrgObjectRecord[];
+  }
+): Promise<BoatResourceSeedResult> {
+  const resourceByBoatId: Record<string, Id<"objects">> = {};
+  const createdBoatIds: string[] = [];
+  const adoptedBoatIds: string[] = [];
+
+  for (const boat of SEGELSCHULE_BOAT_TEMPLATES) {
+    const existing = getBoatResourceCandidate(args.products, boat);
+    if (existing) {
+      const customProperties = createBoatResourceCustomProperties({
+        boat,
+        existingProps: asObjectRecord(existing.customProperties),
+        synthetic: false,
+      });
+      await patchObject(client, {
+        objectId: existing._id,
+        ...(existing.status === "active" ? {} : { status: "active" }),
+        description:
+          normalizeOptionalString(existing.description) || customProperties.description
+            ? String(
+                normalizeOptionalString(existing.description) || customProperties.description
+              )
+            : undefined,
+        customProperties,
+      });
+      resourceByBoatId[boat.boatId] = existing._id;
+      adoptedBoatIds.push(boat.boatId);
+      continue;
+    }
+
+    const customProperties = createBoatResourceCustomProperties({
+      boat,
+      synthetic: true,
+    });
+    const resourceId = await insertObject(client, {
+      organizationId: args.organizationId,
+      type: "product",
+      subtype: "vehicle",
+      name: boat.displayName,
+      description: String(customProperties.description || boat.displayName),
+      status: "active",
+      customProperties,
+    });
+    args.products.push({
+      _id: resourceId,
+      name: boat.displayName,
+      description: String(customProperties.description || boat.displayName),
+      subtype: "vehicle",
+      status: "active",
+      customProperties,
+    });
+    resourceByBoatId[boat.boatId] = resourceId;
+    createdBoatIds.push(boat.boatId);
+  }
+
+  return {
+    resourceByBoatId,
+    createdBoatIds,
+    adoptedBoatIds,
+  };
+}
+
+async function syncCourseSeatInventoryBoatLinks(
+  client: ConvexHttpClient,
+  args: {
+    products: OrgObjectRecord[];
+    resourceByCourseId: Record<string, Id<"objects">>;
+    resourceByBoatId: Record<string, Id<"objects">>;
+  }
+): Promise<void> {
+  for (const resourceId of Object.values(args.resourceByCourseId)) {
+    const product =
+      args.products.find((candidate) => String(candidate._id) === String(resourceId))
+      || (await getObjectById(client, resourceId));
+    if (!product) {
+      continue;
+    }
+
+    const props = asObjectRecord(product.customProperties);
+    const seatInventory = asObjectRecord(props.seatInventory);
+    const rawGroups = Array.isArray(seatInventory.groups) ? seatInventory.groups : [];
+    const nextGroups = DEFAULT_INVENTORY_GROUPS.map((group) => {
+      const existingGroup =
+        rawGroups.find((candidate) => {
+          if (!candidate || typeof candidate !== "object") {
+            return false;
+          }
+          return normalizeOptionalString((candidate as Record<string, unknown>).groupId) === group.id;
+        }) as Record<string, unknown> | undefined;
+
+      return {
+        ...(existingGroup || {}),
+        groupId: group.id,
+        label: normalizeOptionalString(existingGroup?.label) || group.label,
+        capacity: normalizePositiveNumber(existingGroup?.capacity) || group.capacity,
+        availabilityResourceId: args.resourceByBoatId[group.id] || null,
+      };
+    });
+
+    await patchObject(client, {
+      objectId: resourceId,
+      customProperties: {
+        ...props,
+        seatInventory: {
+          ...seatInventory,
+          groups: nextGroups,
+          strictSeatSelection: true,
+        },
+      },
+    });
+  }
+}
+
+function normalizeFiniteNumber(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function resolveStoredCoursePriceInCents(
+  props: Record<string, unknown>
+): number | null {
+  const candidates = [
+    props.priceInCents,
+    props.price,
+    props.basePrice,
+  ];
+
+  for (const candidate of candidates) {
+    const normalized = normalizeFiniteNumber(candidate);
+    if (normalized !== null && normalized >= 0) {
+      return normalized;
+    }
+  }
+
+  return null;
+}
+
+function resolveStoredCurrency(props: Record<string, unknown>): string {
+  return normalizeOptionalString(props.currency) || "EUR";
+}
+
+function resolveStoredTaxBehavior(
+  props: Record<string, unknown>
+): "inclusive" | "exclusive" | "automatic" {
+  const taxBehavior = normalizeOptionalString(props.taxBehavior);
+  if (
+    taxBehavior === "inclusive"
+    || taxBehavior === "exclusive"
+    || taxBehavior === "automatic"
+  ) {
+    return taxBehavior;
+  }
+  return "inclusive";
+}
+
+function resolveStoredInventory(props: Record<string, unknown>): number | null {
+  const inventory = normalizeFiniteNumber(props.inventory);
+  return inventory !== null && inventory >= 0 ? inventory : null;
+}
+
+function resolveStoredSoldCount(props: Record<string, unknown>): number {
+  const sold = normalizeFiniteNumber(props.sold);
+  return sold !== null && sold >= 0 ? sold : 0;
+}
+
+export function createCheckoutProductCustomProperties(args: {
+  course: CourseTemplate;
+  resourceId: Id<"objects">;
+  existingProduct?: OrgObjectRecord | null;
+  synthetic: boolean;
+}): Record<string, unknown> {
+  const existingProduct = args.existingProduct || null;
+  const existingProps = asObjectRecord(existingProduct?.customProperties);
+  const existingCatalogContent = asObjectRecord(existingProps.catalogContent);
+  const existingDescription =
+    normalizeOptionalString(existingProduct?.description)
+    || normalizeOptionalString(existingProps.description);
+  const priceInCents =
+    (() => {
+      const storedPriceInCents = resolveStoredCoursePriceInCents(existingProps);
+      if (storedPriceInCents !== null && storedPriceInCents > 0) {
+        return storedPriceInCents;
+      }
+      return args.course.priceInCents;
+    })();
+  const currency = resolveStoredCurrency(existingProps);
+  const taxBehavior = resolveStoredTaxBehavior(existingProps);
+  const taxInclusive =
+    typeof existingProps.taxInclusive === "boolean"
+      ? existingProps.taxInclusive
+      : taxBehavior === "inclusive";
+  const taxRate =
+    (() => {
+      const storedTaxRate = normalizeFiniteNumber(existingProps.taxRate);
+      return storedTaxRate !== null && storedTaxRate >= 0
+        ? storedTaxRate
+        : SEGELSCHULE_DEFAULT_TAX_RATE_PERCENT;
+    })();
+
+  return {
+    ...existingProps,
+    ...(args.synthetic ? { source: SEGELSCHULE_SEED_VERSION } : {}),
+    segelschuleCatalogSource: args.synthetic
+      ? "seed_created_checkout_product"
+      : "adopted_existing_checkout_product",
+    segelschuleCourseId: args.course.courseId,
+    courseId: args.course.courseId,
+    bookingSurface: SEGELSCHULE_APP_SLUG,
+    bookingType: "class_enrollment",
+    fulfillmentType: "ticket",
+    availabilityResourceId: args.resourceId,
+    priceInCents,
+    price: priceInCents,
+    basePrice: priceInCents,
+    currency,
+    inventory: resolveStoredInventory(existingProps),
+    sold: resolveStoredSoldCount(existingProps),
+    taxable:
+      typeof existingProps.taxable === "boolean"
+        ? existingProps.taxable
+        : true,
+    taxBehavior,
+    taxInclusive,
+    taxRate,
+    isMultiDay: args.course.isMultiDay,
+    bookingDurationMinutes: args.course.bookingDurationMinutes,
+    isActive:
+      typeof existingProps.isActive === "boolean"
+        ? existingProps.isActive
+        : true,
+    description: existingDescription || args.course.catalogContent.description.de,
+    catalogContent:
+      Object.keys(existingCatalogContent).length > 0
+        ? existingCatalogContent
+        : buildCatalogContentDefaults(args.course),
+    segelschuleCatalogRole: "checkout_product",
+  };
+}
+
+function isCommercialCourseCheckoutCandidate(
+  product: OrgObjectRecord | null | undefined
+): product is OrgObjectRecord {
+  if (!product || product.status === "archived") {
+    return false;
+  }
+
+  const subtype = lower(normalizeOptionalString(product.subtype));
+  if (subtype === "class" || subtype === "appointment") {
+    return false;
+  }
+
+  const props = asObjectRecord(product.customProperties);
+  return (
+    subtype === "ticket"
+    || lower(normalizeOptionalString(props.fulfillmentType)) === "ticket"
+  );
+}
+
+function resolveCourseMarker(record: OrgObjectRecord | null | undefined): string | null {
+  const props = asObjectRecord(record?.customProperties);
+  return (
+    normalizeOptionalString(props.segelschuleCourseId)
+    || normalizeOptionalString(props.courseId)
+    || null
+  );
+}
+
+function resolvePriceInCents(record: OrgObjectRecord | null | undefined): number | null {
+  const props = asObjectRecord(record?.customProperties);
+  const candidates = [
+    props.priceInCents,
+    props.pricePerUnit,
+    props.price,
+    props.basePrice,
+  ];
+
+  for (const candidate of candidates) {
+    if (typeof candidate === "number" && Number.isFinite(candidate) && candidate >= 0) {
+      return candidate;
+    }
+  }
+
+  return null;
+}
+
+async function resolveCourseCheckoutBindings(
+  client: ConvexHttpClient,
+  args: {
+    products: OrgObjectRecord[];
+    resourceByCourseId: Record<string, Id<"objects">>;
+    includeSeededCatalogRecords?: boolean;
+  }
+): Promise<CoursePlatformBindingResult> {
+  const checkoutProductByCourseId: Partial<Record<string, Id<"objects">>> = {};
+  const resourceIdToCourseId = new Map(
+    Object.entries(args.resourceByCourseId).map(([courseId, resourceId]) => [
+      String(resourceId),
+      courseId,
+    ])
+  );
+
+  const candidateProductsByCourseId = new Map<string, OrgObjectRecord[]>();
+  for (const product of args.products) {
+    if (!isCommercialCourseCheckoutCandidate(product)) {
+      continue;
+    }
+    if (
+      args.includeSeededCatalogRecords === false
+      && isSeededCourseCatalogRecord(product)
+    ) {
+      continue;
+    }
+
+    const props = asObjectRecord(product.customProperties);
+    let linkedResourceId =
+      normalizeOptionalString(String(props.availabilityResourceId || "")) || null;
+    if (!linkedResourceId) {
+      const availabilityLinks = await listLinksFromObject(
+        client,
+        product._id,
+        PRODUCT_AVAILABILITY_LINK_TYPE
+      );
+      linkedResourceId =
+        normalizeOptionalString(String(availabilityLinks[0]?.toObjectId || ""))
+        || null;
+    }
+
+    const courseId =
+      resolveCourseMarker(product)
+      || (linkedResourceId ? resourceIdToCourseId.get(linkedResourceId) || null : null);
+    if (!courseId || !linkedResourceId) {
+      continue;
+    }
+
+    const existing = candidateProductsByCourseId.get(courseId) || [];
+    existing.push(product);
+    candidateProductsByCourseId.set(courseId, existing);
+  }
+
+  for (const course of COURSE_TEMPLATES) {
+    const resourceId = args.resourceByCourseId[course.courseId];
+    const candidateProducts = [
+      ...(candidateProductsByCourseId.get(course.courseId) || []),
+    ].sort((left, right) => {
+      const leftSeeded = isSeededCourseCatalogRecord(left) ? 1 : 0;
+      const rightSeeded = isSeededCourseCatalogRecord(right) ? 1 : 0;
+      if (leftSeeded !== rightSeeded) {
+        return leftSeeded - rightSeeded;
+      }
+
+      const leftHasDirectCourseId = resolveCourseMarker(left) ? 0 : 1;
+      const rightHasDirectCourseId = resolveCourseMarker(right) ? 0 : 1;
+      if (leftHasDirectCourseId !== rightHasDirectCourseId) {
+        return leftHasDirectCourseId - rightHasDirectCourseId;
+      }
+
+      const leftHasPrice = resolvePriceInCents(left) !== null ? 0 : 1;
+      const rightHasPrice = resolvePriceInCents(right) !== null ? 0 : 1;
+      if (leftHasPrice !== rightHasPrice) {
+        return leftHasPrice - rightHasPrice;
+      }
+
+      const leftSeparate = String(left._id) !== String(resourceId) ? 0 : 1;
+      const rightSeparate = String(right._id) !== String(resourceId) ? 0 : 1;
+      if (leftSeparate !== rightSeparate) {
+        return leftSeparate - rightSeparate;
+      }
+
+      return String(left._id).localeCompare(String(right._id));
+    });
+
+    const preferredProduct = candidateProducts[0]?._id;
+    if (preferredProduct) {
+      checkoutProductByCourseId[course.courseId] = preferredProduct;
+    }
+  }
+
+  return { checkoutProductByCourseId };
+}
+
+async function ensureCourseCheckoutProductLink(
+  client: ConvexHttpClient,
+  args: {
+    organizationId: Id<"organizations">;
+    checkoutProductId: Id<"objects">;
+    resourceId: Id<"objects">;
+  }
+): Promise<void> {
+  const existingLinks = await listLinksFromObject(
+    client,
+    args.checkoutProductId,
+    PRODUCT_AVAILABILITY_LINK_TYPE
+  );
+  if (
+    existingLinks.some(
+      (link) => String(link.toObjectId) === String(args.resourceId)
+    )
+  ) {
+    return;
+  }
+
+  await insertObjectLink(client, {
+    organizationId: args.organizationId,
+    fromObjectId: args.checkoutProductId,
+    toObjectId: args.resourceId,
+    linkType: PRODUCT_AVAILABILITY_LINK_TYPE,
+    properties: {
+      source: SEGELSCHULE_SEED_VERSION,
+    },
+  });
+}
+
+async function ensureCourseCheckoutProducts(
+  client: ConvexHttpClient,
+  args: {
+    organizationId: Id<"organizations">;
+    products: OrgObjectRecord[];
+    resourceByCourseId: Record<string, Id<"objects">>;
+    allowCreateMissingCheckoutProducts: boolean;
+  }
+): Promise<CourseCheckoutProductSeedResult> {
+  const checkoutProductByCourseId: Partial<Record<string, Id<"objects">>> = {};
+  const createdCheckoutProductCourseIds: string[] = [];
+  const adoptedCheckoutProductCourseIds: string[] = [];
+  const missingCheckoutProductCourseIds: string[] = [];
+
+  for (const course of COURSE_TEMPLATES) {
+    const resourceId = args.resourceByCourseId[course.courseId];
+    if (!resourceId) {
+      missingCheckoutProductCourseIds.push(course.courseId);
+      continue;
+    }
+
+    const existingBindings = await resolveCourseCheckoutBindings(client, {
+      products: args.products,
+      resourceByCourseId: { [course.courseId]: resourceId },
+      includeSeededCatalogRecords: args.allowCreateMissingCheckoutProducts,
+    });
+    const existingCheckoutProductId =
+      existingBindings.checkoutProductByCourseId[course.courseId];
+
+    if (!existingCheckoutProductId) {
+      if (!args.allowCreateMissingCheckoutProducts) {
+        missingCheckoutProductCourseIds.push(course.courseId);
+        continue;
+      }
+
+      const customProperties = createCheckoutProductCustomProperties({
+        course,
+        resourceId,
+        existingProduct: null,
+        synthetic: true,
+      });
+      const checkoutProductId = await insertObject(client, {
+        organizationId: args.organizationId,
+        type: "product",
+        subtype: "ticket",
+        name: `Segelschule ${course.displayName} Ticket`,
+        description: course.catalogContent.description.de,
+        status: "active",
+        customProperties,
+      });
+      await ensureCourseCheckoutProductLink(client, {
+        organizationId: args.organizationId,
+        checkoutProductId,
+        resourceId,
+      });
+      checkoutProductByCourseId[course.courseId] = checkoutProductId;
+      createdCheckoutProductCourseIds.push(course.courseId);
+      args.products.push({
+        _id: checkoutProductId,
+        name: `Segelschule ${course.displayName} Ticket`,
+        subtype: "ticket",
+        status: "active",
+        customProperties,
+      });
+      continue;
+    }
+
+    const existingProduct =
+      args.products.find((product) => String(product._id) === String(existingCheckoutProductId))
+      || null;
+    const mergedProps = {
+      ...createCheckoutProductCustomProperties({
+        course,
+        resourceId,
+        existingProduct,
+        synthetic: false,
+      }),
+    };
+    await patchObject(client, {
+      objectId: existingCheckoutProductId,
+      description:
+        normalizeOptionalString(existingProduct?.description)
+        || course.catalogContent.description.de,
+      ...(existingProduct?.status === "active" ? {} : { status: "active" }),
+      customProperties: mergedProps,
+    });
+    await ensureCourseCheckoutProductLink(client, {
+      organizationId: args.organizationId,
+      checkoutProductId: existingCheckoutProductId,
+      resourceId,
+    });
+    checkoutProductByCourseId[course.courseId] = existingCheckoutProductId;
+    adoptedCheckoutProductCourseIds.push(course.courseId);
+  }
+
+  return {
+    checkoutProductByCourseId,
+    createdCheckoutProductCourseIds,
+    adoptedCheckoutProductCourseIds,
+    missingCheckoutProductCourseIds,
+  };
+}
+
+async function archiveSeededCourseCatalogRecords(
+  client: ConvexHttpClient,
+  products: OrgObjectRecord[],
+  authoritativeResourcesByCourseId: Record<string, Id<"objects">>,
+  authoritativeCheckoutProductsByCourseId: Partial<Record<string, Id<"objects">>>
+): Promise<{ archivedObjectIds: string[]; archivedCourseIds: string[] }> {
+  const archivedObjectIds: string[] = [];
+  const archivedCourseIds = new Set<string>();
+
+  for (const product of products) {
+    if (!isSeededCourseCatalogRecord(product)) {
+      continue;
+    }
+
+    const courseId = normalizeOptionalString(asObjectRecord(product.customProperties).segelschuleCourseId);
+    if (!courseId) {
+      continue;
+    }
+
+    const isAuthoritativeResource =
+      String(authoritativeResourcesByCourseId[courseId] || "") === String(product._id);
+    const isAuthoritativeCheckoutProduct =
+      String(authoritativeCheckoutProductsByCourseId[courseId] || "") === String(product._id);
+    if (isAuthoritativeResource || isAuthoritativeCheckoutProduct) {
+      continue;
+    }
+
+    await patchObject(client, {
+      objectId: product._id,
+      status: "archived",
+      customProperties: {
+        ...asObjectRecord(product.customProperties),
+        archivedBecause: "segelschule_catalog_migrated_to_existing_records",
+      },
+    });
+    archivedObjectIds.push(String(product._id));
+    archivedCourseIds.add(courseId);
+  }
+
+  return {
+    archivedObjectIds,
+    archivedCourseIds: Array.from(archivedCourseIds).sort(),
   };
 }
 
@@ -568,6 +1512,7 @@ async function insertObject(
     type: string;
     subtype?: string;
     name: string;
+    description?: string;
     status: string;
     customProperties?: Record<string, unknown>;
   }
@@ -580,6 +1525,7 @@ async function insertObject(
       type: args.type,
       subtype: args.subtype,
       name: args.name,
+      description: args.description,
       status: args.status,
       customProperties: args.customProperties,
       createdAt: now,
@@ -615,12 +1561,14 @@ async function patchObject(
   client: ConvexHttpClient,
   args: {
     objectId: Id<"objects">;
+    description?: string;
     status?: string;
     customProperties?: Record<string, unknown>;
   }
 ): Promise<void> {
   await client.mutation(internal.channels.router.patchObjectInternal, {
     objectId: args.objectId,
+    ...(args.description !== undefined ? { description: args.description } : {}),
     ...(args.status ? { status: args.status } : {}),
     ...(args.customProperties ? { customProperties: args.customProperties } : {}),
     updatedAt: Date.now(),
@@ -767,6 +1715,127 @@ async function seedWeeklyAvailabilityProfile(
   };
 }
 
+async function listAvailabilityRecordsForResource(
+  client: ConvexHttpClient,
+  resourceId: Id<"objects">
+): Promise<OrgObjectRecord[]> {
+  const links = await listLinksFromObject(client, resourceId, "has_availability");
+  const records = await Promise.all(
+    links.map((link) => getObjectById(client, link.toObjectId))
+  );
+  return records.filter(
+    (record): record is OrgObjectRecord =>
+      Boolean(record && record.status !== "archived")
+  );
+}
+
+function getBoatOpeningBlockWindow(args: {
+  availableFromDate: string;
+  timezone: string;
+}): { startDate: number; endDate: number } {
+  const year = Number.parseInt(args.availableFromDate.slice(0, 4), 10);
+  const blockStartDate = `${String(year).padStart(4, "0")}-01-01`;
+  const startDate = localDateTimeToTimestamp(blockStartDate, "00:00", args.timezone);
+  const availableFromStart = localDateTimeToTimestamp(
+    args.availableFromDate,
+    "00:00",
+    args.timezone
+  );
+  const endDate = Math.max(
+    startDate,
+    availableFromStart - 60_000
+  );
+  return { startDate, endDate };
+}
+
+async function syncSeededBoatOpeningBlock(
+  client: ConvexHttpClient,
+  args: {
+    organizationId: Id<"organizations">;
+    userId: Id<"users">;
+    resourceId: Id<"objects">;
+    boat: (typeof SEGELSCHULE_BOAT_TEMPLATES)[number];
+  }
+): Promise<{ startDate: number; endDate: number; availableFromDate: string } | null> {
+  const window = getBoatOpeningBlockWindow({
+    availableFromDate: args.boat.availableFromDate,
+    timezone: BOAT_AVAILABILITY_WINDOWS.timezone,
+  });
+  if (window.endDate < window.startDate) {
+    return null;
+  }
+
+  const seedBlockKey = `segelschule_boat_opening_${args.boat.boatId}`;
+  const existingAvailabilityRecords = await listAvailabilityRecordsForResource(
+    client,
+    args.resourceId
+  );
+  const matchingBlocks = existingAvailabilityRecords.filter((record) => {
+    if (record.type !== "availability" || record.subtype !== "block") {
+      return false;
+    }
+    const props = asObjectRecord(record.customProperties);
+    return normalizeOptionalString(props.seedBlockKey) === seedBlockKey;
+  });
+
+  const primaryBlock = matchingBlocks[0] || null;
+  for (const duplicate of matchingBlocks.slice(1)) {
+    await client.mutation(internal.availabilityOntology.deleteAvailabilityInternal, {
+      availabilityId: duplicate._id,
+      organizationId: args.organizationId,
+    });
+  }
+
+  if (!primaryBlock) {
+    const result = (await client.mutation(
+      internal.availabilityOntology.createBlockInternal,
+      {
+        resourceId: args.resourceId,
+        organizationId: args.organizationId,
+        userId: args.userId,
+        startDate: window.startDate,
+        endDate: window.endDate,
+        reason: `${args.boat.displayName} not available before ${args.boat.availableFromDate}`,
+      }
+    )) as { blockId: Id<"objects"> };
+
+    const createdBlock = await getObjectById(client, result.blockId);
+    await patchObject(client, {
+      objectId: result.blockId,
+      customProperties: {
+        ...asObjectRecord(createdBlock?.customProperties),
+        resourceId: args.resourceId,
+        startDate: window.startDate,
+        endDate: window.endDate,
+        reason: `${args.boat.displayName} not available before ${args.boat.availableFromDate}`,
+        source: SEGELSCHULE_SEED_VERSION,
+        seedBlockKey,
+        segelschuleBoatId: args.boat.boatId,
+      },
+    });
+  } else {
+    await patchObject(client, {
+      objectId: primaryBlock._id,
+      customProperties: {
+        ...asObjectRecord(primaryBlock.customProperties),
+        resourceId: args.resourceId,
+        startDate: window.startDate,
+        endDate: window.endDate,
+        reason: `${args.boat.displayName} not available before ${args.boat.availableFromDate}`,
+        source: SEGELSCHULE_SEED_VERSION,
+        seedBlockKey,
+        segelschuleBoatId: args.boat.boatId,
+      },
+    });
+  }
+
+  return {
+    startDate: window.startDate,
+    endDate: window.endDate,
+    availableFromDate: args.boat.availableFromDate,
+  };
+}
+
 async function seedSegelschuleCourseAvailabilities(
   client: ConvexHttpClient,
   args: {
@@ -803,6 +1872,58 @@ async function seedSegelschuleCourseAvailabilities(
       scheduleCount: availabilityResult.scheduleIds.length,
       timezone: availabilityResult.timezone,
       schedules: availabilityResult.schedules,
+    });
+  }
+
+  return {
+    seededResourceIds: seededProfiles.map((profile) => profile.resourceId),
+    seededProfiles,
+  };
+}
+
+async function seedSegelschuleBoatAvailabilities(
+  client: ConvexHttpClient,
+  args: {
+    organizationId: Id<"organizations">;
+    userId: Id<"users">;
+    resourceByBoatId: Record<string, Id<"objects">>;
+  }
+): Promise<SegelschuleBoatAvailabilitySeedResult> {
+  const seededProfiles: SegelschuleBoatAvailabilitySeedResult["seededProfiles"] = [];
+
+  for (const boat of SEGELSCHULE_BOAT_TEMPLATES) {
+    const resourceId = args.resourceByBoatId[boat.boatId];
+    if (!resourceId) {
+      continue;
+    }
+
+    const resource = await getObjectById(client, resourceId);
+    if (!resource || resource.status === "archived") {
+      continue;
+    }
+
+    const availabilityResult = await seedWeeklyAvailabilityProfile(client, {
+      organizationId: args.organizationId,
+      userId: args.userId,
+      resourceId,
+      profile: BOAT_AVAILABILITY_WINDOWS,
+    });
+    const openingBlock = await syncSeededBoatOpeningBlock(client, {
+      organizationId: args.organizationId,
+      userId: args.userId,
+      resourceId,
+      boat,
+    });
+
+    seededProfiles.push({
+      boatId: boat.boatId,
+      resourceId: String(resourceId),
+      availabilityStructure: availabilityResult.availabilityStructure,
+      profileId: availabilityResult.profileId,
+      scheduleCount: availabilityResult.scheduleIds.length,
+      timezone: availabilityResult.timezone,
+      schedules: availabilityResult.schedules,
+      openingBlock,
     });
   }
 
@@ -1166,16 +2287,40 @@ async function ensureTicketProduct(
     || products.find((product) => product.subtype === "ticket");
 
   if (fallbackTicket) {
+    const fallbackTicketProps = asObjectRecord(fallbackTicket.customProperties);
+    const fallbackTicketPriceInCents =
+      resolveStoredCoursePriceInCents(fallbackTicketProps) || 0;
+    const fallbackTicketTaxRate = normalizeFiniteNumber(fallbackTicketProps.taxRate);
     const nextProps = {
-      ...asObjectRecord(fallbackTicket.customProperties),
+      ...fallbackTicketProps,
       segelschuleTicketProduct: true,
       source: SEGELSCHULE_SEED_VERSION,
-      currency:
-        normalizeOptionalString(fallbackTicket.customProperties?.currency)
-        || "EUR",
+      priceInCents: fallbackTicketPriceInCents,
+      price: fallbackTicketPriceInCents,
+      basePrice: fallbackTicketPriceInCents,
+      inventory: resolveStoredInventory(fallbackTicketProps),
+      sold: resolveStoredSoldCount(fallbackTicketProps),
+      currency: normalizeOptionalString(fallbackTicketProps.currency) || "EUR",
+      taxable:
+        typeof fallbackTicketProps.taxable === "boolean"
+          ? fallbackTicketProps.taxable
+          : true,
+      taxBehavior:
+        normalizeOptionalString(fallbackTicketProps.taxBehavior) || "inclusive",
+      taxInclusive:
+        typeof fallbackTicketProps.taxInclusive === "boolean"
+          ? fallbackTicketProps.taxInclusive
+          : true,
+      taxRate:
+        fallbackTicketTaxRate !== null && fallbackTicketTaxRate >= 0
+          ? fallbackTicketTaxRate
+          : SEGELSCHULE_DEFAULT_TAX_RATE_PERCENT,
     };
     await patchObject(client, {
       objectId: fallbackTicket._id,
+      description:
+        normalizeOptionalString(fallbackTicket.description)
+        || "Ticket product for Segelschule booking API fulfillment flow",
       ...(fallbackTicket.status === "active" ? {} : { status: "active" }),
       customProperties: nextProps,
     });
@@ -1187,13 +2332,21 @@ async function ensureTicketProduct(
     type: "product",
     subtype: "ticket",
     name: "Segelschule Kurs-Ticket",
+    description: "Ticket product for Segelschule booking API fulfillment flow",
     status: "active",
     customProperties: {
       source: SEGELSCHULE_SEED_VERSION,
       segelschuleTicketProduct: true,
       priceInCents: 0,
+      price: 0,
+      basePrice: 0,
       currency: "EUR",
+      inventory: null,
+      sold: 0,
+      taxable: true,
       taxBehavior: "inclusive",
+      taxInclusive: true,
+      taxRate: SEGELSCHULE_DEFAULT_TAX_RATE_PERCENT,
       description: "Ticket product for Segelschule booking API fulfillment flow",
     },
   });
@@ -1203,44 +2356,61 @@ async function ensureTicketProduct(
 async function ensureCourseResources(
   client: ConvexHttpClient,
   organizationId: Id<"organizations">,
-  products: OrgObjectRecord[]
+  products: OrgObjectRecord[],
+  options: {
+    allowCreateMissingResources: boolean;
+  }
 ): Promise<CourseResourceResult> {
   const resourceByCourseId: Record<string, Id<"objects">> = {};
   const createdCourseIds: string[] = [];
+  const adoptedCourseIds: string[] = [];
+  const missingCourseIds: string[] = [];
 
   for (const course of COURSE_TEMPLATES) {
     const existing = getCourseResourceCandidate(products, course.courseId);
 
     if (!existing) {
+      if (!options.allowCreateMissingResources) {
+        missingCourseIds.push(course.courseId);
+        continue;
+      }
+
       const resourceId = await insertObject(client, {
         organizationId,
         type: "product",
         subtype: "class",
         name: `Segelschule ${course.displayName}`,
         status: "active",
-        customProperties: createResourceCustomProperties(course),
+        customProperties: createResourceCustomProperties({
+          course,
+          synthetic: true,
+        }),
       });
       resourceByCourseId[course.courseId] = resourceId;
       createdCourseIds.push(course.courseId);
       continue;
     }
 
-    const mergedProps = {
-      ...asObjectRecord(existing.customProperties),
-      ...createResourceCustomProperties(course),
-      source: SEGELSCHULE_SEED_VERSION,
-    };
     await patchObject(client, {
       objectId: existing._id,
       ...(existing.status === "active" ? {} : { status: "active" }),
-      customProperties: mergedProps,
+      customProperties: createResourceCustomProperties({
+        course,
+        existingProps: asObjectRecord(existing.customProperties),
+        synthetic: false,
+      }),
     });
     resourceByCourseId[course.courseId] = existing._id;
+    if (!isSeededCourseCatalogRecord(existing)) {
+      adoptedCourseIds.push(course.courseId);
+    }
   }
 
   return {
     resourceByCourseId,
     createdCourseIds,
+    adoptedCourseIds,
+    missingCourseIds,
   };
 }
 
@@ -1593,10 +2763,7 @@ async function ensureSegelschuleBookingLocation(
   };
 }
 
-function buildSurfaceBindingRuntimeConfig(args: {
-  ticketProductId: Id<"objects">;
-  resourceByCourseId: Record<string, Id<"objects">>;
-}) {
+function buildSurfaceBindingRuntimeConfig() {
   return {
     timezone: DEFAULT_TIMEZONE,
     defaultAvailableTimes: [...DEFAULT_AVAILABLE_TIMES],
@@ -1605,32 +2772,7 @@ function buildSurfaceBindingRuntimeConfig(args: {
       label: group.label,
       capacity: group.capacity,
     })),
-    courses: COURSE_TEMPLATES.map((course) => ({
-      courseId: course.courseId,
-      displayName: course.displayName,
-      bookingDurationMinutes: course.bookingDurationMinutes,
-      availableTimes: course.availableTimes,
-      isMultiDay: course.isMultiDay,
-      bookingResourceId: args.resourceByCourseId[course.courseId],
-      checkoutProductId: args.ticketProductId,
-    })),
   };
-}
-
-function buildLegacyBindings(args: {
-  ticketProductId: Id<"objects">;
-  resourceByCourseId: Record<string, Id<"objects">>;
-}) {
-  return Object.fromEntries(
-    COURSE_TEMPLATES.map((course) => [
-      course.courseId,
-      {
-        bookingResourceId: args.resourceByCourseId[course.courseId],
-        checkoutProductId: args.ticketProductId,
-        bookingDurationMinutes: course.bookingDurationMinutes,
-      },
-    ])
-  );
 }
 
 async function ensureOrganizationSettingsObject(
@@ -1641,6 +2783,7 @@ async function ensureOrganizationSettingsObject(
     subtype: string;
     defaultName: string;
     defaults: Record<string, unknown>;
+    forceDefaultKeys?: string[];
   }
 ): Promise<SettingsSeedResult> {
   const settingsObjects = await listOrgObjectsByType(
@@ -1660,6 +2803,11 @@ async function ensureOrganizationSettingsObject(
       normalizeOptionalString(existingProps.source)
       || SEGELSCHULE_SEED_VERSION,
   };
+  for (const key of args.forceDefaultKeys || []) {
+    if (Object.prototype.hasOwnProperty.call(args.defaults, key)) {
+      mergedProps[key] = args.defaults[key];
+    }
+  }
 
   if (existing) {
     await patchObject(client, {
@@ -1755,8 +2903,8 @@ async function ensureSegelschuleOrganizationSettings(
         reminderLeadDays: 7,
         operatorEmails: normalizedOperatorEmails,
         operatorReminderKinds: ["weather", "packing_list"],
-        customerConfirmationMode: "route_direct",
-        operatorNotificationMode: "route_direct",
+        customerConfirmationMode: "layers_booking_created",
+        operatorNotificationMode: "layers_booking_created",
         reminderWorkflowMode: "layers_schedule",
         defaultWeatherInfo: {
           de: "Bitte pruefen Sie Wind, Temperatur und Regenwahrscheinlichkeit 48 bis 24 Stunden vor Kursbeginn erneut.",
@@ -1772,6 +2920,11 @@ async function ensureSegelschuleOrganizationSettings(
         ],
         source: SEGELSCHULE_SEED_VERSION,
       },
+      forceDefaultKeys: [
+        "customerConfirmationMode",
+        "operatorNotificationMode",
+        "reminderWorkflowMode",
+      ],
     }),
   ]);
 }
@@ -1875,6 +3028,83 @@ function buildReminderWorkflowDefinition(args: {
   };
 }
 
+function buildBookingConfirmationWorkflowDefinition(args: {
+  operatorEmails: string[];
+}): {
+  workflowKey: string;
+  name: string;
+  customProperties: Record<string, unknown>;
+} {
+  const triggerNodeId = "booking_created_trigger";
+  const notificationNodeId = "booking_confirmation_notification";
+  const workflowKey = "segelschule_booking_confirmation";
+
+  return {
+    workflowKey,
+    name: "Segelschule Booking Confirmation",
+    customProperties: {
+      source: SEGELSCHULE_SEED_VERSION,
+      segelschuleWorkflowKey: workflowKey,
+      nodes: [
+        {
+          id: triggerNodeId,
+          type: "trigger_booking_created",
+          position: { x: 0, y: 0 },
+          config: {},
+          status: "active",
+          label: "Booking Created Trigger",
+        },
+        {
+          id: notificationNodeId,
+          type: "lc_booking_notifications",
+          position: { x: 320, y: 0 },
+          config: {
+            action: "send-booking-confirmations",
+            recipientKinds: ["customer", "operator"],
+            bookingSubtypes: ["class_enrollment"],
+            bookingSources: ["segelschule_landing"],
+            operatorEmails: args.operatorEmails,
+            timezone: DEFAULT_TIMEZONE,
+          },
+          status: "active",
+          label: "Send Booking Confirmation",
+        },
+      ],
+      edges: [
+        {
+          id: `${triggerNodeId}_to_${notificationNodeId}`,
+          source: triggerNodeId,
+          target: notificationNodeId,
+          sourceHandle: "trigger_out",
+          targetHandle: "input",
+          status: "active",
+        },
+      ],
+      metadata: {
+        description:
+          "Triggered when a Segelschule booking is created and uses the linked commercial records to send the customer confirmation and operator notification while the invoice remains open.",
+        isActive: true,
+        mode: "live",
+        runCount: 0,
+        version: 1,
+      },
+      triggers: [
+        {
+          nodeId: triggerNodeId,
+          triggerType: "booking_created",
+          settings: {},
+          enabled: true,
+        },
+      ],
+      viewport: {
+        x: 0,
+        y: 0,
+        zoom: 1,
+      },
+    },
+  };
+}
+
 async function ensureSegelschuleReminderWorkflows(
   client: ConvexHttpClient,
   args: {
@@ -1889,6 +3119,9 @@ async function ensureSegelschuleReminderWorkflows(
   );
 
   const definitions = [
+    buildBookingConfirmationWorkflowDefinition({
+      operatorEmails: args.operatorEmails,
+    }),
     buildReminderWorkflowDefinition({
       reminderKind: "weather",
       operatorEmails: args.operatorEmails,
@@ -2218,6 +3451,26 @@ async function ensureGoogleCalendarSetup(
     || dedicatedBookingsCalendarId
     || null;
 
+  if (!isGoogleCalendarLinkReady(refreshedConnection)) {
+    return {
+      configured: false,
+      source: resolution.source,
+      connection: refreshedConnection,
+      candidates,
+      syncEnabled: refreshedConnection.syncSettings?.calendar === true,
+      subCalendarCount: Number(refreshResult.count || getStoredSubCalendars(refreshedConnection).length || 0),
+      dedicatedBookingsCalendarId:
+        dedicatedBookingsCalendarId
+        || normalizeGoogleCalendarId(asObjectRecord(refreshedConnection.customProperties).bookingsCalendarId),
+      blockingCalendarIds,
+      pushCalendarId,
+      resourceLinks: [],
+      orgDefaultLink: null,
+      syncResult: null,
+      skippedReason: "google_connection_not_calendar_ready",
+    };
+  }
+
   const resourceLinks: GoogleCalendarSeedResult["resourceLinks"] = [];
   for (const course of COURSE_TEMPLATES) {
     const resourceId = args.resourceByCourseId[course.courseId];
@@ -2289,8 +3542,7 @@ async function ensureGoogleCalendarSetup(
 
 async function main() {
   const envPath = getArg("--env") || "apps/segelschule-altwarp/.env.local";
-  const resolvedEnvPath = path.resolve(process.cwd(), envPath);
-  loadEnv({ path: resolvedEnvPath, override: false });
+  const { resolvedEnvPath, loadedEnvPaths } = loadWorkspaceEnvCascade(envPath);
 
   const convexUrl = required(
     process.env.NEXT_PUBLIC_CONVEX_URL,
@@ -2307,6 +3559,26 @@ async function main() {
   const surfaceType = normalizeOptionalString(getArg("--surface-type")) || SEGELSCHULE_SURFACE_TYPE;
   const surfaceKey = normalizeOptionalString(getArg("--surface-key")) || SEGELSCHULE_SURFACE_KEY;
   const inspectOnly = hasFlag("--inspect-only");
+  const seedDemoCourseCatalog = hasFlag("--seed-demo-course-catalog");
+  const skipCourseCheckoutProducts = hasFlag("--skip-course-checkout-products");
+  const createMissingCourseResources =
+    seedDemoCourseCatalog || hasFlag("--create-missing-course-resources");
+  const createMissingCourseCheckoutProducts =
+    !skipCourseCheckoutProducts
+    || seedDemoCourseCatalog
+    || hasFlag("--create-missing-course-checkout-products");
+  const archiveSeededCourseCatalog = hasFlag("--archive-seeded-course-catalog");
+  const runFixtureVerification = hasFlag("--run-fixture-verification");
+  const fixtureEmailMode = normalizeOptionalString(getArg("--fixture-email-mode")) || "capture";
+  const fixtureCustomerRecipients = getCommaSeparatedArg("--fixture-customer-recipient");
+  const fixtureOperatorRecipients = getCommaSeparatedArg("--fixture-operator-recipient");
+  const fixtureCourseId = normalizeOptionalString(getArg("--fixture-course-id")) || "grund";
+  const fixtureDate = normalizeOptionalString(getArg("--fixture-date"));
+  const fixtureTime = normalizeOptionalString(getArg("--fixture-time")) || "09:00";
+  const fixtureParticipants = normalizeOptionalString(getArg("--fixture-participants"));
+  const fixturePollEmailDelivery = hasFlag("--fixture-poll-email-delivery");
+  const fixtureSkipReminders = hasFlag("--fixture-skip-reminders");
+  const fixtureIgnoreOutsideAvailability = hasFlag("--fixture-ignore-outside-availability");
 
   const localBackendBaseUrl =
     normalizeOptionalString(getArg("--backend-base-url"))
@@ -2385,6 +3657,7 @@ async function main() {
       JSON.stringify(
         {
           envPath: resolvedEnvPath,
+          loadedEnvPaths,
           organizationResolution,
           inspection: {
             paymentProviders: providersBefore.map((provider) => ({
@@ -2400,6 +3673,14 @@ async function main() {
                 id: product._id,
                 name: product.name || null,
                 status: product.status || null,
+                description: product.description || null,
+                segelschuleCourseId: product.customProperties?.segelschuleCourseId || null,
+                priceInCents: product.customProperties?.priceInCents ?? null,
+                price: product.customProperties?.price ?? null,
+                basePrice: product.customProperties?.basePrice ?? null,
+                currency: product.customProperties?.currency || null,
+                taxBehavior: product.customProperties?.taxBehavior || null,
+                taxRate: product.customProperties?.taxRate ?? null,
               })),
             classResources: productsBefore
               .filter((product) =>
@@ -2410,8 +3691,28 @@ async function main() {
                 name: product.name || null,
                 subtype: product.subtype || null,
                 status: product.status || null,
+                description: product.description || null,
                 segelschuleCourseId: product.customProperties?.segelschuleCourseId || null,
                 hasBookableConfig: Boolean(product.customProperties?.bookableConfig),
+                priceInCents: product.customProperties?.priceInCents ?? null,
+                pricePerUnit: product.customProperties?.pricePerUnit ?? null,
+              })),
+            boatResources: productsBefore
+              .filter((product) => String(product.subtype || "") === "vehicle")
+              .map((product) => ({
+                id: product._id,
+                name: product.name || null,
+                status: product.status || null,
+                segelschuleBoatId:
+                  normalizeOptionalString(product.customProperties?.segelschuleBoatId)
+                  || null,
+                availabilityEnabled:
+                  asObjectRecord(product.customProperties).availabilityEnabled === true,
+                availabilityStructure:
+                  normalizeOptionalString(product.customProperties?.availabilityStructure)
+                  || null,
+                totalPassengerSeats:
+                  asObjectRecord(product.customProperties).totalPassengerSeats ?? null,
               })),
             surfaceBindings: bindingsBefore,
             organizationSettings: settingsBefore.map((setting) => ({
@@ -2506,13 +3807,75 @@ async function main() {
   const resourceResult = await ensureCourseResources(
     client,
     organizationId,
-    productsAfterTicketSetup
+    productsAfterTicketSetup,
+    {
+      allowCreateMissingResources: createMissingCourseResources,
+    }
   );
+  const productsAfterCourseResourceSetup = await listOrgObjectsByType(
+    client,
+    organizationId,
+    "product"
+  );
+  const boatResourceResult = await ensureSegelschuleBoatResources(client, {
+    organizationId,
+    products: productsAfterCourseResourceSetup,
+  });
+  await syncCourseSeatInventoryBoatLinks(client, {
+    products: productsAfterCourseResourceSetup,
+    resourceByCourseId: resourceResult.resourceByCourseId,
+    resourceByBoatId: boatResourceResult.resourceByBoatId,
+  });
+  const productsAfterBoatSetup = await listOrgObjectsByType(
+    client,
+    organizationId,
+    "product"
+  );
+  const checkoutProductSeedResult = await ensureCourseCheckoutProducts(client, {
+    organizationId,
+    products: productsAfterBoatSetup,
+    resourceByCourseId: resourceResult.resourceByCourseId,
+    allowCreateMissingCheckoutProducts: createMissingCourseCheckoutProducts,
+  });
+  const productsAfterCheckoutProductSetup = await listOrgObjectsByType(
+    client,
+    organizationId,
+    "product"
+  );
+  let archivedSeededCourseCatalog: {
+    archivedObjectIds: string[];
+    archivedCourseIds: string[];
+  } = {
+    archivedObjectIds: [],
+    archivedCourseIds: [],
+  };
+  if (archiveSeededCourseCatalog) {
+    archivedSeededCourseCatalog = await archiveSeededCourseCatalogRecords(
+      client,
+      productsAfterCheckoutProductSetup,
+      resourceResult.resourceByCourseId,
+      checkoutProductSeedResult.checkoutProductByCourseId
+    );
+  }
+  const productsAfterCourseSetup = await listOrgObjectsByType(
+    client,
+    organizationId,
+    "product"
+  );
+  const coursePlatformBindings = await resolveCourseCheckoutBindings(client, {
+    products: productsAfterCourseSetup,
+    resourceByCourseId: resourceResult.resourceByCourseId,
+  });
   const seedUserId = await resolveSeedUserId(client, organizationId);
   const availabilitySeedResult = await seedSegelschuleCourseAvailabilities(client, {
     organizationId,
     userId: seedUserId,
     resourceByCourseId: resourceResult.resourceByCourseId,
+  });
+  const boatAvailabilitySeedResult = await seedSegelschuleBoatAvailabilities(client, {
+    organizationId,
+    userId: seedUserId,
+    resourceByBoatId: boatResourceResult.resourceByBoatId,
   });
   const contactResult = await ensureSegelschuleOrganizationContact(client, {
     organization: organizationResolution.organization,
@@ -2530,14 +3893,7 @@ async function main() {
     addresses: addressResults,
   });
 
-  const runtimeConfig = buildSurfaceBindingRuntimeConfig({
-    ticketProductId: ticketProductResult.productId,
-    resourceByCourseId: resourceResult.resourceByCourseId,
-  });
-  const legacyBindings = buildLegacyBindings({
-    ticketProductId: ticketProductResult.productId,
-    resourceByCourseId: resourceResult.resourceByCourseId,
-  });
+  const runtimeConfig = buildSurfaceBindingRuntimeConfig();
 
   const upsertBindingResult = (await client.mutation(
     internal.frontendSurfaceBindings.upsertBookingSurfaceBindingInternal,
@@ -2550,7 +3906,7 @@ async function main() {
       enabled: true,
       priority: 100,
       runtimeConfig,
-      legacyBindings,
+      legacyBindings: null,
     }
   )) as {
     success: boolean;
@@ -2610,6 +3966,60 @@ async function main() {
     skipInitialSync,
   });
 
+  let liveVerification: Record<string, unknown> | null = null;
+  if (runFixtureVerification) {
+    const fixtureArgs = [
+      "scripts/run-segelschule-booking-fixture.ts",
+      "--env",
+      resolvedEnvPath,
+      "--organization-id",
+      organizationId,
+      "--course-id",
+      fixtureCourseId,
+      "--time",
+      fixtureTime,
+      "--email-mode",
+      fixtureEmailMode,
+      ...(fixtureDate ? ["--date", fixtureDate] : []),
+      ...(fixtureParticipants ? ["--participants", fixtureParticipants] : []),
+      ...(fixtureCustomerRecipients.length > 0
+        ? ["--customer-recipient", fixtureCustomerRecipients.join(",")]
+        : []),
+      ...(fixtureOperatorRecipients.length > 0
+        ? ["--operator-recipient", fixtureOperatorRecipients.join(",")]
+        : []),
+      ...(fixturePollEmailDelivery ? ["--poll-email-delivery"] : []),
+      ...(fixtureSkipReminders ? ["--skip-reminders"] : []),
+      ...(fixtureIgnoreOutsideAvailability ? ["--ignore-outside-availability"] : []),
+    ];
+
+    const fixtureResult = runJsonTsxScript({
+      scriptPath: fixtureArgs[0],
+      scriptArgs: fixtureArgs.slice(1),
+      tsconfigPath: "apps/segelschule-altwarp/tsconfig.json",
+    });
+    const fixtureBookingId = normalizeOptionalString(fixtureResult.bookingId);
+    const runtimeInspection = fixtureBookingId
+      ? runJsonTsxScript({
+          scriptPath: "scripts/verify-segelschule-booking-runtime.ts",
+          scriptArgs: [
+            "--env",
+            resolvedEnvPath,
+            "--organization-id",
+            organizationId,
+            "--booking-id",
+            fixtureBookingId,
+            "--include-invoice-pdf",
+          ],
+        })
+      : null;
+
+    liveVerification = {
+      fixture: fixtureResult,
+      runtimeInspection,
+    };
+  }
+
   const providersAfter = await listOrgObjectsByType(
     client,
     organizationId,
@@ -2634,20 +4044,13 @@ async function main() {
     timezone: runtimeConfig.timezone,
     defaultAvailableTimes: runtimeConfig.defaultAvailableTimes,
     inventoryGroups: runtimeConfig.inventoryGroups,
-    courses: runtimeConfig.courses.map((course) => ({
-      courseId: course.courseId,
-      bookingDurationMinutes: course.bookingDurationMinutes,
-      availableTimes: course.availableTimes,
-      isMultiDay: course.isMultiDay,
-      bookingResourceId: course.bookingResourceId,
-      checkoutProductId: course.checkoutProductId,
-    })),
   };
 
   console.log(
     JSON.stringify(
       {
         envPath: resolvedEnvPath,
+        loadedEnvPaths,
         organization: {
           id: organizationId,
           name: organizationResolution.organization.name || null,
@@ -2655,6 +4058,11 @@ async function main() {
           resolvedFrom: organizationResolution.source,
         },
         prepared: {
+          catalogMode: {
+            createMissingCourseResources,
+            createMissingCourseCheckoutProducts,
+            archiveSeededCourseCatalog,
+          },
           invoiceProvider: {
             id: invoiceProviderResult.providerId,
             created: invoiceProviderResult.created,
@@ -2665,8 +4073,22 @@ async function main() {
             created: ticketProductResult.created,
           },
           createdCourseResources: resourceResult.createdCourseIds,
+          adoptedCourseResources: resourceResult.adoptedCourseIds,
+          missingCourseResources: resourceResult.missingCourseIds,
+          createdBoatResources: boatResourceResult.createdBoatIds,
+          adoptedBoatResources: boatResourceResult.adoptedBoatIds,
+          boatResourceByBoatId: boatResourceResult.resourceByBoatId,
+          createdCourseCheckoutProducts:
+            checkoutProductSeedResult.createdCheckoutProductCourseIds,
+          adoptedCourseCheckoutProducts:
+            checkoutProductSeedResult.adoptedCheckoutProductCourseIds,
+          missingCourseCheckoutProducts:
+            checkoutProductSeedResult.missingCheckoutProductCourseIds,
+          archivedSeededCourseCatalog,
           resourceByCourseId: resourceResult.resourceByCourseId,
+          checkoutProductByCourseId: coursePlatformBindings.checkoutProductByCourseId,
           seededAvailabilityProfiles: availabilitySeedResult.seededProfiles,
+          seededBoatAvailabilityProfiles: boatAvailabilitySeedResult.seededProfiles,
           organizationContact: {
             id: contactResult.objectId,
             created: contactResult.created,
@@ -2773,6 +4195,7 @@ async function main() {
             workflowKey: asObjectRecord(workflow.customProperties).segelschuleWorkflowKey || null,
           })),
           seededAvailabilityResourceIds: availabilitySeedResult.seededResourceIds,
+          seededBoatAvailabilityResourceIds: boatAvailabilitySeedResult.seededResourceIds,
           domainConfigs: domainConfigsAfter.map((config) => ({
             id: config._id,
             name: config.name || null,
@@ -2782,6 +4205,7 @@ async function main() {
             siteUrl: asObjectRecord(asObjectRecord(config.customProperties).webPublishing).siteUrl || null,
           })),
         },
+        liveVerification,
         envSuggestions: {
           SEGELSCHULE_BOOKING_CATALOG_JSON: JSON.stringify(checkoutCatalogEnv),
           SEGELSCHULE_SURFACE_APP_SLUG: appSlug,
@@ -2798,7 +4222,13 @@ async function main() {
   );
 }
 
-main().catch((error) => {
-  console.error(error instanceof Error ? error.message : String(error));
-  process.exit(1);
-});
+const isDirectExecution =
+  typeof process.argv[1] === "string"
+  && import.meta.url === pathToFileURL(process.argv[1]).href;
+
+if (isDirectExecution) {
+  main().catch((error) => {
+    console.error(error instanceof Error ? error.message : String(error));
+    process.exit(1);
+  });
+}

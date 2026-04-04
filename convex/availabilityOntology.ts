@@ -31,6 +31,12 @@ import {
   resolveAvailabilityModel,
   resolveRequestedQuantity,
 } from "./lib/availabilityModels";
+import {
+  getShadowAvailabilityResourceId,
+  isAvailabilityCarrierCandidate,
+} from "./lib/availabilityResources";
+import { getProductAvailabilityConnectionSummary } from "./lib/productAvailabilityConnection";
+import { getResourceAvailabilityConnectionSummary } from "./lib/resourceAvailabilityConnection";
 import { requireAuthenticatedUser } from "./rbacHelpers";
 
 // ============================================================================
@@ -151,6 +157,136 @@ export const getResourceAvailability = query({
 });
 
 /**
+ * GET RESOURCE AVAILABILITY SUMMARY
+ * Returns a compact summary that explicitly connects a product/resource to
+ * configured availability records and linked schedule templates.
+ */
+export const getResourceAvailabilitySummary = query({
+  args: {
+    sessionId: v.string(),
+    resourceId: v.id("objects"),
+  },
+  handler: async (ctx, args) => {
+    await requireAuthenticatedUser(ctx, args.sessionId);
+
+    const resource = await ctx.db.get(args.resourceId);
+    if (!resource || resource.type !== "product") {
+      throw new Error("Resource not found");
+    }
+
+    return getResourceAvailabilityConnectionSummary(ctx, args.resourceId);
+  },
+});
+
+/**
+ * GET PRODUCT AVAILABILITY SUMMARY
+ * Resolves the commercial product through its explicit availability resource
+ * when present, otherwise falls back to the product itself.
+ */
+export const getProductAvailabilitySummary = query({
+  args: {
+    sessionId: v.string(),
+    productId: v.id("objects"),
+  },
+  handler: async (ctx, args) => {
+    await requireAuthenticatedUser(ctx, args.sessionId);
+
+    const product = await ctx.db.get(args.productId);
+    if (!product || product.type !== "product") {
+      throw new Error("Product not found");
+    }
+
+    return getProductAvailabilityConnectionSummary(ctx, product);
+  },
+});
+
+/**
+ * LIST AVAILABILITY RESOURCES
+ * Returns the concrete availability carriers for an organization.
+ * This excludes commercial products that point at a distinct carrier.
+ */
+export const listAvailabilityResources = query({
+  args: {
+    sessionId: v.string(),
+    organizationId: v.id("organizations"),
+  },
+  handler: async (ctx, args) => {
+    await requireAuthenticatedUser(ctx, args.sessionId);
+
+    const products = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q.eq("organizationId", args.organizationId).eq("type", "product")
+      )
+      .collect();
+
+    const referencedResourceIds = new Set<string>();
+    const directAvailabilityResourceIds = new Set<string>();
+    const templatedAvailabilityResourceIds = new Set<string>();
+    const explicitAvailabilityResourceIdByProductId = new Map<string, string>();
+
+    await Promise.all(
+      products.map(async (product) => {
+        const shadowAvailabilityResourceId = getShadowAvailabilityResourceId(product.customProperties);
+        if (shadowAvailabilityResourceId) {
+          explicitAvailabilityResourceIdByProductId.set(product._id, shadowAvailabilityResourceId);
+          if (shadowAvailabilityResourceId !== product._id) {
+            referencedResourceIds.add(shadowAvailabilityResourceId);
+          }
+        }
+
+        const outgoingLinks = await ctx.db
+          .query("objectLinks")
+          .withIndex("by_from_object", (q) => q.eq("fromObjectId", product._id))
+          .collect();
+
+        for (const link of outgoingLinks) {
+          if (link.linkType === "uses_availability_of") {
+            explicitAvailabilityResourceIdByProductId.set(product._id, link.toObjectId);
+            if (link.toObjectId !== product._id) {
+              referencedResourceIds.add(link.toObjectId);
+            }
+            continue;
+          }
+
+          if (link.linkType === "has_availability") {
+            directAvailabilityResourceIds.add(product._id);
+            continue;
+          }
+
+          if (link.linkType === "uses_schedule") {
+            templatedAvailabilityResourceIds.add(product._id);
+          }
+        }
+      })
+    );
+
+    return products
+      .filter((product) =>
+        isAvailabilityCarrierCandidate(product, {
+          referencedResourceIds,
+          directAvailabilityResourceIds,
+          templatedAvailabilityResourceIds,
+          explicitAvailabilityResourceId:
+            explicitAvailabilityResourceIdByProductId.get(product._id) || null,
+        })
+      )
+      .sort((left, right) => {
+        if (left.status === right.status) {
+          return (left.name || "").localeCompare(right.name || "");
+        }
+        if (left.status === "active") {
+          return -1;
+        }
+        if (right.status === "active") {
+          return 1;
+        }
+        return (left.name || "").localeCompare(right.name || "");
+      });
+  },
+});
+
+/**
  * GET AVAILABLE SLOTS
  * Calculate available time slots for a resource within a date range
  * This is the core on-demand slot calculation
@@ -210,7 +346,13 @@ export const getAvailableSlots = query({
       args.endDate + bufferAfter * 60000
     );
     if (externalCalendarBlockedReasons.length > 0) {
-      return [];
+      console.warn(
+        "[availabilityOntology] external calendar links are not fully readable; falling back to schedule/capacity availability",
+        {
+          resourceId: args.resourceId,
+          blockedReasons: externalCalendarBlockedReasons,
+        }
+      );
     }
 
     // 5. Generate slots (capacity-aware)
@@ -330,7 +472,13 @@ export const checkConflict = internalQuery({
       effectiveEnd
     );
     if (externalCalendarBlockedReasons.length > 0) {
-      return true;
+      console.warn(
+        "[availabilityOntology] external calendar links are not fully readable during conflict check; ignoring unreadable links",
+        {
+          resourceId: args.resourceId,
+          blockedReasons: externalCalendarBlockedReasons,
+        }
+      );
     }
 
     // Count overlapping non-cancelled bookings
@@ -1472,13 +1620,6 @@ async function getExternalBusyTimes(
     readyConnectionIds.add(String(connection._id));
   }
 
-  if (blockedReasons.size > 0) {
-    return {
-      busyTimes: [],
-      blockedReasons: Array.from(blockedReasons),
-    };
-  }
-
   // Find all calendar_event objects linked to this resource via blocks_resource
   const links = await ctx.db
     .query("objectLinks")
@@ -1513,7 +1654,7 @@ async function getExternalBusyTimes(
 
   return {
     busyTimes,
-    blockedReasons: [],
+    blockedReasons: Array.from(blockedReasons),
   };
 }
 
@@ -2133,7 +2274,13 @@ export const getAvailableSlotsInternal = internalQuery({
       args.endDate + bufferAfter * 60000
     );
     if (externalCalendarBlockedReasons.length > 0) {
-      return [];
+      console.warn(
+        "[availabilityOntology] external calendar links are not fully readable in internal slot lookup; falling back to schedule/capacity availability",
+        {
+          resourceId: args.resourceId,
+          blockedReasons: externalCalendarBlockedReasons,
+        }
+      );
     }
 
     const timezone = args.timezone || (resourceProps?.timezone as string) || "UTC";

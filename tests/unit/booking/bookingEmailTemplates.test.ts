@@ -32,6 +32,7 @@ describe("booking email templates", () => {
     expect(html).toContain("Ticket ansehen")
     expect(html).toContain("Ihre Rechnung finden Sie als PDF im Anhang dieser E-Mail.")
     expect(html).toContain("Ca. 1 Woche vor Kursbeginn senden wir Wetter-Info und Packliste.")
+    expect(html).toContain("Rechnung (Zahlung vor Ort)")
   })
 
   it("renders the weather reminder customer email with stored weather info", () => {

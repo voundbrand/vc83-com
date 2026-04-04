@@ -103,9 +103,10 @@ export const createTransactionsFromCheckout = internalAction({
     const paymentIntentId = (session.customProperties?.paymentIntentId as string) || undefined;
 
     // Determine payment status based on payment method
+    const crmOrganizationId = session.customProperties?.crmOrganizationId as Id<"objects"> | undefined;
     let paymentStatus: "paid" | "pending" | "awaiting_employer_payment" = "paid";
     if (paymentMethod === "invoice") {
-      paymentStatus = "awaiting_employer_payment";
+      paymentStatus = crmOrganizationId ? "awaiting_employer_payment" : "pending";
     } else if (session.customProperties?.paymentStatus === "pending") {
       paymentStatus = "pending";
     }
@@ -113,7 +114,6 @@ export const createTransactionsFromCheckout = internalAction({
     console.log(`✓ Payment: ${paymentMethod} (${paymentStatus})`);
 
     // 5. Extract billing info (B2B vs B2C)
-    const crmOrganizationId = session.customProperties?.crmOrganizationId as Id<"objects"> | undefined;
     const employerName = session.customProperties?.companyName as string | undefined;
     const employerId = session.customProperties?.employerId as string | undefined;
 

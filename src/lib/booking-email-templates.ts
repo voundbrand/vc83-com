@@ -20,6 +20,7 @@ export interface BookingEmailData {
   ticketCode?: string
   ticketLookupUrl?: string
   invoiceAttachmentIncluded?: boolean
+  bookingStatusLabel?: string
 }
 
 export interface BookingReminderEmailData {
@@ -106,10 +107,10 @@ export function buildBookingConfirmationHtml(data: BookingEmailData): string {
       : data.paymentMethod === "stripe"
         ? "Stripe"
         : isDE
-          ? "Vor Ort (Karte/SumUp oder mobil)"
+          ? "Rechnung (Zahlung vor Ort)"
           : isNL
-            ? "Ter plaatse (kaart/SumUp of mobiel)"
-            : "On-site (card/SumUp or mobile)"
+            ? "Factuur (betaling ter plaatse)"
+            : "Invoice (pay on site)"
 
   const rows = [
     [isDE ? "Buchungs-Nr." : isNL ? "Boekingsnr." : "Booking Ref.", data.bookingId],
@@ -215,7 +216,7 @@ export function buildBookingNotificationHtml(data: BookingEmailData): string {
     ["Payment", data.paymentMethod === "free" ? "free" : data.paymentMethod === "stripe" ? "stripe" : "on_site_invoice"],
     ...(data.ticketLookupUrl ? [["Ticket Lookup URL", data.ticketLookupUrl]] : []),
     ["Total", `EUR ${data.totalAmount.toFixed(2)}`],
-    ["Status", "Pending Confirmation"],
+    ["Status", data.bookingStatusLabel || "Pending Confirmation"],
   ]
 
   const tableRows = rows

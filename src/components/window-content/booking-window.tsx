@@ -22,16 +22,23 @@ type ViewType = "bookings" | "locations" | "availability" | "setup" | "settings"
 
 interface BookingWindowProps {
   initialTab?: ViewType;
+  initialResourceId?: Id<"objects"> | null;
   /** When true, shows back-to-desktop navigation (for /booking route) */
   fullScreen?: boolean;
 }
 
-export function BookingWindow({ initialTab, fullScreen = false }: BookingWindowProps = {}) {
+export function BookingWindow({
+  initialTab,
+  initialResourceId = null,
+  fullScreen = false,
+}: BookingWindowProps = {}) {
   const { tWithFallback } = useNamespaceTranslations("ui.app.booking")
-  const [activeView, setActiveView] = useState<ViewType>(initialTab || "bookings")
+  const [activeView, setActiveView] = useState<ViewType>(
+    initialTab || (initialResourceId ? "availability" : "bookings")
+  )
   const [selectedBookingId, setSelectedBookingId] = useState<Id<"objects"> | null>(null)
   const [selectedLocationId, setSelectedLocationId] = useState<Id<"objects"> | null>(null)
-  const [selectedResourceId, setSelectedResourceId] = useState<Id<"objects"> | null>(null)
+  const [selectedResourceId, setSelectedResourceId] = useState<Id<"objects"> | null>(initialResourceId)
 
   // Reset selection when switching views
   const handleViewSwitch = (view: ViewType) => {
